@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F1 Typing Battle 3D</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="menuScreen" class="screen active">
+    <div class="menu-frame">
+      <div class="menu-visual" aria-hidden="true">
+        <div class="track-orbit">
+          <span class="car-token"></span>
+          <span class="apex-marker marker-one"></span>
+          <span class="apex-marker marker-two"></span>
+          <span class="apex-marker marker-three"></span>
+        </div>
+        <div class="speed-bars">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+
+      <div class="menu-panel">
+        <div class="hero-copy">
+          <p class="eyebrow">Grand Prix Typing</p>
+          <h1>F1 Typing Battle 3D</h1>
+          <p class="subtitle">Room cepat, balapan langsung, ritme ketikan jadi tenaga mobil.</p>
+        </div>
+
+        <div class="menu-controls">
+          <label class="field-label" for="playerNameInput">Nama pembalap</label>
+          <input id="playerNameInput" class="input-field" type="text" maxlength="20" placeholder="Nama pembalap">
+          <div class="primary-actions">
+            <button id="createRoomBtn" class="btn btn-primary" type="button">Buat Room</button>
+            <button id="joinRoomBtn" class="btn btn-secondary" type="button">Gabung</button>
+          </div>
+          <button id="resumeRoomBtn" class="btn btn-ghost hidden" type="button">Lanjut Room</button>
+          <p id="savedRoomHint" class="saved-room-hint hidden"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="joinModal" class="modal hidden">
+    <div class="panel modal-panel">
+      <p class="eyebrow">Masuk Room</p>
+      <h2>Gabung Balapan</h2>
+      <label class="field-label" for="roomCodeInput">Kode room</label>
+      <input id="roomCodeInput" class="input-field" type="text" maxlength="6" placeholder="Kode ruang">
+      <div class="row-actions">
+        <button id="confirmJoinBtn" class="btn btn-primary" type="button">Gabung</button>
+        <button id="cancelJoinBtn" class="btn btn-secondary" type="button">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lobbyScreen" class="screen hidden">
+    <div class="panel lobby-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Race Room</p>
+          <h2 id="roomCodeDisplay">------</h2>
+        </div>
+        <div class="lobby-state">
+          <span id="lobbyStateLabel">Menunggu pembalap</span>
+        </div>
+      </div>
+      <div id="playersList" class="players-list"></div>
+      <div class="row-actions">
+        <button id="startRaceBtn" class="btn btn-primary" type="button" disabled>Mulai Balapan</button>
+        <button id="leaveLobbyBtn" class="btn btn-secondary" type="button">Keluar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameScreen" class="screen hidden">
+    <div class="game-shell">
+      <canvas id="gameCanvas"></canvas>
+      <div id="trackLoadingOverlay" class="track-loading-overlay">
+        <div class="spinner"></div>
+        <p>Memuat sirkuit...</p>
+      </div>
+      <div class="scene-overlay">
+        <div class="top-ribbon">
+          <div class="chip">Sirkuit Three.js</div>
+          <div class="chip" id="raceStatusLabel">Grid Siap</div>
+        </div>
+        <div class="hud-grid">
+          <div class="hud-card typing-card">
+            <div id="textToType" class="text-to-type"></div>
+            <input id="typingInput" class="typing-input" type="text" autocomplete="off" spellcheck="false">
+            <div id="inputFeedback" class="input-feedback"></div>
+          </div>
+          <div class="hud-card stats-card">
+            <div class="stat">
+              <span class="stat-label">KPM</span>
+              <span id="wpmDisplay" class="stat-value">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Akurasi</span>
+              <span id="accuracyDisplay" class="stat-value">100%</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Lap</span>
+              <span id="lapDisplay" class="stat-value">1/1</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Progres</span>
+              <span id="progressDisplay" class="stat-value">0%</span>
+            </div>
+          </div>
+        </div>
+        <div id="countdownOverlay" class="countdown hidden">3</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultsScreen" class="screen hidden">
+    <div class="panel results-panel">
+      <p class="eyebrow">Grand Prix Selesai</p>
+      <h2>Hasil</h2>
+      <p id="roomContextDisplay" class="room-context"></p>
+      <div id="resultsList" class="results-list"></div>
+      <div class="row-actions results-actions">
+        <button id="backToRoomBtn" class="btn btn-secondary" type="button">Kembali ke Room</button>
+        <button id="playAgainBtn" class="btn btn-primary" type="button">Main Lagi</button>
+        <button id="backToMenuBtn" class="btn btn-secondary" type="button">Keluar Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadingScreen" class="screen hidden">
+    <div class="panel loading-panel">
+      <div class="spinner"></div>
+      <p id="loadingText">Menghubungkan ke pusat balapan...</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
