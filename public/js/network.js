@@ -1,3 +1,21 @@
+const DEFAULT_LAP_COUNT = 1;
+const MIN_LAP_COUNT = 1;
+const MAX_LAP_COUNT = 5;
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeLapCount(value = DEFAULT_LAP_COUNT) {
+  const lapCount = Number(value);
+
+  if (!Number.isFinite(lapCount)) {
+    return DEFAULT_LAP_COUNT;
+  }
+
+  return Math.round(clampNumber(lapCount, MIN_LAP_COUNT, MAX_LAP_COUNT));
+}
+
 export class NetworkClient {
   constructor() {
     this.socket = null;
@@ -6,6 +24,7 @@ export class NetworkClient {
     this.hostId = null;
     this.state = 'waiting';
     this.circuitProfile = null;
+    this.lapCount = DEFAULT_LAP_COUNT;
     this.listeners = new Map();
   }
 
@@ -78,7 +97,7 @@ export class NetworkClient {
 
       this.socket.once('connect', () => {
         if (this.circuitProfile) {
-          this.socket.emit('setCircuitProfile', this.circuitProfile);
+          this.socket.emit('setCircuitProfile', this.getRaceProfile());
         }
         resolve();
       });
@@ -94,7 +113,7 @@ export class NetworkClient {
   createRoom(playerName) {
     return this.emitWithAck(
       'createRoom',
-      [playerName, this.circuitProfile],
+      [playerName, this.getRaceProfile()],
       'Ruang tidak bisa dibuat. Server tidak merespons.'
     ).then((response) => {
       this.roomCode = response.roomCode;
@@ -105,7 +124,7 @@ export class NetworkClient {
   joinRoom(roomCode, playerName) {
     return this.emitWithAck(
       'joinRoom',
-      [roomCode, playerName, this.circuitProfile],
+      [roomCode, playerName, this.getRaceProfile()],
       'Tidak bisa masuk ke ruang. Server tidak merespons.'
     ).then((response) => {
       this.roomCode = response.roomCode;
@@ -122,23 +141,62 @@ export class NetworkClient {
 
     this.circuitProfile = {
       id: String(profile?.id || 'default-circuit').slice(0, 48),
-      trackLength: Math.round(trackLength)
+      trackLength: Math.round(trackLength),
+      lapCount: this.lapCount
     };
 
     if (this.socket?.connected && this.roomCode) {
-      this.socket.emit('setCircuitProfile', this.circuitProfile);
+      this.socket.emit('setCircuitProfile', this.getRaceProfile());
     }
+  }
+
+  setLapCount(lapCount) {
+    this.lapCount = normalizeLapCount(lapCount);
+
+    if (this.circuitProfile) {
+      this.circuitProfile.lapCount = this.lapCount;
+    }
+
+    if (this.socket?.connected && this.roomCode) {
+      this.socket.emit('setCircuitProfile', this.getRaceProfile());
+    }
+  }
+
+  applyCircuitProfile(profile) {
+    if (!profile) {
+      return;
+    }
+
+    this.lapCount = normalizeLapCount(profile.lapCount);
+
+    const trackLength = Number(profile.trackLength);
+    if (!Number.isFinite(trackLength) || trackLength <= 0) {
+      return;
+    }
+
+    this.circuitProfile = {
+      id: String(profile.id || 'default-circuit').slice(0, 48),
+      trackLength: Math.round(trackLength),
+      lapCount: this.lapCount
+    };
+  }
+
+  getRaceProfile() {
+    return {
+      ...(this.circuitProfile || {}),
+      lapCount: this.lapCount
+    };
   }
 
   startRace() {
     if (this.roomCode) {
-      this.socket.emit('startRace', this.roomCode, this.circuitProfile);
+      this.socket.emit('startRace', this.roomCode, this.getRaceProfile());
     }
   }
 
   playAgain() {
     if (this.roomCode) {
-      this.socket.emit('playAgain', this.roomCode, this.circuitProfile);
+      this.socket.emit('playAgain', this.roomCode, this.getRaceProfile());
     }
   }
 

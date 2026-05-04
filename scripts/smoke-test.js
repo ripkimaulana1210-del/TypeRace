@@ -251,7 +251,7 @@ function stopServer(child) {
 async function runSmoke(baseUrl) {
   const host = new PollingSocket(baseUrl);
   const guest = new PollingSocket(baseUrl);
-  const circuit = { id: 'smoke-track', trackLength: 300 };
+  const circuit = { id: 'smoke-track', trackLength: 300, lapCount: 2 };
 
   await host.connect();
   await guest.connect();
@@ -274,9 +274,14 @@ async function runSmoke(baseUrl) {
     6000
   );
   const raceText = countdownPacket.data?.[1]?.text || '';
+  const raceCircuit = countdownPacket.data?.[1]?.circuit || {};
 
   if (raceText.length < 50) {
     throw new Error(`Race text is missing or too short: ${raceText.length}`);
+  }
+
+  if (raceCircuit.lapCount !== 2) {
+    throw new Error(`Race lap count was not preserved: ${JSON.stringify(raceCircuit)}`);
   }
 
   await host.pollUntil(

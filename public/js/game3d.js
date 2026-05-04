@@ -18,6 +18,7 @@ const VISUAL_LAP_DISTANCE_SCALE = 0.92;
 const LONG_TEXT_LAP_THRESHOLD = 320;
 const TEXT_CHARS_PER_VISUAL_LAP = 220;
 const MIN_LONG_TEXT_LAPS = 3;
+const MIN_VISUAL_LAPS = 1;
 const MAX_VISUAL_LAPS = 5;
 const MODEL_CURVE_BINS = 180;
 const MODEL_CURVE_MIN_POINTS = 32;
@@ -145,6 +146,16 @@ function getVisualLapCountForText(text = '') {
     MIN_LONG_TEXT_LAPS,
     MAX_VISUAL_LAPS
   );
+}
+
+function normalizeVisualLapCount(value) {
+  const lapCount = Number(value);
+
+  if (!Number.isFinite(lapCount)) {
+    return null;
+  }
+
+  return Math.round(THREE.MathUtils.clamp(lapCount, MIN_VISUAL_LAPS, MAX_VISUAL_LAPS));
 }
 
 function getTrackSampleProgress(progress = 0) {
@@ -1106,9 +1117,17 @@ export class Game3D {
     }
   }
 
-  setRaceText(text) {
+  setRaceText(text, lapCount = null) {
     this.raceTextLength = String(text || '').replace(/\s+/g, ' ').trim().length;
-    this.visualLapCount = getVisualLapCountForText(text);
+    this.visualLapCount = normalizeVisualLapCount(lapCount) || getVisualLapCountForText(text);
+  }
+
+  setVisualLapCount(lapCount) {
+    const nextLapCount = normalizeVisualLapCount(lapCount);
+
+    if (nextLapCount) {
+      this.visualLapCount = nextLapCount;
+    }
   }
 
   getVisualLapCount() {
