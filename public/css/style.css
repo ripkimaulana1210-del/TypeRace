@@ -419,6 +419,22 @@ body::before {
   margin-bottom: 22px;
 }
 
+.race-options {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.race-options .input-field {
+  max-width: 220px;
+}
+
+.race-options .input-field:disabled {
+  color: var(--muted);
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
 .player-card,
 .result-card {
   display: grid;

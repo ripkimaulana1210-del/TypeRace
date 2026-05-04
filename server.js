@@ -23,6 +23,9 @@ const STEADY_INPUT_WINDOW_MS = 750;
 const SLOW_INPUT_WINDOW_MS = 1100;
 const MIN_PLAYERS = 1;
 const DEFAULT_TRACK_LENGTH = 300;
+const DEFAULT_LAP_COUNT = 1;
+const MIN_LAP_COUNT = 1;
+const MAX_LAP_COUNT = 5;
 const TEXT_CHARS_PER_TRACK_UNIT = 1.15;
 const MIN_RACE_TEXT_LENGTH = 180;
 const MAX_RACE_TEXT_LENGTH = 620;
@@ -111,15 +114,31 @@ function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function getTargetTextLength(trackLength = DEFAULT_TRACK_LENGTH) {
+function normalizeLapCount(value = DEFAULT_LAP_COUNT) {
+  const lapCount = Number(value);
+
+  if (!Number.isFinite(lapCount)) {
+    return DEFAULT_LAP_COUNT;
+  }
+
+  return Math.round(clampNumber(lapCount, MIN_LAP_COUNT, MAX_LAP_COUNT));
+}
+
+function getTargetTextLength(trackLength = DEFAULT_TRACK_LENGTH, lapCount = DEFAULT_LAP_COUNT) {
   const safeTrackLength = Number.isFinite(trackLength) && trackLength > 0
     ? trackLength
     : DEFAULT_TRACK_LENGTH;
-
-  return Math.round(clampNumber(
+  const safeLapCount = normalizeLapCount(lapCount);
+  const oneLapTextLength = clampNumber(
     safeTrackLength * TEXT_CHARS_PER_TRACK_UNIT,
     MIN_RACE_TEXT_LENGTH,
     MAX_RACE_TEXT_LENGTH
+  );
+
+  return Math.round(clampNumber(
+    oneLapTextLength * safeLapCount,
+    MIN_RACE_TEXT_LENGTH,
+    MAX_RACE_TEXT_LENGTH * MAX_LAP_COUNT
   ));
 }
 
@@ -131,11 +150,13 @@ function normalizeCircuitProfile(profile = {}) {
   const id = String(profile?.id || 'default-circuit')
     .trim()
     .slice(0, 48) || 'default-circuit';
+  const lapCount = normalizeLapCount(profile?.lapCount);
 
   return {
     id,
     trackLength: Math.round(trackLength),
-    targetTextLength: getTargetTextLength(trackLength)
+    lapCount,
+    targetTextLength: getTargetTextLength(trackLength, lapCount)
   };
 }
 
@@ -181,8 +202,13 @@ function pickRandomPassage(previousIndex = -1, targetTextLength = getTargetTextL
   const parts = [];
   let cursor = nextIndex;
   let text = '';
+  const averagePassageLength = normalizedPassages.reduce((total, passage) => total + passage.length, 0) / normalizedPassages.length;
+  const maxParts = Math.max(
+    normalizedPassages.length,
+    Math.ceil(targetTextLength / Math.max(1, averagePassageLength)) + 1
+  );
 
-  while (text.length < targetTextLength && parts.length < normalizedPassages.length) {
+  while (text.length < targetTextLength && parts.length < maxParts) {
     parts.push(normalizedPassages[cursor % normalizedPassages.length]);
     text = parts.join(' ');
     cursor += 1;
