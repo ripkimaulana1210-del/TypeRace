@@ -620,6 +620,15 @@ body::before {
   background: rgba(245, 247, 242, 0.05);
 }
 
+.result-card {
+  grid-template-columns: minmax(0, 1.3fr) repeat(5, auto);
+}
+
+.result-card.ghost-result {
+  border-color: rgba(88, 199, 255, 0.22);
+  background: rgba(88, 199, 255, 0.06);
+}
+
 .player-card strong,
 .result-card strong {
   color: var(--text);
@@ -651,6 +660,106 @@ body::before {
   margin: -2px 0 18px;
 }
 
+.finish-ceremony-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 92px;
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid rgba(255, 178, 63, 0.28);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 178, 63, 0.14), rgba(66, 232, 141, 0.08)),
+    rgba(245, 247, 242, 0.05);
+}
+
+.finish-ceremony-card::before {
+  content: "";
+  position: absolute;
+  inset: -30% -10%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 24% 22%, rgba(255, 178, 63, 0.22), transparent 12%),
+    radial-gradient(circle at 82% 34%, rgba(66, 232, 141, 0.18), transparent 10%),
+    radial-gradient(circle at 52% 76%, rgba(88, 199, 255, 0.14), transparent 11%);
+  animation: ceremonyGlow 3.2s ease-in-out infinite alternate;
+}
+
+.finish-checker-strip {
+  position: relative;
+  z-index: 1;
+  width: 92px;
+  height: 58px;
+  border: 1px solid rgba(245, 247, 242, 0.24);
+  border-radius: 6px;
+  background-color: #111312;
+  background-image:
+    linear-gradient(45deg, #f5f7f2 25%, transparent 25%),
+    linear-gradient(-45deg, #f5f7f2 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f5f7f2 75%),
+    linear-gradient(-45deg, transparent 75%, #f5f7f2 75%);
+  background-position: 0 0, 0 18px, 18px -18px, -18px 0;
+  background-size: 36px 36px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+}
+
+.finish-ceremony-card span,
+.finish-ceremony-card strong,
+.finish-light-row {
+  position: relative;
+  z-index: 1;
+}
+
+.finish-ceremony-card span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--accent-2);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.finish-ceremony-card strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 1.4rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finish-light-row {
+  display: flex;
+  gap: 7px;
+}
+
+.finish-light-row i {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  box-shadow: 0 0 18px rgba(255, 178, 63, 0.7);
+  animation: finishLightPulse 1.45s ease-in-out infinite;
+}
+
+.finish-light-row i:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.finish-light-row i:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.finish-light-row i:nth-child(4) {
+  animation-delay: 0.36s;
+}
+
 .game-shell {
   position: relative;
   width: 100%;
@@ -678,6 +787,89 @@ body::before {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+}
+
+.race-tools {
+  position: absolute;
+  top: 66px;
+  right: 18px;
+  width: 184px;
+  display: grid;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.route-minimap {
+  width: 184px;
+  height: 128px;
+  border: 1px solid rgba(220, 234, 226, 0.16);
+  border-radius: 8px;
+  background: rgba(8, 10, 9, 0.56);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(10px);
+}
+
+.camera-mode-group {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid rgba(220, 234, 226, 0.14);
+  border-radius: 8px;
+  background: rgba(8, 10, 9, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.camera-mode {
+  min-width: 0;
+  height: 34px;
+  border: 0;
+  background: rgba(245, 247, 242, 0.035);
+  color: rgba(245, 247, 242, 0.72);
+  font-size: 0.68rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.camera-mode.active {
+  color: #101410;
+  background: var(--accent-2);
+}
+
+.route-health-panel {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid rgba(220, 234, 226, 0.14);
+  border-radius: 8px;
+  background: rgba(8, 10, 9, 0.74);
+  color: var(--text);
+  backdrop-filter: blur(10px);
+}
+
+.route-health-panel div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  background: rgba(245, 247, 242, 0.035);
+  font-size: 0.72rem;
+}
+
+.route-health-panel span {
+  color: var(--subtle);
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.route-health-panel strong {
+  min-width: 0;
+  max-width: 104px;
+  overflow: hidden;
+  color: var(--text);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hud-grid {
@@ -835,6 +1027,31 @@ body::before {
   }
 }
 
+@keyframes ceremonyGlow {
+  from {
+    transform: translateX(-2%);
+    opacity: 0.72;
+  }
+
+  to {
+    transform: translateX(2%);
+    opacity: 1;
+  }
+}
+
+@keyframes finishLightPulse {
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.62;
+  }
+
+  45% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
 @media (max-width: 980px) {
   .lap-option-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -859,6 +1076,16 @@ body::before {
 
   .stats-card {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .race-tools {
+    top: 70px;
+    width: 156px;
+  }
+
+  .route-minimap {
+    width: 156px;
+    height: 110px;
   }
 }
 
@@ -894,6 +1121,26 @@ body::before {
     align-items: flex-start;
   }
 
+  .race-tools {
+    top: 112px;
+    right: 12px;
+    width: 136px;
+  }
+
+  .route-minimap {
+    width: 136px;
+    height: 96px;
+  }
+
+  .camera-mode {
+    height: 30px;
+    font-size: 0.62rem;
+  }
+
+  .route-health-panel {
+    display: none;
+  }
+
   .lap-settings-card {
     grid-template-columns: 1fr;
   }
@@ -912,6 +1159,19 @@ body::before {
 
   .lap-preview small {
     margin-top: 0;
+  }
+
+  .finish-ceremony-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .finish-checker-strip {
+    width: 100%;
+  }
+
+  .finish-ceremony-card strong {
+    white-space: normal;
   }
 
   .lap-option-grid {

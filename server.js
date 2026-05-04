@@ -27,14 +27,85 @@ const SLOW_INPUT_WINDOW_MS = 1100;
 
 const MIN_PLAYERS = 1;
 
+const MOMENTUM_BASE = 1;
+const MOMENTUM_MIN = 0.72;
+const MOMENTUM_MAX = 1.38;
+const MOMENTUM_FAST_GAIN = 0.038;
+const MOMENTUM_STEADY_GAIN = 0.024;
+const MOMENTUM_SLOW_GAIN = 0.012;
+const MOMENTUM_MISTAKE_PENALTY = 0.16;
+const MOMENTUM_IDLE_DECAY_PER_SECOND = 0.035;
+const GRIP_BASE = 1;
+const GRIP_MIN = 0.58;
+const GRIP_MAX = 1.12;
+const GRIP_CORRECT_RECOVERY = 0.018;
+const GRIP_TICK_RECOVERY_PER_SECOND = 0.032;
+const GRIP_MISTAKE_PENALTY = 0.18;
+const DRS_STREAK_THRESHOLD = 18;
+const DRS_SPEED_BONUS = 3.5;
+const DRS_EVENT_COOLDOWN_MS = 2600;
+const FINAL_PUSH_PROGRESS = 85;
+const RACE_EVENT_TTL_MS = 2200;
+const GHOST_PLAYER_ID_PREFIX = 'ghost:';
+const GHOST_BASE_WPM = 52;
+const GHOST_VARIANCE_WPM = 10;
+
+const RACE_SECTORS = [
+  {
+    id: 'launch',
+    label: 'Start',
+    until: 20,
+    accelMultiplier: 1.04,
+    dragMultiplier: 0.94,
+    speedMultiplier: 1.02
+  },
+  {
+    id: 'technical',
+    label: 'Tikungan',
+    until: 45,
+    accelMultiplier: 0.92,
+    dragMultiplier: 1.12,
+    speedMultiplier: 0.96
+  },
+  {
+    id: 'straight',
+    label: 'Trek Lurus',
+    until: 75,
+    accelMultiplier: 1.16,
+    dragMultiplier: 0.9,
+    speedMultiplier: 1.08
+  },
+  {
+    id: 'braking',
+    label: 'Pengereman',
+    until: 90,
+    accelMultiplier: 0.9,
+    dragMultiplier: 1.18,
+    speedMultiplier: 0.94
+  },
+  {
+    id: 'final',
+    label: 'Final Push',
+    until: 100,
+    accelMultiplier: 1.1,
+    dragMultiplier: 0.96,
+    speedMultiplier: 1.04
+  }
+];
+
 const DEFAULT_TRACK_LENGTH = 300;
 const DEFAULT_LAP_COUNT = 1;
 const MIN_LAP_COUNT = 1;
 const MAX_LAP_COUNT = 5;
 
-const TEXT_CHARS_PER_LAP = 190;
-const MIN_RACE_TEXT_LENGTH = 140;
-const MAX_RACE_TEXT_LENGTH = 950;
+const TEXT_CHARS_PER_LAP = 230;
+const MIN_TEXT_CHARS_PER_LAP = 170;
+const MAX_TEXT_CHARS_PER_LAP = 510;
+const MIN_RACE_TEXT_LENGTH = 160;
+const MAX_RACE_TEXT_LENGTH = 1450;
+const LONG_TRACK_TEXT_BUFFER_START = 900;
+const LONG_TRACK_TEXT_BUFFER_END = 1800;
+const FINISH_SECTOR_TEXT_BUFFER_RATIO = 0.16;
 
 const RACE_OPENINGS = [
   'Lampu start padam dan mobil langsung melesat dari grid',
@@ -146,11 +217,36 @@ function normalizeLapCount(value = DEFAULT_LAP_COUNT) {
   return Math.round(clampNumber(lapCount, MIN_LAP_COUNT, MAX_LAP_COUNT));
 }
 
-function getTargetTextLength(_trackLength = DEFAULT_TRACK_LENGTH, lapCount = DEFAULT_LAP_COUNT) {
+function getTargetTextLength(trackLength = DEFAULT_TRACK_LENGTH, lapCount = DEFAULT_LAP_COUNT) {
+  const rawTrackLength = Number(trackLength);
+  const safeTrackLength = Number.isFinite(rawTrackLength) && rawTrackLength > 0
+    ? clampNumber(rawTrackLength, 160, 2200)
+    : DEFAULT_TRACK_LENGTH;
   const safeLapCount = normalizeLapCount(lapCount);
+  const trackScale = Math.sqrt(safeTrackLength / DEFAULT_TRACK_LENGTH);
+  const baseCharsPerLap = clampNumber(
+    Math.round(TEXT_CHARS_PER_LAP * trackScale),
+    MIN_TEXT_CHARS_PER_LAP,
+    MAX_TEXT_CHARS_PER_LAP
+  );
+  const longTrackRatio = clampNumber(
+    (safeTrackLength - LONG_TRACK_TEXT_BUFFER_START)
+      / (LONG_TRACK_TEXT_BUFFER_END - LONG_TRACK_TEXT_BUFFER_START),
+    0,
+    1
+  );
+  const finishSectorBuffer = Math.round(
+    baseCharsPerLap * FINISH_SECTOR_TEXT_BUFFER_RATIO * longTrackRatio
+  );
+  const charsPerLap = clampNumber(
+    baseCharsPerLap + finishSectorBuffer,
+    MIN_TEXT_CHARS_PER_LAP,
+    MAX_TEXT_CHARS_PER_LAP + 120
+  );
+  const lapScale = 1 + (safeLapCount - 1) * 0.68;
 
   return Math.round(clampNumber(
-    TEXT_CHARS_PER_LAP * safeLapCount,
+    charsPerLap * lapScale,
     MIN_RACE_TEXT_LENGTH,
     MAX_RACE_TEXT_LENGTH
   ));
@@ -160,7 +256,7 @@ function normalizeCircuitProfile(profile = {}) {
   const rawTrackLength = Number(profile?.trackLength);
 
   const trackLength = Number.isFinite(rawTrackLength) && rawTrackLength > 0
-    ? clampNumber(rawTrackLength, 120, 1200)
+    ? clampNumber(rawTrackLength, 120, 2200)
     : DEFAULT_TRACK_LENGTH;
 
   const id = String(profile?.id || 'default-circuit')
@@ -312,19 +408,35 @@ function createPlayer(socketId, roomCode, name) {
     id: socketId,
     roomCode,
     name: String(name || 'Pembalap').trim().slice(0, 20) || 'Pembalap',
+    isGhost: false,
     speed: 0,
     minSpeed: MIN_CRUISE_SPEED,
     maxSpeed: MAX_SPEED,
     acceleration: ACCELERATION_STEP,
     distance: 0,
     progress: 0,
+    progressExact: 0,
     wpm: 0,
     accuracy: 100,
     mistakes: 0,
     totalKeys: 0,
+    correctKeys: 0,
     typedText: '',
     lastKeyAt: null,
     lastCorrectKeyAt: null,
+    streak: 0,
+    longestStreak: 0,
+    momentum: MOMENTUM_BASE,
+    grip: GRIP_BASE,
+    drsActive: false,
+    finalPushActive: false,
+    raceEvent: null,
+    eventSeq: 0,
+    lastDrsEventAt: 0,
+    _finalPushAnnounced: false,
+    sectorIndex: 0,
+    sectorEnteredAt: null,
+    sectorTimes: RACE_SECTORS.map(() => 0),
     finishedAt: null,
     position: 0
   };
@@ -346,6 +458,120 @@ function getCorrectTypingSpeedDelta(intervalMs) {
   return -SLOW_CORRECT_DECELERATION_STEP;
 }
 
+function getMomentumGain(intervalMs) {
+  if (!Number.isFinite(intervalMs) || intervalMs <= FAST_INPUT_WINDOW_MS) {
+    return MOMENTUM_FAST_GAIN;
+  }
+
+  if (intervalMs <= STEADY_INPUT_WINDOW_MS) {
+    return MOMENTUM_STEADY_GAIN;
+  }
+
+  return MOMENTUM_SLOW_GAIN;
+}
+
+function getRaceSector(progressPercent = 0) {
+  const progress = clampNumber(Number(progressPercent) || 0, 0, 100);
+
+  return RACE_SECTORS.find((sector) => progress <= sector.until)
+    || RACE_SECTORS[RACE_SECTORS.length - 1];
+}
+
+function getRaceSectorIndex(progressPercent = 0) {
+  const sector = getRaceSector(progressPercent);
+  return Math.max(0, RACE_SECTORS.findIndex((candidate) => candidate.id === sector.id));
+}
+
+function setRaceEvent(player, type, message, now = Date.now()) {
+  if (!player || !type) {
+    return;
+  }
+
+  player.eventSeq = (player.eventSeq || 0) + 1;
+  player.raceEvent = {
+    id: player.eventSeq,
+    type,
+    message,
+    at: now,
+    expiresAt: now + RACE_EVENT_TTL_MS
+  };
+}
+
+function updatePlayerSector(player, progressPercent = 0, now = Date.now()) {
+  if (!player) {
+    return;
+  }
+
+  const nextSectorIndex = getRaceSectorIndex(progressPercent);
+
+  if (!Number.isFinite(player.sectorIndex)) {
+    player.sectorIndex = nextSectorIndex;
+    player.sectorEnteredAt = now;
+    return;
+  }
+
+  if (!player.sectorEnteredAt) {
+    player.sectorEnteredAt = now;
+  }
+
+  if (nextSectorIndex === player.sectorIndex) {
+    return;
+  }
+
+  const elapsed = Math.max(0, now - player.sectorEnteredAt);
+  player.sectorTimes[player.sectorIndex] = (player.sectorTimes[player.sectorIndex] || 0) + elapsed;
+  player.sectorIndex = nextSectorIndex;
+  player.sectorEnteredAt = now;
+
+  const sector = RACE_SECTORS[nextSectorIndex];
+  if (sector && !player.isGhost) {
+    setRaceEvent(player, 'sector', `${sector.label}: ritme disesuaikan`, now);
+  }
+}
+
+function finalizePlayerSector(player, now = Date.now()) {
+  if (!player || !player.sectorEnteredAt || !Number.isFinite(player.sectorIndex)) {
+    return;
+  }
+
+  const elapsed = Math.max(0, now - player.sectorEnteredAt);
+  player.sectorTimes[player.sectorIndex] = (player.sectorTimes[player.sectorIndex] || 0) + elapsed;
+  player.sectorEnteredAt = now;
+}
+
+function getSectorSummary(player) {
+  const entries = (player?.sectorTimes || []).map((timeMs, index) => ({
+    id: RACE_SECTORS[index]?.id || `sector-${index + 1}`,
+    label: RACE_SECTORS[index]?.label || `Sektor ${index + 1}`,
+    timeMs: Math.round(timeMs || 0)
+  }));
+  const positiveEntries = entries.filter((entry) => entry.timeMs > 0);
+  const best = positiveEntries.reduce((bestEntry, entry) => (
+    !bestEntry || entry.timeMs < bestEntry.timeMs ? entry : bestEntry
+  ), null);
+  const worst = positiveEntries.reduce((worstEntry, entry) => (
+    !worstEntry || entry.timeMs > worstEntry.timeMs ? entry : worstEntry
+  ), null);
+
+  return {
+    entries,
+    best,
+    worst
+  };
+}
+
+function getPlayerQualityMultiplier(player, sector) {
+  const momentum = Number.isFinite(player?.momentum) ? player.momentum : MOMENTUM_BASE;
+  const grip = Number.isFinite(player?.grip) ? player.grip : GRIP_BASE;
+  const sectorMultiplier = Number.isFinite(sector?.accelMultiplier) ? sector.accelMultiplier : 1;
+
+  return clampNumber(
+    ((momentum * 0.68) + (grip * 0.42)) * sectorMultiplier,
+    0.58,
+    1.52
+  );
+}
+
 function getRaceSpeedFloor(player) {
   return Number.isFinite(player?.minSpeed) ? player.minSpeed : MIN_CRUISE_SPEED;
 }
@@ -354,15 +580,24 @@ function sanitizePlayerForLobby(player) {
   return {
     id: player.id,
     name: player.name,
+    isGhost: Boolean(player.isGhost),
+    finished: Boolean(player.finishedAt || player.progress >= 100),
     speed: player.speed,
     progress: player.progress,
+    progressExact: player.progressExact || player.progress,
     wpm: player.wpm,
     accuracy: player.accuracy,
+    grip: Math.round((player.grip || GRIP_BASE) * 100),
+    momentum: Math.round((player.momentum || MOMENTUM_BASE) * 100),
     position: player.position
   };
 }
 
 function getTypedProgressPercent(player, room) {
+  if (player?.isGhost) {
+    return clampNumber(Number(player.progressExact) || 0, 0, 100);
+  }
+
   const textLength = room?.text?.length || 0;
 
   if (!textLength) {
@@ -378,6 +613,68 @@ function getRoomPlayers(room) {
     .filter(Boolean);
 }
 
+function getHumanRoomPlayers(room) {
+  return getRoomPlayers(room).filter((player) => !player.isGhost);
+}
+
+function createGhostPlayer(room) {
+  const ghost = createPlayer(`${GHOST_PLAYER_ID_PREFIX}${room.code}:1`, room.code, 'Ghost Pro');
+  const seed = room.code
+    .split('')
+    .reduce((total, character) => total + character.charCodeAt(0), 0);
+
+  ghost.isGhost = true;
+  ghost.minSpeed = MIN_CRUISE_SPEED + 10;
+  ghost.maxSpeed = MAX_SPEED * 0.88;
+  ghost.ghostWpm = GHOST_BASE_WPM + (seed % (GHOST_VARIANCE_WPM + 1));
+  ghost.accuracy = 97;
+  ghost.grip = 1.05;
+  ghost.momentum = 1.08;
+  ghost.raceEvent = {
+    id: 1,
+    type: 'ghost',
+    message: 'Ghost Pro masuk sebagai lawan latihan',
+    at: Date.now(),
+    expiresAt: Date.now() + RACE_EVENT_TTL_MS
+  };
+
+  return ghost;
+}
+
+function removeGhostOpponent(room) {
+  if (!room) {
+    return;
+  }
+
+  room.players
+    .filter((id) => String(id).startsWith(GHOST_PLAYER_ID_PREFIX))
+    .forEach((id) => players.delete(id));
+
+  room.players = room.players.filter((id) => !String(id).startsWith(GHOST_PLAYER_ID_PREFIX));
+}
+
+function ensureGhostOpponent(room) {
+  if (!room) {
+    return;
+  }
+
+  const humanPlayers = getHumanRoomPlayers(room);
+
+  if (humanPlayers.length !== 1) {
+    removeGhostOpponent(room);
+    return;
+  }
+
+  const hasGhost = room.players.some((id) => String(id).startsWith(GHOST_PLAYER_ID_PREFIX));
+  if (hasGhost) {
+    return;
+  }
+
+  const ghost = createGhostPlayer(room);
+  players.set(ghost.id, ghost);
+  room.players.push(ghost.id);
+}
+
 function broadcastRoom(room) {
   io.to(room.code).emit('roomUpdated', {
     roomCode: room.code,
@@ -391,16 +688,42 @@ function broadcastRoom(room) {
 
 function broadcastPositions(room) {
   const positions = getRoomPlayers(room)
-    .sort((a, b) => b.distance - a.distance)
+    .sort((a, b) => {
+      if (a.finishedAt && b.finishedAt) {
+        return a.finishedAt - b.finishedAt;
+      }
+
+      if (a.finishedAt) {
+        return -1;
+      }
+
+      if (b.finishedAt) {
+        return 1;
+      }
+
+      return b.distance - a.distance;
+    })
     .map((player, index) => ({
       id: player.id,
       name: player.name,
+      isGhost: Boolean(player.isGhost),
+      finished: Boolean(player.finishedAt || player.progress >= 100),
+      finishedAt: player.finishedAt,
       speed: player.speed,
       distance: player.distance,
       progress: player.progress,
       progressExact: getTypedProgressPercent(player, room),
       wpm: player.wpm,
       accuracy: player.accuracy,
+      mistakes: player.mistakes,
+      streak: player.streak || 0,
+      longestStreak: player.longestStreak || 0,
+      grip: Math.round((player.grip || GRIP_BASE) * 100),
+      momentum: Math.round((player.momentum || MOMENTUM_BASE) * 100),
+      drsActive: Boolean(player.drsActive),
+      finalPushActive: Boolean(player.finalPushActive),
+      sector: RACE_SECTORS[player.sectorIndex]?.label || getRaceSector(getTypedProgressPercent(player, room)).label,
+      raceEvent: player.raceEvent || null,
       position: index + 1
     }));
 
@@ -413,13 +736,28 @@ function resetPlayerForRace(player) {
   player.speed = 0;
   player.distance = 0;
   player.progress = 0;
+  player.progressExact = 0;
   player.wpm = 0;
   player.accuracy = 100;
   player.mistakes = 0;
   player.totalKeys = 0;
+  player.correctKeys = 0;
   player.typedText = '';
   player.lastKeyAt = null;
   player.lastCorrectKeyAt = null;
+  player.streak = 0;
+  player.longestStreak = 0;
+  player.momentum = player.isGhost ? 1.08 : MOMENTUM_BASE;
+  player.grip = player.isGhost ? 1.05 : GRIP_BASE;
+  player.drsActive = false;
+  player.finalPushActive = false;
+  player.raceEvent = null;
+  player.eventSeq = 0;
+  player.lastDrsEventAt = 0;
+  player._finalPushAnnounced = false;
+  player.sectorIndex = 0;
+  player.sectorEnteredAt = null;
+  player.sectorTimes = RACE_SECTORS.map(() => 0);
   player.finishedAt = null;
   player.position = 0;
 }
@@ -428,6 +766,13 @@ function startPlayerForRace(player, startTime) {
   player.speed = getRaceSpeedFloor(player);
   player.lastKeyAt = startTime;
   player.lastCorrectKeyAt = null;
+  player.sectorEnteredAt = startTime;
+
+  if (player.isGhost) {
+    player.speed = player.minSpeed + 24;
+    player.lastCorrectKeyAt = startTime;
+    setRaceEvent(player, 'ghost', 'Ghost Pro menjaga tempo stabil', startTime);
+  }
 }
 
 function stopRoomTimers(room) {
@@ -467,15 +812,27 @@ function finishRace(room) {
       return b.progress - a.progress || b.distance - a.distance;
     })
     .map((player, index) => {
+      finalizePlayerSector(player);
       player.position = index + 1;
+      const sectorSummary = getSectorSummary(player);
 
       return {
         id: player.id,
         name: player.name,
+        isGhost: Boolean(player.isGhost),
         position: index + 1,
         wpm: player.wpm,
         accuracy: player.accuracy,
-        progress: player.progress
+        progress: player.progress,
+        mistakes: player.mistakes,
+        totalKeys: player.totalKeys,
+        correctKeys: player.correctKeys,
+        longestStreak: player.longestStreak || 0,
+        grip: Math.round((player.grip || GRIP_BASE) * 100),
+        momentum: Math.round((player.momentum || MOMENTUM_BASE) * 100),
+        bestSector: sectorSummary.best,
+        worstSector: sectorSummary.worst,
+        sectorTimes: sectorSummary.entries
       };
     });
 
@@ -501,11 +858,95 @@ function maybeFinishRace(room) {
     return;
   }
 
-  const hasWinner = roomPlayers.some((player) => player.progress >= 100);
+  const allPlayersFinished = roomPlayers.every((player) => player.finishedAt || player.progress >= 100);
 
-  if (hasWinner) {
+  if (allPlayersFinished) {
     finishRace(room);
   }
+}
+
+function updateGhostPlayer(player, room, now, deltaSeconds) {
+  if (!player?.isGhost || player.finishedAt) {
+    return;
+  }
+
+  const textLength = Math.max(1, room?.text?.length || 1);
+  const elapsedSeconds = Math.max(0, (now - (room.startTime || now)) / 1000);
+  const phase = Math.sin((elapsedSeconds * 0.72) + player.id.length) * 0.08;
+  const sector = getRaceSector(player.progressExact || 0);
+  const charsPerSecond = ((player.ghostWpm || GHOST_BASE_WPM) * 5) / 60;
+  const progressGain = ((charsPerSecond * (1 + phase) * sector.speedMultiplier) / textLength) * 100 * deltaSeconds;
+
+  player.progressExact = clampNumber((player.progressExact || 0) + progressGain, 0, 100);
+  player.progress = Math.round(player.progressExact);
+  player.correctKeys = Math.round((player.progressExact / 100) * textLength);
+  player.totalKeys = player.correctKeys;
+  player.wpm = Math.round((player.correctKeys / 5) / Math.max(elapsedSeconds / 60, 1 / 60000));
+  player.accuracy = 97;
+  player.streak = Math.max(player.streak || 0, Math.min(player.correctKeys, 40));
+  player.longestStreak = Math.max(player.longestStreak || 0, player.streak);
+  player.drsActive = player.progressExact > 45 && player.progressExact < 82;
+  player.finalPushActive = player.progressExact >= FINAL_PUSH_PROGRESS;
+  player.speed = clampNumber(
+    getRaceSpeedFloor(player) + (player.progressExact * 1.55) + (player.drsActive ? 16 : 0),
+    getRaceSpeedFloor(player),
+    player.maxSpeed
+  );
+  player.lastKeyAt = now;
+  player.lastCorrectKeyAt = now;
+
+  updatePlayerSector(player, player.progressExact, now);
+
+  if (player.progress >= 100 && !player.finishedAt) {
+    player.finishedAt = now;
+    player.progress = 100;
+    player.progressExact = 100;
+    player.speed = 0;
+  }
+}
+
+function updatePlayerPhysics(player, room, now, deltaSeconds) {
+  if (player.finishedAt || player.progress >= 100) {
+    player.speed = 0;
+    player.progress = 100;
+    player.progressExact = 100;
+    return;
+  }
+
+  const progressPercent = getTypedProgressPercent(player, room);
+  const sector = getRaceSector(progressPercent);
+  const speedFloor = getRaceSpeedFloor(player);
+  const idleMs = now - (player.lastKeyAt || room.startTime || now);
+  const idleDrag = idleMs > IDLE_GRACE_MS ? IDLE_DECELERATION_PER_SECOND : 0;
+  const gripLoss = 1 - clampNumber(player.grip || GRIP_BASE, GRIP_MIN, GRIP_MAX);
+  const drag = (DRAG_PER_SECOND * sector.dragMultiplier)
+    + (idleDrag * (1 + gripLoss * 0.8));
+
+  player.momentum = clampNumber(
+    (player.momentum || MOMENTUM_BASE) - (MOMENTUM_IDLE_DECAY_PER_SECOND * deltaSeconds * (idleDrag ? 1.45 : 1)),
+    MOMENTUM_MIN,
+    MOMENTUM_MAX
+  );
+  player.grip = clampNumber(
+    (player.grip || GRIP_BASE) + GRIP_TICK_RECOVERY_PER_SECOND * deltaSeconds,
+    GRIP_MIN,
+    GRIP_MAX
+  );
+  player.speed = Math.max(
+    speedFloor,
+    Number.isFinite(player.speed) ? player.speed : speedFloor
+  );
+
+  if (!player.finishedAt) {
+    player.distance += player.speed * deltaSeconds * DISTANCE_SCALE * sector.speedMultiplier;
+  }
+
+  player.speed = Math.max(
+    speedFloor,
+    player.speed - (drag * deltaSeconds)
+  );
+
+  updatePlayerSector(player, progressPercent, now);
 }
 
 function startRaceLoop(room) {
@@ -523,23 +964,11 @@ function startRaceLoop(room) {
     const roomPlayers = getRoomPlayers(room);
 
     roomPlayers.forEach((player) => {
-      const speedFloor = getRaceSpeedFloor(player);
-      const idleMs = now - (player.lastKeyAt || room.startTime || now);
-      const idleDrag = idleMs > IDLE_GRACE_MS ? IDLE_DECELERATION_PER_SECOND : 0;
-
-      player.speed = Math.max(
-        speedFloor,
-        Number.isFinite(player.speed) ? player.speed : speedFloor
-      );
-
-      if (!player.finishedAt) {
-        player.distance += player.speed * deltaSeconds * DISTANCE_SCALE;
+      if (player.isGhost) {
+        updateGhostPlayer(player, room, now, deltaSeconds);
       }
 
-      player.speed = Math.max(
-        speedFloor,
-        player.speed - ((DRAG_PER_SECOND + idleDrag) * deltaSeconds)
-      );
+      updatePlayerPhysics(player, room, now, deltaSeconds);
     });
 
     broadcastPositions(room);
@@ -551,6 +980,7 @@ function startCountdown(room) {
   room.state = 'countdown';
 
   updateRoomCircuitProfile(room, room.circuitProfile);
+  ensureGhostOpponent(room);
 
   const nextPassage = pickRandomPassage(
     room.lastTextIndex,
@@ -619,15 +1049,21 @@ function removePlayerFromRoom(socketId) {
   }
 
   room.players = room.players.filter((id) => id !== socketId);
+  const humanPlayers = getHumanRoomPlayers(room);
 
   if (room.hostId === socketId) {
-    room.hostId = room.players[0] || null;
+    room.hostId = humanPlayers[0]?.id || null;
   }
 
-  if (room.players.length === 0) {
+  if (humanPlayers.length === 0) {
     stopRoomTimers(room);
+    removeGhostOpponent(room);
     rooms.delete(room.code);
     return;
+  }
+
+  if (humanPlayers.length > 1) {
+    removeGhostOpponent(room);
   }
 
   if (room.state === 'racing' || room.state === 'countdown') {
@@ -722,7 +1158,7 @@ io.on('connection', (socket) => {
   socket.on('setCircuitProfile', (profile) => {
     const player = players.get(socket.id);
 
-    if (!player) {
+    if (!player || player.isGhost) {
       return;
     }
 
@@ -815,19 +1251,66 @@ io.on('connection', (socket) => {
     if (isCorrect) {
       const speedDelta = getCorrectTypingSpeedDelta(correctKeyIntervalMs);
       const speedFloor = getRaceSpeedFloor(player);
+      const currentProgress = getTypedProgressPercent(player, room);
+      const sector = getRaceSector(currentProgress);
+      const qualityMultiplier = getPlayerQualityMultiplier(player, sector);
 
       player.typedText += typedChar;
+      player.correctKeys += 1;
+      player.streak += 1;
+      player.longestStreak = Math.max(player.longestStreak || 0, player.streak);
+      player.grip = clampNumber(
+        (player.grip || GRIP_BASE) + GRIP_CORRECT_RECOVERY,
+        GRIP_MIN,
+        GRIP_MAX
+      );
+      player.momentum = clampNumber(
+        (player.momentum || MOMENTUM_BASE) + getMomentumGain(correctKeyIntervalMs),
+        MOMENTUM_MIN,
+        MOMENTUM_MAX
+      );
+      player.drsActive = player.streak >= DRS_STREAK_THRESHOLD;
+      player.finalPushActive = getTypedProgressPercent(player, room) >= FINAL_PUSH_PROGRESS;
 
       player.speed = clampNumber(
-        Math.max(speedFloor, player.speed) + speedDelta,
+        Math.max(speedFloor, player.speed)
+          + (speedDelta * qualityMultiplier)
+          + (player.drsActive ? DRS_SPEED_BONUS : 0),
         speedFloor,
         player.maxSpeed
       );
 
       player.lastCorrectKeyAt = now;
+
+      if (
+        player.drsActive
+        && now - (player.lastDrsEventAt || 0) > DRS_EVENT_COOLDOWN_MS
+      ) {
+        player.lastDrsEventAt = now;
+        setRaceEvent(player, 'drs', 'DRS aktif: streak bersih memberi dorongan', now);
+      } else if (player.finalPushActive && !player._finalPushAnnounced) {
+        player._finalPushAnnounced = true;
+        setRaceEvent(player, 'final_push', 'Final push: jaga ritme sampai garis finis', now);
+      }
     } else {
       player.mistakes += 1;
-      player.speed = Math.max(getRaceSpeedFloor(player), player.speed - DECELERATION_STEP);
+      player.streak = 0;
+      player.drsActive = false;
+      player.grip = clampNumber(
+        (player.grip || GRIP_BASE) - GRIP_MISTAKE_PENALTY,
+        GRIP_MIN,
+        GRIP_MAX
+      );
+      player.momentum = clampNumber(
+        (player.momentum || MOMENTUM_BASE) - MOMENTUM_MISTAKE_PENALTY,
+        MOMENTUM_MIN,
+        MOMENTUM_MAX
+      );
+      player.speed = Math.max(
+        getRaceSpeedFloor(player),
+        player.speed - (DECELERATION_STEP * (1 + (1 - player.grip) * 0.9))
+      );
+      setRaceEvent(player, 'grip_loss', 'Grip turun: typo membuat mobil goyah', now);
     }
 
     const elapsedMinutes = Math.max((Date.now() - room.startTime) / 60000, 1 / 60000);
@@ -839,12 +1322,17 @@ io.on('connection', (socket) => {
       Math.round(((player.totalKeys - player.mistakes) / Math.max(1, player.totalKeys)) * 100)
     );
 
-    player.progress = Math.round(getTypedProgressPercent(player, room));
+    player.progressExact = getTypedProgressPercent(player, room);
+    player.progress = Math.round(player.progressExact);
+    updatePlayerSector(player, player.progressExact, now);
 
     if (player.progress >= 100 && !player.finishedAt) {
-      player.finishedAt = Date.now();
+      player.finishedAt = now;
+      finalizePlayerSector(player, now);
       player.progress = 100;
+      player.progressExact = 100;
       player.speed = 0;
+      setRaceEvent(player, 'finish', 'Finis bersih: kalimat selesai', now);
     }
 
     broadcastPositions(room);

@@ -10,6 +10,20 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function assertRejectsWithin(promise, message) {
+  try {
+    await promise;
+  } catch (error) {
+    if (/Timed out waiting/.test(error.message || '')) {
+      return;
+    }
+
+    throw error;
+  }
+
+  throw new Error(message);
+}
+
 function getFreePort() {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -292,9 +306,20 @@ async function runSmoke(baseUrl) {
 
   await host.emitKeyText(raceText);
 
+  await assertRejectsWithin(
+    host.pollUntil(
+      (packet) => eventName(packet) === 'raceFinished',
+      'raceFinished before last player completes',
+      1200
+    ),
+    'Race should wait for the last player before finishing'
+  );
+
+  await guest.emitKeyText(raceText);
+
   const finishedPacket = await host.pollUntil(
     (packet) => eventName(packet) === 'raceFinished',
-    'raceFinished after first player completes',
+    'raceFinished after all players complete',
     10000
   );
   const results = finishedPacket.data?.[1]?.results || [];
@@ -309,8 +334,8 @@ async function runSmoke(baseUrl) {
     throw new Error(`Host should win with 100% progress: ${JSON.stringify(hostResult)}`);
   }
 
-  if (guestResult.progress >= 100) {
-    throw new Error(`Guest should be ranked unfinished: ${JSON.stringify(guestResult)}`);
+  if (guestResult.progress !== 100) {
+    throw new Error(`Guest should finish before race ends: ${JSON.stringify(guestResult)}`);
   }
 
   await host.emit('leaveRoom');

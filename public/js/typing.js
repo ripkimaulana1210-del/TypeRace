@@ -9,6 +9,9 @@ export class TypingEngine {
     this.typed = '';
     this.totalKeys = 0;
     this.mistakes = 0;
+    this.correctKeys = 0;
+    this.streak = 0;
+    this.longestStreak = 0;
     this.startedAt = null;
     this.lastInputAt = null;
     this.lastCorrectInputAt = null;
@@ -37,9 +40,13 @@ export class TypingEngine {
     const correct = char.toLowerCase() === expected.toLowerCase();
     if (correct) {
       this.typed += char;
+      this.correctKeys += 1;
+      this.streak += 1;
+      this.longestStreak = Math.max(this.longestStreak, this.streak);
       this.lastCorrectInputAt = now;
     } else {
       this.mistakes += 1;
+      this.streak = 0;
     }
     const nextSegmentIndex = this.getSegmentIndexForLength(this.typed.length);
 
@@ -75,6 +82,11 @@ export class TypingEngine {
         0,
         Math.round(((this.totalKeys - this.mistakes) / Math.max(1, this.totalKeys)) * 100)
       ),
+      mistakes: this.mistakes,
+      totalKeys: this.totalKeys,
+      correctKeys: this.correctKeys,
+      streak: this.streak,
+      longestStreak: this.longestStreak,
       progress: this.text.length
         ? Math.round((this.typed.length / this.text.length) * 100)
         : 0
@@ -87,6 +99,9 @@ export class TypingEngine {
     this.typed = '';
     this.totalKeys = 0;
     this.mistakes = 0;
+    this.correctKeys = 0;
+    this.streak = 0;
+    this.longestStreak = 0;
     this.startedAt = null;
     this.lastInputAt = null;
     this.lastCorrectInputAt = null;

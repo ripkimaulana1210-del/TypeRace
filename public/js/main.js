@@ -4,6 +4,9 @@ import { TypingEngine } from './typing.js';
 const FAST_INPUT_WINDOW_MS = 360;
 const SLOW_INPUT_WINDOW_MS = 1100;
 const SAVED_SESSION_KEY = 'f1TypingBattle.lastRoom';
+const ROUTE_DEBUG_QUERY_PARAM = 'debugRoute';
+const BROADCAST_HUD_QUERY_PARAM = 'broadcastHud';
+const FINISH_REPLAY_DURATION_MS = 2600;
 
 class F1TypingBattleApp {
   constructor() {
@@ -14,7 +17,10 @@ class F1TypingBattleApp {
     this.playerName = '';
     this.lastRoomCode = '';
     this.latestResults = [];
-    this.resultsMusic = null;
+    this.routeHudFrameId = null;
+    this.lastRaceEventId = null;
+    this.radioHideTimer = null;
+    this.finishReplayTimer = null;
     this.elements = this.getElements();
   }
 
@@ -42,10 +48,27 @@ class F1TypingBattleApp {
       accuracyDisplay: document.getElementById('accuracyDisplay'),
       progressDisplay: document.getElementById('progressDisplay'),
       lapDisplay: document.getElementById('lapDisplay'),
+      timingTower: document.getElementById('timingTower'),
+      engineerRadio: document.getElementById('engineerRadio'),
+      engineerRadioText: document.getElementById('engineerRadioText'),
+      finishReplayOverlay: document.getElementById('finishReplayOverlay'),
+      speedDisplay: document.getElementById('speedDisplay'),
+      gearDisplay: document.getElementById('gearDisplay'),
+      drsBadge: document.getElementById('drsBadge'),
+      gripMeter: document.getElementById('gripMeter'),
+      momentumMeter: document.getElementById('momentumMeter'),
+      routeMinimap: document.getElementById('routeMinimap'),
+      routeHealthPanel: document.getElementById('routeHealthPanel'),
+      routeHealthSource: document.getElementById('routeHealthSource'),
+      routeHealthConfidence: document.getElementById('routeHealthConfidence'),
+      routeHealthSnap: document.getElementById('routeHealthSnap'),
+      routeHealthGuard: document.getElementById('routeHealthGuard'),
+      cameraModeButtons: Array.from(document.querySelectorAll('.camera-mode')),
       countdownOverlay: document.getElementById('countdownOverlay'),
       raceStatusLabel: document.getElementById('raceStatusLabel'),
       trackLoadingOverlay: document.getElementById('trackLoadingOverlay'),
       resultsList: document.getElementById('resultsList'),
+      winnerDisplay: document.getElementById('winnerDisplay'),
       roomContextDisplay: document.getElementById('roomContextDisplay'),
       createRoomBtn: document.getElementById('createRoomBtn'),
       joinRoomBtn: document.getElementById('joinRoomBtn'),
@@ -61,6 +84,7 @@ class F1TypingBattleApp {
 
   async init() {
     this.showScreen('loading');
+    document.body.classList.toggle('broadcast-hud', this.isBroadcastHudEnabled());
     this.elements.loadingText.textContent = 'Menghubungkan ke pusat balapan...';
     this.restoreSavedSession();
     this.bindUI();
@@ -84,7 +108,9 @@ class F1TypingBattleApp {
         canvas: document.getElementById('gameCanvas'),
         getLocalPlayerId: () => this.network.socket?.id || null
       });
+      this.updateCameraModeButtons();
       this.syncCircuitProfile();
+      this.startRouteHudLoop();
     } catch (error) {
       this.game = null;
       if (this.elements.trackLoadingOverlay) {
@@ -95,43 +121,41 @@ class F1TypingBattleApp {
     }
   }
 
+  isRouteDebugEnabled() {
+    try {
+      return new URLSearchParams(window.location.search).has(ROUTE_DEBUG_QUERY_PARAM);
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  isBroadcastHudEnabled() {
+    try {
+      return new URLSearchParams(window.location.search).has(BROADCAST_HUD_QUERY_PARAM);
+    } catch (_error) {
+      return false;
+    }
+  }
+
   async safeResumeAudio() {
     try {
       await this.game?.resumeAudio();
-      this.initResultsMusic();
       this.syncScreenAudio();
     } catch (error) {
       console.warn('Audio belum bisa diaktifkan:', error);
     }
   }
 
-  initResultsMusic() {
-    if (this.resultsMusic) {
-      return;
-    }
-
-    this.resultsMusic = new Audio('/audio/AfterRace.mp3');
-    this.resultsMusic.loop = true;
-    this.resultsMusic.volume = 0.45;
-  }
-
   async playResultsMusic() {
     try {
-      this.initResultsMusic();
-      this.resultsMusic.currentTime = 0;
-      await this.resultsMusic.play();
+      await this.game?.setResultsMusicActive(true);
     } catch (error) {
       console.warn('Musik after race belum bisa diputar:', error);
     }
   }
 
   stopResultsMusic() {
-    if (!this.resultsMusic) {
-      return;
-    }
-
-    this.resultsMusic.pause();
-    this.resultsMusic.currentTime = 0;
+    this.game?.setResultsMusicActive(false);
   }
 
   bindUI() {
@@ -174,6 +198,12 @@ class F1TypingBattleApp {
     this.elements.playAgainBtn.addEventListener('click', async () => this.playAgain());
     this.elements.backToMenuBtn.addEventListener('click', () => this.leaveLobby());
     this.elements.typingInput.addEventListener('keydown', (event) => this.handleTyping(event));
+    this.elements.cameraModeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextMode = this.game?.setCameraMode(button.dataset.cameraMode);
+        this.updateCameraModeButtons(nextMode);
+      });
+    });
 
     window.addEventListener('pointerdown', () => {
       this.safeResumeAudio();
@@ -182,6 +212,7 @@ class F1TypingBattleApp {
     window.addEventListener('trackLoaded', (event) => {
       const detail = event?.detail || {};
       this.syncCircuitProfile();
+      this.renderRouteHud();
 
       if (this.elements.trackLoadingOverlay) {
         if (detail.success) {
@@ -240,6 +271,151 @@ class F1TypingBattleApp {
     const profile = this.game?.getCircuitProfile?.();
     if (profile) {
       this.network.setCircuitProfile(profile);
+    }
+  }
+
+  updateCameraModeButtons(activeMode = this.game?.getCameraMode?.()) {
+    this.elements.cameraModeButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.cameraMode === activeMode);
+    });
+  }
+
+  startRouteHudLoop() {
+    if (this.routeHudFrameId) {
+      return;
+    }
+
+    const tick = () => {
+      this.routeHudFrameId = requestAnimationFrame(tick);
+
+      if (this.currentScreen === 'game') {
+        this.renderRouteHud();
+      }
+    };
+
+    this.routeHudFrameId = requestAnimationFrame(tick);
+  }
+
+  renderRouteHud() {
+    const telemetry = this.game?.getRouteTelemetry?.();
+
+    if (!telemetry) {
+      return;
+    }
+
+    this.drawRouteMinimap(telemetry);
+    this.updateCameraModeButtons(telemetry.cameraMode);
+
+    const showHealth = this.isRouteDebugEnabled();
+    this.elements.routeHealthPanel?.classList.toggle('hidden', !showHealth);
+
+    if (!showHealth) {
+      return;
+    }
+
+    const confidence = telemetry.confidence
+      ? `${Math.round(telemetry.confidence * 100)}%`
+      : '-';
+    const snap = telemetry.snapCoverage
+      ? `${Math.round(telemetry.snapCoverage * 100)}% / ${telemetry.maxSnapDistance.toFixed(1)}`
+      : '-';
+    const guard = `${telemetry.guardCorrections || 0}${telemetry.cameraCollision ? ' / cam' : ''}`;
+
+    if (this.elements.routeHealthSource) {
+      this.elements.routeHealthSource.textContent = telemetry.source || '-';
+    }
+    if (this.elements.routeHealthConfidence) {
+      this.elements.routeHealthConfidence.textContent = confidence;
+    }
+    if (this.elements.routeHealthSnap) {
+      this.elements.routeHealthSnap.textContent = snap;
+    }
+    if (this.elements.routeHealthGuard) {
+      this.elements.routeHealthGuard.textContent = guard;
+    }
+  }
+
+  drawRouteMinimap(telemetry) {
+    const canvas = this.elements.routeMinimap;
+
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext('2d');
+    const cssWidth = Math.max(120, Math.round(canvas.clientWidth || canvas.width));
+    const cssHeight = Math.max(88, Math.round(canvas.clientHeight || canvas.height));
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
+    if (canvas.width !== Math.round(cssWidth * pixelRatio)) {
+      canvas.width = Math.round(cssWidth * pixelRatio);
+    }
+
+    if (canvas.height !== Math.round(cssHeight * pixelRatio)) {
+      canvas.height = Math.round(cssHeight * pixelRatio);
+    }
+
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, cssWidth, cssHeight);
+    context.fillStyle = 'rgba(8, 10, 9, 0.72)';
+    context.fillRect(0, 0, cssWidth, cssHeight);
+
+    const samples = telemetry.samples || [];
+    const bounds = telemetry.bounds || {};
+    const padding = 12;
+    const rangeX = Math.max(1, (bounds.maxX || 1) - (bounds.minX || -1));
+    const rangeZ = Math.max(1, (bounds.maxZ || 1) - (bounds.minZ || -1));
+    const range = Math.max(rangeX, rangeZ);
+    const offsetX = (range - rangeX) * 0.5;
+    const offsetZ = (range - rangeZ) * 0.5;
+    const mapPoint = (point) => ({
+      x: padding + (((point.x - bounds.minX) + offsetX) / range) * (cssWidth - padding * 2),
+      y: cssHeight - padding - (((point.z - bounds.minZ) + offsetZ) / range) * (cssHeight - padding * 2)
+    });
+
+    context.strokeStyle = 'rgba(245, 247, 242, 0.1)';
+    context.lineWidth = 1;
+    context.strokeRect(7, 7, cssWidth - 14, cssHeight - 14);
+
+    (telemetry.blockedZones || []).forEach((zone) => {
+      const center = mapPoint(zone);
+      const radius = (zone.radius / range) * (cssWidth - padding * 2);
+      context.beginPath();
+      context.arc(center.x, center.y, Math.max(4, radius), 0, Math.PI * 2);
+      context.fillStyle = 'rgba(255, 61, 85, 0.18)';
+      context.fill();
+      context.strokeStyle = 'rgba(255, 61, 85, 0.62)';
+      context.lineWidth = 1.5;
+      context.stroke();
+    });
+
+    if (samples.length > 1) {
+      context.beginPath();
+      samples.forEach((sample, index) => {
+        const point = mapPoint(sample);
+
+        if (index === 0) {
+          context.moveTo(point.x, point.y);
+        } else {
+          context.lineTo(point.x, point.y);
+        }
+      });
+      context.closePath();
+      context.strokeStyle = telemetry.source === 'manual'
+        ? 'rgba(255, 212, 71, 0.94)'
+        : 'rgba(0, 255, 112, 0.94)';
+      context.lineWidth = 2.5;
+      context.stroke();
+
+      const carSample = samples[Math.min(samples.length - 1, Math.floor((telemetry.progress || 0) * samples.length))];
+      const carPoint = mapPoint(carSample);
+      context.beginPath();
+      context.arc(carPoint.x, carPoint.y, 4.5, 0, Math.PI * 2);
+      context.fillStyle = '#ffb23f';
+      context.fill();
+      context.strokeStyle = '#101410';
+      context.lineWidth = 2;
+      context.stroke();
     }
   }
 
@@ -571,7 +747,7 @@ class F1TypingBattleApp {
     this.game?.playCountdownTick(payload.count);
   }
 
-  handleRaceStart(payload) {
+  async handleRaceStart(payload) {
     this.stopResultsMusic();
     this.network.applyCircuitProfile(payload.circuit);
 
@@ -584,26 +760,84 @@ class F1TypingBattleApp {
     this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount) || this.network.lapCount || 1)));
     this.updateLapSelect();
     this.typing.start(payload.startTime);
+    this.lastRaceEventId = null;
     this.elements.countdownOverlay.classList.add('hidden');
     this.elements.raceStatusLabel.textContent = 'Balapan Berjalan';
     this.elements.typingInput.focus();
     this.game?.startRace(payload.startTime);
-    this.game?.resumeAudio();
+    await this.game?.resumeAudio();
     this.game?.playRaceStart();
   }
 
   handlePlayerUpdate(payload) {
-    this.game?.updatePlayers(payload.positions);
+    const positions = payload.positions || [];
+
+    this.game?.updatePlayers(positions);
+    if (this.isBroadcastHudEnabled()) {
+      this.renderTimingTower(positions);
+    } else if (this.elements.timingTower) {
+      this.elements.timingTower.innerHTML = '';
+    }
+    this.renderCarTelemetry(positions);
+    this.handleRaceEvents(positions);
+  }
+
+  handleRaceEvents(positions = []) {
+    if (!Array.isArray(positions) || this.currentScreen !== 'game') {
+      return;
+    }
+
+    const localPlayerId = this.network.socket?.id;
+    const localPlayer = positions.find((player) => player.id === localPlayerId);
+    const event = localPlayer?.raceEvent;
+
+    if (!event || event.id === this.lastRaceEventId || Date.now() > event.expiresAt) {
+      return;
+    }
+
+    this.lastRaceEventId = event.id;
+    this.game?.playRaceEvent?.(event.type);
+    this.showEngineerRadio(event.message || 'Event balapan aktif.', event.type);
+
+    if (this.elements.inputFeedback) {
+      this.elements.inputFeedback.textContent = event.message || 'Event balapan aktif.';
+      this.elements.inputFeedback.className = event.type === 'grip_loss'
+        ? 'input-feedback error'
+        : 'input-feedback correct';
+    }
+  }
+
+  showEngineerRadio(message, type = 'neutral') {
+    if (!this.elements.engineerRadio || !this.elements.engineerRadioText) {
+      return;
+    }
+
+    window.clearTimeout(this.radioHideTimer);
+    this.elements.engineerRadioText.textContent = message;
+    this.elements.engineerRadio.dataset.type = type;
+    this.elements.engineerRadio.classList.remove('hidden');
+
+    this.radioHideTimer = window.setTimeout(() => {
+      this.elements.engineerRadio?.classList.add('hidden');
+    }, 3000);
   }
 
   async handleRaceFinished(payload) {
     this.latestResults = payload.results;
     this.network.state = 'finished';
-    this.game?.stopRace();
-    this.renderResults(payload.results);
-    this.showScreen('results');
-    await this.playResultsMusic();
-    this.updateRoomActions();
+    this.game?.triggerFinishCeremony?.();
+    this.game?.startFinishReplay?.(FINISH_REPLAY_DURATION_MS);
+    this.showFinishReplay(payload.results);
+
+    window.clearTimeout(this.finishReplayTimer);
+    this.finishReplayTimer = window.setTimeout(async () => {
+      this.game?.stopRace();
+      this.hideFinishReplay();
+      this.renderResults(payload.results);
+      this.showScreen('results');
+      await this.playResultsMusic();
+      this.updateRoomActions();
+    }, FINISH_REPLAY_DURATION_MS);
   }
 
   handleTyping(event) {
@@ -631,8 +865,13 @@ class F1TypingBattleApp {
 
     if (result.correct) {
       this.game?.playCorrectInput();
+      const stats = this.typing.getStats();
 
-      if (result.keyIntervalMs <= FAST_INPUT_WINDOW_MS) {
+      if (stats.streak > 0 && stats.streak % 18 === 0) {
+        this.elements.inputFeedback.textContent = 'Streak bersih. DRS siap memberi dorongan.';
+        this.game?.playRaceEvent?.('drs');
+        this.showEngineerRadio('DRS enabled. Keep the rhythm clean.', 'drs');
+      } else if (result.keyIntervalMs <= FAST_INPUT_WINDOW_MS) {
         this.elements.inputFeedback.textContent = 'Input tepat dan cepat. Kecepatan naik.';
       } else if (result.keyIntervalMs > SLOW_INPUT_WINDOW_MS) {
         this.elements.inputFeedback.textContent = 'Input tepat, tapi ritme lambat. Kecepatan turun.';
@@ -649,13 +888,116 @@ class F1TypingBattleApp {
       this.game?.playMistakeInput();
       this.elements.inputFeedback.textContent = 'Salah ketik. Momentum mobil berkurang.';
       this.elements.inputFeedback.className = 'input-feedback error';
+      this.showEngineerRadio('Grip loss. Reset the rhythm and keep it tidy.', 'grip_loss');
     }
 
     if (result.finished) {
       this.game?.playFinish();
       this.elements.inputFeedback.textContent = 'Putaran selesai. Pertahankan jalur.';
       this.elements.inputFeedback.className = 'input-feedback correct';
+      this.showEngineerRadio('Checkered flag. Bring it home.', 'finish');
     }
+  }
+
+  renderTimingTower(positions = []) {
+    if (!this.elements.timingTower) {
+      return;
+    }
+
+    if (!Array.isArray(positions) || !positions.length || this.currentScreen !== 'game') {
+      this.elements.timingTower.innerHTML = '';
+      return;
+    }
+
+    const localPlayerId = this.network.socket?.id;
+    const leaderProgress = Math.max(...positions.map((player) => Number(player.progressExact ?? player.progress) || 0));
+    const rows = positions
+      .slice()
+      .sort((a, b) => (a.position || 99) - (b.position || 99))
+      .slice(0, 8)
+      .map((player) => {
+        const progress = Number(player.progressExact ?? player.progress) || 0;
+        const gap = player.position === 1
+          ? 'LEADER'
+          : `+${Math.max(0, leaderProgress - progress).toFixed(1)}%`;
+        const status = player.drsActive
+          ? 'DRS'
+          : player.finalPushActive
+            ? 'PUSH'
+            : player.sector || 'RACE';
+
+        return `
+          <div class="timing-row ${player.id === localPlayerId ? 'local' : ''} ${player.isGhost ? 'ghost' : ''}">
+            <span class="timing-pos">P${player.position || '-'}</span>
+            <strong>${this.escapeHtml(player.name || 'Pembalap')}</strong>
+            <small>${gap}</small>
+            <em>${this.escapeHtml(status)}</em>
+          </div>
+        `;
+      })
+      .join('');
+
+    this.elements.timingTower.innerHTML = `
+      <div class="timing-head">
+        <span>Timing</span>
+        <strong>Live</strong>
+      </div>
+      ${rows}
+    `;
+  }
+
+  renderCarTelemetry(positions = []) {
+    const localPlayerId = this.network.socket?.id;
+    const localPlayer = Array.isArray(positions)
+      ? positions.find((player) => player.id === localPlayerId)
+      : null;
+
+    if (!localPlayer) {
+      return;
+    }
+
+    const speed = Math.max(0, Math.round(Number(localPlayer.speed) || 0));
+    const gear = speed <= 4 ? 'N' : String(Math.max(1, Math.min(8, Math.ceil(speed / 42))));
+    const grip = Math.max(0, Math.min(120, Math.round(Number(localPlayer.grip) || 100)));
+    const momentum = Math.max(0, Math.min(150, Math.round(Number(localPlayer.momentum) || 100)));
+
+    if (this.elements.speedDisplay) {
+      this.elements.speedDisplay.textContent = String(speed);
+    }
+
+    if (this.elements.gearDisplay) {
+      this.elements.gearDisplay.textContent = gear;
+    }
+
+    if (this.elements.drsBadge) {
+      this.elements.drsBadge.classList.toggle('active', Boolean(localPlayer.drsActive));
+    }
+
+    if (this.elements.gripMeter) {
+      this.elements.gripMeter.style.width = `${Math.min(100, grip)}%`;
+    }
+
+    if (this.elements.momentumMeter) {
+      this.elements.momentumMeter.style.width = `${Math.min(100, Math.round((momentum / 140) * 100))}%`;
+    }
+  }
+
+  showFinishReplay(results = []) {
+    if (!this.elements.finishReplayOverlay) {
+      return;
+    }
+
+    const winner = Array.isArray(results) ? results[0] : null;
+    this.elements.finishReplayOverlay.querySelector('strong').textContent = winner
+      ? `${winner.name} wins`
+      : 'Finish Replay';
+    this.elements.finishReplayOverlay.classList.remove('hidden');
+    this.elements.raceStatusLabel.textContent = 'FINISH';
+    this.showEngineerRadio('Checkered flag. Great drive to the line.', 'finish');
+  }
+
+  hideFinishReplay() {
+    this.elements.finishReplayOverlay?.classList.add('hidden');
   }
 
   renderTyping() {
@@ -713,6 +1055,7 @@ class F1TypingBattleApp {
   renderResults(results) {
     this.elements.resultsList.innerHTML = '';
     const roomCode = this.network.roomCode || this.getSavedRoomCode();
+    const winner = Array.isArray(results) ? results[0] : null;
 
     if (this.elements.roomContextDisplay) {
       this.elements.roomContextDisplay.textContent = roomCode
@@ -720,21 +1063,39 @@ class F1TypingBattleApp {
         : '';
     }
 
+    if (this.elements.winnerDisplay) {
+      this.elements.winnerDisplay.textContent = winner
+        ? `${winner.name} finis P${winner.position}`
+        : 'Podium siap';
+    }
+
     results.forEach((player) => {
       const card = document.createElement('div');
-      card.className = 'result-card';
+      card.className = `result-card ${player.isGhost ? 'ghost-result' : ''}`;
+      const bestSector = player.bestSector?.label
+        ? `${player.bestSector.label} ${this.formatDuration(player.bestSector.timeMs)}`
+        : '-';
+      const typoText = `${player.mistakes ?? 0}/${player.totalKeys ?? 0}`;
 
       card.innerHTML = `
         <div>
-          <strong>P${player.position} - ${this.escapeHtml(player.name)}</strong>
-          <div class="result-meta">Progres ${player.progress}%</div>
+          <strong>P${player.position} - ${this.escapeHtml(player.name)}${player.isGhost ? ' · Ghost' : ''}</strong>
+          <div class="result-meta">Progres ${player.progress}% · Streak ${player.longestStreak ?? 0}</div>
         </div>
         <div class="result-meta">KPM ${player.wpm}</div>
         <div class="result-meta">Akurasi ${player.accuracy}%</div>
+        <div class="result-meta">Typo ${typoText}</div>
+        <div class="result-meta">Grip ${player.grip ?? 100}%</div>
+        <div class="result-meta">Best ${this.escapeHtml(bestSector)}</div>
       `;
 
       this.elements.resultsList.appendChild(card);
     });
+  }
+
+  formatDuration(timeMs = 0) {
+    const seconds = Math.max(0, Number(timeMs) || 0) / 1000;
+    return `${seconds.toFixed(seconds >= 10 ? 1 : 2)}s`;
   }
 
   escapeHtml(text) {

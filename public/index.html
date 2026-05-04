@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>F1 Typing Battle 3D</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/f1-theme.css">
   <script src="/socket.io/socket.io.js"></script>
   <script type="importmap">
     {
@@ -153,6 +154,22 @@
           <div class="chip">Sirkuit Three.js</div>
           <div class="chip" id="raceStatusLabel">Grid Siap</div>
         </div>
+        <div id="timingTower" class="timing-tower" aria-live="polite"></div>
+        <div class="race-tools">
+          <canvas id="routeMinimap" class="route-minimap" width="180" height="128"></canvas>
+          <div class="camera-mode-group" aria-label="Mode kamera">
+            <button type="button" class="camera-mode active" data-camera-mode="far" title="Kamera jauh">Jauh</button>
+            <button type="button" class="camera-mode" data-camera-mode="close" title="Kamera dekat">Dekat</button>
+            <button type="button" class="camera-mode" data-camera-mode="hood" title="Kamera rendah">Rendah</button>
+            <button type="button" class="camera-mode" data-camera-mode="cinematic" title="Kamera sinematik">Sine</button>
+          </div>
+          <div id="routeHealthPanel" class="route-health-panel hidden" aria-live="polite">
+            <div><span>Source</span><strong id="routeHealthSource">-</strong></div>
+            <div><span>Conf</span><strong id="routeHealthConfidence">-</strong></div>
+            <div><span>Snap</span><strong id="routeHealthSnap">-</strong></div>
+            <div><span>Guard</span><strong id="routeHealthGuard">-</strong></div>
+          </div>
+        </div>
         <div class="hud-grid">
           <div class="hud-card typing-card">
             <div id="textToType" class="text-to-type"></div>
@@ -176,7 +193,34 @@
               <span class="stat-label">Progres</span>
               <span id="progressDisplay" class="stat-value">0%</span>
             </div>
+            <div class="telemetry-grid">
+              <div class="telemetry-readout">
+                <span class="stat-label">Speed</span>
+                <strong id="speedDisplay">0</strong>
+              </div>
+              <div class="telemetry-readout">
+                <span class="stat-label">Gear</span>
+                <strong id="gearDisplay">N</strong>
+              </div>
+              <div id="drsBadge" class="drs-badge">DRS</div>
+              <div class="telemetry-meter">
+                <span>Grip</span>
+                <i><b id="gripMeter"></b></i>
+              </div>
+              <div class="telemetry-meter">
+                <span>Momentum</span>
+                <i><b id="momentumMeter"></b></i>
+              </div>
+            </div>
           </div>
+        </div>
+        <div id="engineerRadio" class="engineer-radio hidden" aria-live="polite">
+          <span>Race Engineer</span>
+          <strong id="engineerRadioText">Radio check.</strong>
+        </div>
+        <div id="finishReplayOverlay" class="finish-replay-overlay hidden" aria-live="polite">
+          <span>Checkered Flag</span>
+          <strong>Finish Replay</strong>
         </div>
         <div id="countdownOverlay" class="countdown hidden">3</div>
       </div>
@@ -188,6 +232,19 @@
       <p class="eyebrow">Grand Prix Selesai</p>
       <h2>Hasil</h2>
       <p id="roomContextDisplay" class="room-context"></p>
+      <div class="finish-ceremony-card" aria-live="polite">
+        <div class="finish-checker-strip"></div>
+        <div>
+          <span>Podium</span>
+          <strong id="winnerDisplay">Podium siap</strong>
+        </div>
+        <div class="finish-light-row" aria-hidden="true">
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+        </div>
+      </div>
       <div id="resultsList" class="results-list"></div>
       <div class="row-actions results-actions">
         <button id="backToRoomBtn" class="btn btn-secondary" type="button">Kembali ke Room</button>
