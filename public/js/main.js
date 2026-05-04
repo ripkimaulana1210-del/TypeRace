@@ -47,8 +47,6 @@ class F1TypingBattleApp {
       roomContextDisplay: document.getElementById('roomContextDisplay'),
       createRoomBtn: document.getElementById('createRoomBtn'),
       joinRoomBtn: document.getElementById('joinRoomBtn'),
-      resumeRoomBtn: document.getElementById('resumeRoomBtn'),
-      savedRoomHint: document.getElementById('savedRoomHint'),
       confirmJoinBtn: document.getElementById('confirmJoinBtn'),
       cancelJoinBtn: document.getElementById('cancelJoinBtn'),
       startRaceBtn: document.getElementById('startRaceBtn'),
@@ -137,7 +135,6 @@ class F1TypingBattleApp {
   bindUI() {
     this.elements.createRoomBtn.addEventListener('click', () => this.createRoom());
     this.elements.joinRoomBtn.addEventListener('click', () => this.openJoinModal());
-    this.elements.resumeRoomBtn?.addEventListener('click', () => this.resumeLastRoom());
     this.elements.confirmJoinBtn.addEventListener('click', () => this.joinRoom());
     this.elements.cancelJoinBtn.addEventListener('click', () => this.closeJoinModal());
     this.elements.lapCountSelect?.addEventListener('change', () => {
@@ -281,17 +278,7 @@ class F1TypingBattleApp {
   }
 
   updateSavedRoomUI() {
-    const roomCode = this.getSavedRoomCode();
-    const hasActiveRoom = Boolean(this.network.roomCode);
-    const canResume = Boolean(roomCode && !hasActiveRoom);
-
-    this.elements.resumeRoomBtn?.classList.toggle('hidden', !canResume);
-    this.elements.savedRoomHint?.classList.toggle('hidden', !canResume);
-
-    if (canResume) {
-      this.elements.resumeRoomBtn.textContent = `Lanjut Room ${roomCode}`;
-      this.elements.savedRoomHint.textContent = `Room terakhir: ${roomCode}`;
-    }
+    return;
   }
 
   requireName() {
