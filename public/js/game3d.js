@@ -22,7 +22,7 @@ const MIN_VISUAL_LAPS = 1;
 const MAX_VISUAL_LAPS = 5;
 const MODEL_CURVE_BINS = 180;
 const MODEL_CURVE_MIN_POINTS = 32;
-const MODEL_MAIN_RACE_START_INDEX = 61;
+const MODEL_MAIN_RACE_START_INDEX = 0;
 const MODEL_RACE_DECOR_Y_OFFSET = 0.22;
 const MODEL_START_HINTS = [
   new THREE.Vector3(42.6, 0, 155.7),
@@ -33,6 +33,8 @@ const MODEL_START_HINTS = [
   new THREE.Vector3(127.7, 0, 155.1)
 ];
 const MODEL_MAIN_RACE_POINTS = [
+  [42.6, 8.1, 155.7],
+  [106.0, 11.4, 155.7],
   [127.7, 11.9, 155.1],
   [147.6, 11.8, 158.9],
   [172.8, 11.3, 170.6],
@@ -46,7 +48,6 @@ const MODEL_MAIN_RACE_POINTS = [
   [205.0, 4.5, 10.0],
   [213.6, 4.4, -27.3],
   [229.6, 5.0, -69.4],
-  [232.8, 4.8, -62.3],
   [260.3, 5.8, -121.9],
   [315.4, 7.9, -128.8],
   [355.8, 8.3, -159.4],
@@ -81,29 +82,17 @@ const MODEL_MAIN_RACE_POINTS = [
   [-78.4, 7.0, 91.7],
   [-60.0, 4.8, 115.0],
   [-39.5, 2.3, 137.4],
-  [-60.0, -0.9, 161.1],
-  [-82.6, -1.9, 167.5],
-  [-95.6, -4.0, 142.8],
-  [-94.2, -3.7, 115.8],
-  [-61.3, -0.6, 62.8],
-  [-28.1, 1.5, 12.7],
-  [29.0, 1.2, -7.2],
-  [83.6, 0.3, 18.9],
-  [113.9, -0.4, 64.5],
-  [61.5, 3.4, 97.5],
-  [8.8, 7.7, 128.2],
-  [10.4, 7.3, 141.5],
-  [24.8, 7.1, 149.0],
-  [42.6, 8.1, 155.7],
-  [106.0, 11.4, 155.7]
+  [-10.0, 4.2, 146.0],
+  [18.0, 6.2, 152.0]
 ];
 const SERVER_DISTANCE_SCALE = 0.08;
 const VISUAL_MIN_CRUISE_SPEED = 38;
 const PROGRESS_SNAP_EPSILON = 0.00003;
 const SURFACE_CACHE_PROGRESS_EPSILON = 0.000005;
-const SURFACE_LATERAL_SEARCH_OFFSETS = [0, -0.65, 0.65, -1.35, 1.35, -2.1, 2.1];
-const SURFACE_FORWARD_SEARCH_OFFSETS = [0, -0.75, 0.75];
-const REMOTE_LANE_OFFSETS = [0.8, -0.8, 1.35, -1.35, 1.9, -1.9];
+const SURFACE_LATERAL_SEARCH_OFFSETS = [0];
+const SURFACE_FORWARD_SEARCH_OFFSETS = [0];
+const REMOTE_LANE_OFFSETS = [0.2, -0.2, 0.3, -0.3, 0.38, -0.38];
+
 const REMOTE_CAR_COLORS = [
   0x2f80ed,
   0xf2c94c,
@@ -278,6 +267,36 @@ function horizontalDistance(pointA, pointB) {
   return Math.sqrt(horizontalDistanceSquared(pointA, pointB));
 }
 
+const MODEL_START_FORWARD_HINT = new THREE.Vector3(106.0, 0, 155.7);
+
+function ensureGeneratedRouteDirection(points) {
+  if (!Array.isArray(points) || points.length < MODEL_CURVE_MIN_POINTS) {
+    return points;
+  }
+
+  const rotated = rotatePointsToStartHint(points);
+  const start = rotated[0];
+  const next = rotated[1];
+  const previous = rotated[rotated.length - 1];
+
+  if (!start || !next || !previous) {
+    return rotated;
+  }
+
+  const nextScore = horizontalDistanceSquared(next, MODEL_START_FORWARD_HINT);
+  const previousScore = horizontalDistanceSquared(previous, MODEL_START_FORWARD_HINT);
+
+  // Pada model Three.js ini, arah UV road mesh kebaca kebalik:
+  // dari garis start mobil masuk cabang kiri dulu. Jadi route perlu dibalik
+  // supaya dari start mobil bergerak ke kanan menuju jalur utama.
+  if (previousScore < nextScore) {
+    console.log('Generated route direction reversed to follow main track');
+    return [start.clone(), ...rotated.slice(1).reverse().map((point) => point.clone())];
+  }
+
+  return rotated;
+}
+
 function getHorizontalTurnAngle(previous, point, next) {
   const inX = point.x - previous.x;
   const inZ = point.z - previous.z;
@@ -355,15 +374,21 @@ function rotatePointsToStartHint(points) {
 }
 
 function createClosedRouteCurve(routePoints) {
-  const points = removeRouteKinks(
-    routePoints.map(([x, y, z]) => new THREE.Vector3(x, y, z))
-  );
-  const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal', 0.45);
+  const points = routePoints.map(([x, y, z]) => new THREE.Vector3(x, y, z));
 
-  curve.arcLengthDivisions = Math.max(720, points.length * 18);
-  curve.updateArcLengths();
+  const curvePath = new THREE.CurvePath();
+  curvePath.name = 'LockedMainRaceRoute';
 
-  return curve;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index];
+    const next = points[(index + 1) % points.length];
+    curvePath.add(new THREE.LineCurve3(current, next));
+  }
+
+  curvePath.arcLengthDivisions = Math.max(720, points.length * 18);
+  curvePath.updateArcLengths();
+
+  return curvePath;
 }
 
 function createMainRaceTrackCurve() {
@@ -584,7 +609,12 @@ function buildCurveFromRoadMesh(mesh) {
     points = points.slice(0, -1);
   }
 
-  points = rotatePointsToStartHint(smoothClosedPoints(smoothClosedPoints(points)));
+  points = smoothClosedPoints(smoothClosedPoints(points));
+  points = rotatePointsToStartHint(points);
+  points = ensureGeneratedRouteDirection(points);
+  points = removeRouteKinks(points);
+  points = rotatePointsToStartHint(smoothClosedPoints(points));
+  points = ensureGeneratedRouteDirection(points);
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal', 0.5);
   return {
@@ -943,7 +973,12 @@ export class Game3D {
             const maxDim = Math.max(trackSize.x, trackSize.z);
             const shadowHalf = Math.max(maxDim * 0.65, 100);
             this.roadSurfaceSamples = buildRoadSurfaceSamples(this.trackSurfaceMeshes);
-            const modelTrack = createMainRaceTrackCurve();
+            const generatedRoadTrack = buildCurveFromTrackSurfaceMeshes(this.trackSurfaceMeshes);
+            const modelTrack = generatedRoadTrack || createMainRaceTrackCurve();
+
+            console.log(
+              `Race route source: ${generatedRoadTrack ? 'GLB road mesh centerline' : 'manual fallback points'}`
+            );
 
             if (modelTrack) {
               this.trackCurve = modelTrack.curve;
@@ -1597,78 +1632,74 @@ export class Game3D {
 
   getTrackPose(progress, laneOffset = 0, cache = null) {
     const sampleProgress = getTrackSampleProgress(progress);
-
-    if (cache && Math.abs(cache.progress - sampleProgress) < SURFACE_CACHE_PROGRESS_EPSILON) {
-      const hit = cache.hit;
-
-      if (hit) {
-        const surfaceNormal = hit.normal || getHitWorldNormal(hit);
-        const position = _sp.copy(hit.point).addScaledVector(surfaceNormal, CAR_SURFACE_CLEARANCE);
-        const tangent = this.trackCurve.getTangentAt(sampleProgress).normalize();
-        let forward = _fp.copy(tangent).addScaledVector(surfaceNormal, -tangent.dot(surfaceNormal));
-
-        if (forward.lengthSq() < 0.0001) {
-          forward.copy(tangent);
-        }
-
-        forward.normalize();
-        const surfaceRight = _rp.crossVectors(surfaceNormal, forward).normalize();
-        forward.crossVectors(surfaceRight, surfaceNormal).normalize();
-        const rotationMatrix = _tempMat4.makeBasis(surfaceRight, surfaceNormal, forward);
-        const quaternion = _tempQuat.setFromRotationMatrix(rotationMatrix);
-
-        return {
-          position: position.clone(),
-          tangent: forward.clone(),
-          right: surfaceRight.clone(),
-          quaternion: quaternion.clone()
-        };
-      }
+    const safeLaneOffset = THREE.MathUtils.clamp(Number(laneOffset) || 0, -0.32, 0.32);
+  
+    const centerPoint = this.trackCurve.getPointAt(sampleProgress).clone();
+    const rawTangent = this.trackCurve.getTangentAt(sampleProgress).clone();
+  
+    let flatTangent = _fp.copy(rawTangent).projectOnPlane(WORLD_UP);
+  
+    if (flatTangent.lengthSq() < 0.0001) {
+      flatTangent.copy(rawTangent);
     }
-
-    const point = this.trackCurve.getPointAt(sampleProgress);
-    const tangent = this.trackCurve.getTangentAt(sampleProgress).normalize();
-    const right = _rp.crossVectors(WORLD_UP, tangent).normalize();
-    const position = point.clone().addScaledVector(right, laneOffset);
-    const surfaceHit = this.findBestSurfaceHit(point, tangent, right, laneOffset);
-    const nearestRoadSample = surfaceHit ? null : this.getNearestRoadSample(position);
-    let surfaceNormal = surfaceHit
-      ? surfaceHit.normal || getHitWorldNormal(surfaceHit)
-      : nearestRoadSample?.normal?.clone() || WORLD_UP.clone();
-
+  
+    if (flatTangent.lengthSq() < 0.0001) {
+      flatTangent.set(0, 0, 1);
+    }
+  
+    flatTangent.normalize();
+  
+    let right = _rp.crossVectors(WORLD_UP, flatTangent).normalize();
+  
+    if (right.lengthSq() < 0.0001) {
+      right.set(1, 0, 0);
+    }
+  
+    const position = centerPoint.clone().addScaledVector(right, safeLaneOffset);
+    const surfaceHit = this.getSurfaceHit(position);
+  
+    let surfaceNormal = WORLD_UP.clone();
+  
     if (surfaceHit) {
-      if (cache) {
-        cache.hit = surfaceHit;
-        cache.progress = sampleProgress;
+      surfaceNormal = getHitWorldNormal(surfaceHit);
+  
+      if (!surfaceNormal || surfaceNormal.lengthSq() < 0.0001) {
+        surfaceNormal = WORLD_UP.clone();
       }
-      position.copy(surfaceHit.point).addScaledVector(surfaceNormal, CAR_SURFACE_CLEARANCE);
-    } else if (nearestRoadSample) {
-      position.copy(nearestRoadSample.position).addScaledVector(surfaceNormal, CAR_SURFACE_CLEARANCE);
-      if (cache) {
-        cache.hit = null;
-        cache.progress = sampleProgress;
-      }
+  
+      surfaceNormal.normalize();
+      position.y = surfaceHit.point.y + CAR_SURFACE_CLEARANCE;
     } else {
-      position.y = this.getSurfaceY(position, point.y) + CAR_SURFACE_CLEARANCE;
-      if (cache) {
-        cache.hit = null;
-        cache.progress = sampleProgress;
-      }
+      position.y = centerPoint.y + CAR_SURFACE_CLEARANCE;
     }
-
-    let forward = _fp.copy(tangent).addScaledVector(surfaceNormal, -tangent.dot(surfaceNormal));
-
+  
+    let forward = _tempForward.copy(flatTangent).addScaledVector(
+      surfaceNormal,
+      -flatTangent.dot(surfaceNormal)
+    );
+  
     if (forward.lengthSq() < 0.0001) {
-      forward.copy(tangent);
+      forward.copy(flatTangent);
     }
-
+  
     forward.normalize();
-    const surfaceRight = _rp.crossVectors(surfaceNormal, forward).normalize();
+  
+    let surfaceRight = _tempRight.crossVectors(surfaceNormal, forward).normalize();
+  
+    if (surfaceRight.lengthSq() < 0.0001) {
+      surfaceRight.copy(right);
+    }
+  
     forward.crossVectors(surfaceRight, surfaceNormal).normalize();
-
+  
     const rotationMatrix = _tempMat4.makeBasis(surfaceRight, surfaceNormal, forward);
     const quaternion = _tempQuat.setFromRotationMatrix(rotationMatrix);
-
+  
+    if (cache) {
+      cache.hit = null;
+      cache.progress = sampleProgress;
+    }
+  
     return {
       position: position.clone(),
       tangent: forward.clone(),
