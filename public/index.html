@@ -79,21 +79,57 @@
         </div>
       </div>
       <div class="race-options lap-settings-card">
-        <div class="lap-settings-copy">
-          <span class="field-label">Jumlah Lap</span>
-          <strong>Atur panjang balapan</strong>
-          <small>Host memilih total lap sebelum balapan dimulai. Semakin banyak lap, teks balapan ikut lebih
-            panjang.</small>
+        <div class="lap-settings-head">
+          <div>
+            <span class="field-label">Race Distance</span>
+            <h3>Pilih Jumlah Lap</h3>
+            <p>Atur panjang balapan sebelum race dimulai.</p>
+          </div>
+
+          <div class="lap-preview">
+            <span id="lapPreviewValue">1</span>
+            <small>LAP</small>
+          </div>
         </div>
 
-        <div class="lap-select-wrap">
-          <select id="lapCountSelect" class="lap-select">
-            <option value="1">1 Lap</option>
-            <option value="2">2 Lap</option>
-            <option value="3">3 Lap</option>
-            <option value="4">4 Lap</option>
-            <option value="5">5 Lap</option>
-          </select>
+        <select id="lapCountSelect" class="lap-select-hidden" aria-label="Jumlah lap">
+          <option value="1">1 Lap</option>
+          <option value="2">2 Lap</option>
+          <option value="3">3 Lap</option>
+          <option value="4">4 Lap</option>
+          <option value="5">5 Lap</option>
+        </select>
+
+        <div id="lapOptionGroup" class="lap-option-grid">
+          <button type="button" class="lap-option active" data-lap="1">
+            <span>01</span>
+            <strong>Sprint</strong>
+            <small>Singkat</small>
+          </button>
+
+          <button type="button" class="lap-option" data-lap="2">
+            <span>02</span>
+            <strong>Short</strong>
+            <small>Santai</small>
+          </button>
+
+          <button type="button" class="lap-option" data-lap="3">
+            <span>03</span>
+            <strong>Standard</strong>
+            <small>Seimbang</small>
+          </button>
+
+          <button type="button" class="lap-option" data-lap="4">
+            <span>04</span>
+            <strong>Extended</strong>
+            <small>Panjang</small>
+          </button>
+
+          <button type="button" class="lap-option" data-lap="5">
+            <span>05</span>
+            <strong>Endurance</strong>
+            <small>Fokus</small>
+          </button>
         </div>
       </div>
 

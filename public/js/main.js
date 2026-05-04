@@ -31,6 +31,8 @@ class F1TypingBattleApp {
       roomCodeDisplay: document.getElementById('roomCodeDisplay'),
       playersList: document.getElementById('playersList'),
       lapCountSelect: document.getElementById('lapCountSelect'),
+      lapOptionGroup: document.getElementById('lapOptionGroup'),
+      lapPreviewValue: document.getElementById('lapPreviewValue'),
       lobbyStateLabel: document.getElementById('lobbyStateLabel'),
       loadingText: document.getElementById('loadingText'),
       textToType: document.getElementById('textToType'),
@@ -137,8 +139,21 @@ class F1TypingBattleApp {
     this.elements.joinRoomBtn.addEventListener('click', () => this.openJoinModal());
     this.elements.confirmJoinBtn.addEventListener('click', () => this.joinRoom());
     this.elements.cancelJoinBtn.addEventListener('click', () => this.closeJoinModal());
-    this.elements.lapCountSelect?.addEventListener('change', () => {
-      this.network.setLapCount(this.elements.lapCountSelect.value);
+    this.elements.lapOptionGroup?.addEventListener('click', (event) => {
+      const button = event.target.closest('.lap-option');
+
+      if (!button || button.disabled) {
+        return;
+      }
+
+      const selectedLap = button.dataset.lap;
+
+      if (!selectedLap || !this.elements.lapCountSelect) {
+        return;
+      }
+
+      this.elements.lapCountSelect.value = selectedLap;
+      this.network.setLapCount(selectedLap);
       this.updateLapSelect();
     });
 
@@ -215,7 +230,7 @@ class F1TypingBattleApp {
   syncScreenAudio() {
     const shouldPlayLobbyMusic = ['menu', 'loading', 'lobby'].includes(this.currentScreen);
     this.game?.setLobbyMusicActive(shouldPlayLobbyMusic);
-  
+
     if (this.currentScreen !== 'results') {
       this.stopResultsMusic();
     }
@@ -440,6 +455,11 @@ class F1TypingBattleApp {
       this.elements.lapCountSelect.disabled = !canEditLapCount;
     }
 
+    const lapButtons = this.elements.lapOptionGroup?.querySelectorAll('.lap-option') || [];
+    lapButtons.forEach((button) => {
+      button.disabled = !canEditLapCount;
+    });
+
     if (this.network.state === 'finished') {
       this.elements.playAgainBtn.textContent = isHost ? 'Main Lagi' : 'Kembali ke Room';
       this.elements.playAgainBtn.disabled = isHost ? !canPlayAgain : !hasRoom;
@@ -454,7 +474,21 @@ class F1TypingBattleApp {
       return;
     }
 
-    this.elements.lapCountSelect.value = String(this.network.lapCount || 1);
+    const selectedLap = String(this.network.lapCount || 1);
+    this.elements.lapCountSelect.value = selectedLap;
+
+    if (this.elements.lapPreviewValue) {
+      this.elements.lapPreviewValue.textContent = selectedLap;
+    }
+
+    const isDisabled = !!this.elements.lapCountSelect.disabled;
+    const buttons = this.elements.lapOptionGroup?.querySelectorAll('.lap-option') || [];
+
+    buttons.forEach((button) => {
+      const isActive = button.dataset.lap === selectedLap;
+      button.classList.toggle('active', isActive);
+      button.disabled = isDisabled;
+    });
   }
 
   handleRoomUpdated(payload) {
