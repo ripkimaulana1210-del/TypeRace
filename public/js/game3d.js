@@ -20,10 +20,19 @@ const TEXT_CHARS_PER_VISUAL_LAP = 220;
 const MIN_LONG_TEXT_LAPS = 3;
 const MIN_VISUAL_LAPS = 1;
 const MAX_VISUAL_LAPS = 5;
-const MODEL_CURVE_BINS = 180;
+const MODEL_CURVE_BINS = 260;
 const MODEL_CURVE_MIN_POINTS = 32;
 const MODEL_MAIN_RACE_START_INDEX = 0;
 const MODEL_RACE_DECOR_Y_OFFSET = 0.22;
+const MODEL_AUTO_ROUTE_GUIDE_SAMPLES = 360;
+const MODEL_AUTO_ROUTE_MAX_GUIDE_DISTANCE = 42;
+const MODEL_AUTO_ROUTE_SOFT_GUIDE_DISTANCE = 18;
+const MODEL_AUTO_ROUTE_MIN_GUIDE_COVERAGE = 0.82;
+const MODEL_AUTO_ROUTE_MIN_CONFIDENCE = 0.72;
+const MODEL_AUTO_ROUTE_MAX_CONSECUTIVE_MISSES = 10;
+const MODEL_AUTO_ROUTE_MAX_BACKTRACK_SAMPLES = 28;
+const MODEL_AUTO_ROUTE_MIN_LENGTH_RATIO = 0.7;
+const MODEL_AUTO_ROUTE_MAX_LENGTH_RATIO = 1.35;
 const MODEL_START_HINTS = [
   new THREE.Vector3(42.6, 0, 155.7),
   new THREE.Vector3(106.0, 0, 155.7),
@@ -391,10 +400,193 @@ function createClosedRouteCurve(routePoints) {
   return curvePath;
 }
 
-function createMainRaceTrackCurve() {
-  const routePoints = MODEL_MAIN_RACE_POINTS
+function getMainRaceRoutePoints() {
+  return MODEL_MAIN_RACE_POINTS
     .slice(MODEL_MAIN_RACE_START_INDEX)
     .concat(MODEL_MAIN_RACE_POINTS.slice(0, MODEL_MAIN_RACE_START_INDEX));
+}
+
+function getRouteLength(points) {
+  if (!Array.isArray(points) || points.length < 2) {
+    return 0;
+  }
+
+  let length = 0;
+
+  for (let index = 0; index < points.length; index += 1) {
+    length += points[index].distanceTo(points[(index + 1) % points.length]);
+  }
+
+  return length;
+}
+
+function createMainRaceGuide() {
+  const routePoints = getMainRaceRoutePoints();
+  const curve = createClosedRouteCurve(routePoints);
+  const samples = [];
+
+  for (let index = 0; index < MODEL_AUTO_ROUTE_GUIDE_SAMPLES; index += 1) {
+    samples.push(curve.getPointAt(index / MODEL_AUTO_ROUTE_GUIDE_SAMPLES));
+  }
+
+  return {
+    curve,
+    samples,
+    length: curve.getLength()
+  };
+}
+
+function getNearestGuideMatch(point, guideSamples) {
+  let bestDistanceSq = Infinity;
+  let bestIndex = 0;
+
+  guideSamples.forEach((sample, index) => {
+    const dx = point.x - sample.x;
+    const dz = point.z - sample.z;
+    const distanceSq = (dx * dx) + (dz * dz);
+
+    if (distanceSq < bestDistanceSq) {
+      bestDistanceSq = distanceSq;
+      bestIndex = index;
+    }
+  });
+
+  return {
+    distance: Math.sqrt(bestDistanceSq),
+    index: bestIndex
+  };
+}
+
+function validateGeneratedMainRoute(points) {
+  if (!Array.isArray(points) || points.length < MODEL_CURVE_MIN_POINTS) {
+    return {
+      accepted: false,
+      confidence: 0,
+      reason: 'not enough generated points'
+    };
+  }
+
+  const guide = createMainRaceGuide();
+  const hardLimit = MODEL_AUTO_ROUTE_MAX_GUIDE_DISTANCE;
+  const softLimit = MODEL_AUTO_ROUTE_SOFT_GUIDE_DISTANCE;
+  let coveredPoints = 0;
+  let consecutiveMisses = 0;
+  let maxConsecutiveMisses = 0;
+  let maxGuideProgress = 0;
+  let maxBacktrack = 0;
+  let distanceScore = 0;
+  let startGuideIndex = null;
+
+  for (const point of points) {
+    const guideMatch = getNearestGuideMatch(point, guide.samples);
+    const distance = guideMatch.distance;
+
+    if (startGuideIndex === null) {
+      startGuideIndex = guideMatch.index;
+    }
+
+    const guideProgress = (
+      guideMatch.index - startGuideIndex + guide.samples.length
+    ) % guide.samples.length;
+    const backtrack = maxGuideProgress - guideProgress;
+
+    if (backtrack > 0) {
+      maxBacktrack = Math.max(maxBacktrack, backtrack);
+    } else {
+      maxGuideProgress = guideProgress;
+    }
+
+    if (distance <= hardLimit) {
+      coveredPoints += 1;
+      consecutiveMisses = 0;
+    } else {
+      consecutiveMisses += 1;
+      maxConsecutiveMisses = Math.max(maxConsecutiveMisses, consecutiveMisses);
+    }
+
+    distanceScore += THREE.MathUtils.clamp(
+      (hardLimit - distance) / Math.max(hardLimit - softLimit, 0.0001),
+      0,
+      1
+    );
+  }
+
+  const guideCoverage = coveredPoints / points.length;
+  const routeLength = getRouteLength(points);
+  const lengthRatio = routeLength / Math.max(guide.length, 0.0001);
+  const lengthScore = THREE.MathUtils.clamp(
+    1 - Math.abs(1 - lengthRatio) / 0.35,
+    0,
+    1
+  );
+  const missScore = 1 - THREE.MathUtils.clamp(
+    maxConsecutiveMisses / MODEL_AUTO_ROUTE_MAX_CONSECUTIVE_MISSES,
+    0,
+    1
+  );
+  const progressScore = 1 - THREE.MathUtils.clamp(
+    maxBacktrack / MODEL_AUTO_ROUTE_MAX_BACKTRACK_SAMPLES,
+    0,
+    1
+  );
+  const confidence = (guideCoverage * 0.5)
+    + ((distanceScore / points.length) * 0.25)
+    + (lengthScore * 0.12)
+    + (progressScore * 0.08)
+    + (missScore * 0.05);
+
+  if (guideCoverage < MODEL_AUTO_ROUTE_MIN_GUIDE_COVERAGE) {
+    return {
+      accepted: false,
+      confidence,
+      reason: `guide coverage ${Math.round(guideCoverage * 100)}%`
+    };
+  }
+
+  if (maxConsecutiveMisses > MODEL_AUTO_ROUTE_MAX_CONSECUTIVE_MISSES) {
+    return {
+      accepted: false,
+      confidence,
+      reason: `off-guide streak ${maxConsecutiveMisses}`
+    };
+  }
+
+  if (
+    lengthRatio < MODEL_AUTO_ROUTE_MIN_LENGTH_RATIO
+    || lengthRatio > MODEL_AUTO_ROUTE_MAX_LENGTH_RATIO
+  ) {
+    return {
+      accepted: false,
+      confidence,
+      reason: `length ratio ${lengthRatio.toFixed(2)}`
+    };
+  }
+
+  if (maxBacktrack > MODEL_AUTO_ROUTE_MAX_BACKTRACK_SAMPLES) {
+    return {
+      accepted: false,
+      confidence,
+      reason: `guide backtrack ${maxBacktrack}`
+    };
+  }
+
+  if (confidence < MODEL_AUTO_ROUTE_MIN_CONFIDENCE) {
+    return {
+      accepted: false,
+      confidence,
+      reason: `confidence ${Math.round(confidence * 100)}%`
+    };
+  }
+
+  return {
+    accepted: true,
+    confidence,
+    reason: 'validated against main route guide'
+  };
+}
+
+function createMainRaceTrackCurve() {
+  const routePoints = getMainRaceRoutePoints();
   const curve = createClosedRouteCurve(routePoints);
 
   return {
@@ -616,10 +808,23 @@ function buildCurveFromRoadMesh(mesh) {
   points = rotatePointsToStartHint(smoothClosedPoints(points));
   points = ensureGeneratedRouteDirection(points);
 
+  const validation = validateGeneratedMainRoute(points);
+
+  if (!validation.accepted) {
+    console.warn(
+      `Generated route rejected for ${mesh.name || mesh.parent?.name || 'road mesh'}: ${validation.reason}`
+    );
+    return null;
+  }
+
   const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal', 0.5);
+  curve.arcLengthDivisions = Math.max(1600, points.length * 12);
+  curve.updateArcLengths();
+
   return {
     curve,
-    length: curve.getLength()
+    length: curve.getLength(),
+    confidence: validation.confidence
   };
 }
 
@@ -977,7 +1182,9 @@ export class Game3D {
             const modelTrack = generatedRoadTrack || createMainRaceTrackCurve();
 
             console.log(
-              `Race route source: ${generatedRoadTrack ? 'GLB road mesh centerline' : 'manual fallback points'}`
+              generatedRoadTrack
+                ? `Race route source: validated GLB main loop (${Math.round(generatedRoadTrack.confidence * 100)}% confidence)`
+                : 'Race route source: manual fallback points'
             );
 
             if (modelTrack) {
