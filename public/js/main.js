@@ -14,6 +14,7 @@ class F1TypingBattleApp {
     this.playerName = '';
     this.lastRoomCode = '';
     this.latestResults = [];
+    this.resultsMusic = null;
     this.elements = this.getElements();
   }
 
@@ -97,10 +98,40 @@ class F1TypingBattleApp {
   async safeResumeAudio() {
     try {
       await this.game?.resumeAudio();
+      this.initResultsMusic();
       this.syncScreenAudio();
     } catch (error) {
       console.warn('Audio belum bisa diaktifkan:', error);
     }
+  }
+
+  initResultsMusic() {
+    if (this.resultsMusic) {
+      return;
+    }
+
+    this.resultsMusic = new Audio('/audio/AfterRace.mp3');
+    this.resultsMusic.loop = true;
+    this.resultsMusic.volume = 0.45;
+  }
+
+  async playResultsMusic() {
+    try {
+      this.initResultsMusic();
+      this.resultsMusic.currentTime = 0;
+      await this.resultsMusic.play();
+    } catch (error) {
+      console.warn('Musik after race belum bisa diputar:', error);
+    }
+  }
+
+  stopResultsMusic() {
+    if (!this.resultsMusic) {
+      return;
+    }
+
+    this.resultsMusic.pause();
+    this.resultsMusic.currentTime = 0;
   }
 
   bindUI() {
@@ -113,20 +144,25 @@ class F1TypingBattleApp {
       this.network.setLapCount(this.elements.lapCountSelect.value);
       this.updateLapSelect();
     });
+
     this.elements.startRaceBtn.addEventListener('click', async () => {
       await this.safeResumeAudio();
       this.syncCircuitProfile();
+
       if (this.network.state === 'finished') {
         this.network.playAgain();
         return;
       }
+
       this.network.startRace();
     });
+
     this.elements.leaveLobbyBtn.addEventListener('click', () => this.leaveLobby());
     this.elements.backToRoomBtn.addEventListener('click', () => this.returnToRoom());
     this.elements.playAgainBtn.addEventListener('click', async () => this.playAgain());
     this.elements.backToMenuBtn.addEventListener('click', () => this.leaveLobby());
     this.elements.typingInput.addEventListener('keydown', (event) => this.handleTyping(event));
+
     window.addEventListener('pointerdown', () => {
       this.safeResumeAudio();
     }, { passive: true });
@@ -134,6 +170,7 @@ class F1TypingBattleApp {
     window.addEventListener('trackLoaded', (event) => {
       const detail = event?.detail || {};
       this.syncCircuitProfile();
+
       if (this.elements.trackLoadingOverlay) {
         if (detail.success) {
           this.elements.trackLoadingOverlay.classList.add('hidden');
@@ -165,19 +202,26 @@ class F1TypingBattleApp {
       if (!element) {
         return;
       }
+
       element.classList.toggle('active', screenName === name);
       element.classList.toggle('hidden', screenName !== name);
     });
+
     this.currentScreen = name;
     this.syncScreenAudio();
+
     if (name === 'game') {
       requestAnimationFrame(() => this.elements.typingInput.focus());
     }
   }
 
   syncScreenAudio() {
-    const shouldPlayLobbyMusic = this.currentScreen === 'lobby' || this.currentScreen === 'results';
+    const shouldPlayLobbyMusic = ['menu', 'loading', 'lobby'].includes(this.currentScreen);
     this.game?.setLobbyMusicActive(shouldPlayLobbyMusic);
+  
+    if (this.currentScreen !== 'results') {
+      this.stopResultsMusic();
+    }
   }
 
   syncCircuitProfile() {
@@ -212,12 +256,13 @@ class F1TypingBattleApp {
     }
 
     this.lastRoomCode = normalizedCode;
+
     try {
       window.localStorage.setItem(SAVED_SESSION_KEY, JSON.stringify({
         roomCode: normalizedCode,
         playerName: String(playerName || '').trim().slice(0, 20)
       }));
-    } catch (_error) {}
+    } catch (_error) { }
 
     this.updateSavedRoomUI();
   }
@@ -251,10 +296,12 @@ class F1TypingBattleApp {
 
   requireName() {
     const name = this.elements.playerNameInput.value.trim();
+
     if (!name) {
       alert('Masukkan nama pembalap dulu.');
       return null;
     }
+
     this.playerName = name;
     return name;
   }
@@ -264,9 +311,11 @@ class F1TypingBattleApp {
     if (!playerName) {
       return;
     }
+
     await this.safeResumeAudio();
     this.showScreen('loading');
     this.elements.loadingText.textContent = 'Membuat ruang...';
+
     try {
       const response = await this.network.createRoom(playerName);
       this.rememberRoom(response.roomCode, playerName);
@@ -282,6 +331,7 @@ class F1TypingBattleApp {
     if (!playerName) {
       return;
     }
+
     this.elements.roomCodeInput.value = '';
     this.elements.joinModal.classList.remove('hidden');
   }
@@ -292,14 +342,17 @@ class F1TypingBattleApp {
 
   async joinRoom() {
     const roomCode = this.elements.roomCodeInput.value.trim().toUpperCase();
+
     if (!roomCode) {
       alert('Masukkan kode ruang.');
       return;
     }
+
     await this.safeResumeAudio();
     this.closeJoinModal();
     this.showScreen('loading');
     this.elements.loadingText.textContent = 'Masuk ke ruang...';
+
     try {
       await this.network.joinRoom(roomCode, this.playerName);
       this.rememberRoom(roomCode, this.playerName);
@@ -360,6 +413,7 @@ class F1TypingBattleApp {
     }
 
     const isHost = this.network.hostId === this.network.socket?.id;
+
     if (isHost) {
       this.network.playAgain();
       return;
@@ -369,6 +423,7 @@ class F1TypingBattleApp {
   }
 
   resetToMenu() {
+    this.stopResultsMusic();
     this.typing.reset();
     this.latestResults = [];
     this.closeJoinModal();
@@ -391,7 +446,9 @@ class F1TypingBattleApp {
     this.elements.startRaceBtn.textContent = this.network.state === 'finished'
       ? 'Main Lagi'
       : 'Mulai Balapan';
+
     this.elements.startRaceBtn.disabled = !(canStart || canPlayAgain);
+
     if (this.elements.lapCountSelect) {
       this.elements.lapCountSelect.disabled = !canEditLapCount;
     }
@@ -418,7 +475,13 @@ class F1TypingBattleApp {
     this.network.players = payload.players || [];
     this.network.hostId = payload.hostId || payload.players?.[0]?.id || null;
     this.network.state = payload.state;
+
+    if (Number.isFinite(Number(payload.lapCount))) {
+      this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount))));
+    }
+
     this.network.applyCircuitProfile(payload.circuit);
+    this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount) || this.network.lapCount || 1)));
     this.rememberRoom(payload.roomCode, this.playerName || this.elements.playerNameInput.value);
 
     if (payload.state === 'waiting' || this.currentScreen === 'loading') {
@@ -435,6 +498,7 @@ class F1TypingBattleApp {
       card.className = 'player-card';
       const isYou = player.id === this.network.socket.id;
       const isHost = player.id === this.network.hostId;
+
       card.innerHTML = `
         <div>
           <strong>${this.escapeHtml(player.name)}</strong>
@@ -443,6 +507,7 @@ class F1TypingBattleApp {
         ${isHost ? '<span class="badge">Tuan rumah</span>' : '<span></span>'}
         ${isYou ? '<span class="badge">Kamu</span>' : '<span></span>'}
       `;
+
       this.elements.playersList.appendChild(card);
     });
 
@@ -458,10 +523,19 @@ class F1TypingBattleApp {
   }
 
   handleCountdownStart(payload) {
+    this.stopResultsMusic();
     this.network.applyCircuitProfile(payload.circuit);
+
+    if (Number.isFinite(Number(payload.lapCount))) {
+      this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount))));
+    }
+
+    this.updateLapSelect();
     this.syncCircuitProfile();
     this.typing.setText(payload.text);
     this.game?.setRaceText(payload.text, this.network.lapCount);
+    this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount) || this.network.lapCount || 1)));
+    this.updateLapSelect();
     this.renderTyping();
     this.elements.raceStatusLabel.textContent = 'Bersiap di Grid';
     this.elements.countdownOverlay.textContent = '3';
@@ -477,8 +551,17 @@ class F1TypingBattleApp {
   }
 
   handleRaceStart(payload) {
+    this.stopResultsMusic();
     this.network.applyCircuitProfile(payload.circuit);
+
+    if (Number.isFinite(Number(payload.lapCount))) {
+      this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount))));
+    }
+
+    this.updateLapSelect();
     this.game?.setRaceText(payload.text, this.network.lapCount);
+    this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount) || this.network.lapCount || 1)));
+    this.updateLapSelect();
     this.typing.start(payload.startTime);
     this.elements.countdownOverlay.classList.add('hidden');
     this.elements.raceStatusLabel.textContent = 'Balapan Berjalan';
@@ -492,12 +575,13 @@ class F1TypingBattleApp {
     this.game?.updatePlayers(payload.positions);
   }
 
-  handleRaceFinished(payload) {
+  async handleRaceFinished(payload) {
     this.latestResults = payload.results;
     this.network.state = 'finished';
     this.game?.stopRace();
     this.renderResults(payload.results);
     this.showScreen('results');
+    await this.playResultsMusic();
     this.updateRoomActions();
   }
 
@@ -505,13 +589,18 @@ class F1TypingBattleApp {
     if (this.currentScreen !== 'game') {
       return;
     }
+
     this.safeResumeAudio();
     event.preventDefault();
+
     const char = event.key;
+
     if (char.length !== 1) {
       return;
     }
+
     const result = this.typing.handleInput(char);
+
     if (!result.accepted) {
       return;
     }
@@ -521,6 +610,7 @@ class F1TypingBattleApp {
 
     if (result.correct) {
       this.game?.playCorrectInput();
+
       if (result.keyIntervalMs <= FAST_INPUT_WINDOW_MS) {
         this.elements.inputFeedback.textContent = 'Input tepat dan cepat. Kecepatan naik.';
       } else if (result.keyIntervalMs > SLOW_INPUT_WINDOW_MS) {
@@ -528,7 +618,9 @@ class F1TypingBattleApp {
       } else {
         this.elements.inputFeedback.textContent = 'Input tepat. Kecepatan terjaga.';
       }
+
       this.elements.inputFeedback.className = 'input-feedback correct';
+
       if (result.segmentChanged) {
         this.game?.playSegmentComplete();
       }
@@ -547,20 +639,25 @@ class F1TypingBattleApp {
 
   renderTyping() {
     const display = this.typing.getDisplay();
+
     this.elements.textToType.innerHTML = `
       <span class="typed">${this.escapeHtml(display.typed)}</span><span class="current">${this.escapeHtml(display.current)}</span><span class="remaining">${this.escapeHtml(display.remaining)}</span>
     `;
+
     const stats = this.typing.getStats();
     const lapInfo = this.getLapInfoForProgress(stats.progress);
+
     this.elements.wpmDisplay.textContent = String(stats.wpm);
     this.elements.accuracyDisplay.textContent = `${stats.accuracy}%`;
     this.elements.progressDisplay.textContent = `${stats.progress}%`;
+
     if (this.elements.lapDisplay) {
-      this.elements.lapDisplay.textContent = `${lapInfo.currentLap}/${lapInfo.totalLaps}`;
+      this.elements.lapDisplay.textContent = `${lapInfo.completedLaps}/${lapInfo.totalLaps}`;
     }
+
     this.elements.textToType.dataset.segment = lapInfo.totalLaps > 1
-      ? `${display.segmentIndex + 1}/${display.segmentCount || 1} - Lap ${lapInfo.currentLap}/${lapInfo.totalLaps}`
-      : `${display.segmentIndex + 1}/${display.segmentCount || 1}`;
+      ? `${display.segmentIndex + 1}/${display.segmentCount || 1} - Lap ${lapInfo.completedLaps}/${lapInfo.totalLaps}`
+      : `${display.segmentIndex + 1}/${display.segmentCount || 1} - Lap ${lapInfo.completedLaps}/${lapInfo.totalLaps}`;
   }
 
   getLapInfoForProgress(progressPercent = 0) {
@@ -571,14 +668,21 @@ class F1TypingBattleApp {
     const totalLaps = Math.max(1, Math.min(5, Math.round(Number(this.network.lapCount) || 1)));
     const normalizedProgress = Math.max(0, Math.min(1, Number(progressPercent) / 100 || 0));
     const absoluteProgress = normalizedProgress * totalLaps;
+
+    const completedLaps = normalizedProgress >= 1
+      ? totalLaps
+      : Math.max(0, Math.min(totalLaps, Math.floor(absoluteProgress)));
+
     const currentLap = normalizedProgress >= 1
       ? totalLaps
-      : Math.min(totalLaps, Math.floor(absoluteProgress) + 1);
+      : Math.min(totalLaps, completedLaps + 1);
+
     const lapProgress = normalizedProgress >= 1
       ? 100
-      : Math.round((absoluteProgress - Math.floor(absoluteProgress)) * 100);
+      : Math.round((absoluteProgress - completedLaps) * 100);
 
     return {
+      completedLaps,
       currentLap,
       totalLaps,
       lapProgress
@@ -588,6 +692,7 @@ class F1TypingBattleApp {
   renderResults(results) {
     this.elements.resultsList.innerHTML = '';
     const roomCode = this.network.roomCode || this.getSavedRoomCode();
+
     if (this.elements.roomContextDisplay) {
       this.elements.roomContextDisplay.textContent = roomCode
         ? `Room ${roomCode} tetap aktif.`
@@ -597,6 +702,7 @@ class F1TypingBattleApp {
     results.forEach((player) => {
       const card = document.createElement('div');
       card.className = 'result-card';
+
       card.innerHTML = `
         <div>
           <strong>P${player.position} - ${this.escapeHtml(player.name)}</strong>
@@ -605,6 +711,7 @@ class F1TypingBattleApp {
         <div class="result-meta">KPM ${player.wpm}</div>
         <div class="result-meta">Akurasi ${player.accuracy}%</div>
       `;
+
       this.elements.resultsList.appendChild(card);
     });
   }

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +16,7 @@
     }
   </script>
 </head>
+
 <body>
   <div id="menuScreen" class="screen active">
     <div class="menu-frame">
@@ -78,17 +80,26 @@
           <span id="lobbyStateLabel">Menunggu pembalap</span>
         </div>
       </div>
-      <div id="playersList" class="players-list"></div>
-      <div class="race-options">
-        <label class="field-label" for="lapCountSelect">Jumlah lap</label>
-        <select id="lapCountSelect" class="input-field">
-          <option value="1">1 lap</option>
-          <option value="2">2 lap</option>
-          <option value="3">3 lap</option>
-          <option value="4">4 lap</option>
-          <option value="5">5 lap</option>
-        </select>
+      <div class="race-options lap-settings-card">
+        <div class="lap-settings-copy">
+          <span class="field-label">Jumlah Lap</span>
+          <strong>Atur panjang balapan</strong>
+          <small>Host memilih total lap sebelum balapan dimulai. Semakin banyak lap, teks balapan ikut lebih
+            panjang.</small>
+        </div>
+
+        <div class="lap-select-wrap">
+          <select id="lapCountSelect" class="lap-select">
+            <option value="1">1 Lap</option>
+            <option value="2">2 Lap</option>
+            <option value="3">3 Lap</option>
+            <option value="4">4 Lap</option>
+            <option value="5">5 Lap</option>
+          </select>
+        </div>
       </div>
+
+      <div id="playersList" class="players-list"></div>
       <div class="row-actions">
         <button id="startRaceBtn" class="btn btn-primary" type="button" disabled>Mulai Balapan</button>
         <button id="leaveLobbyBtn" class="btn btn-secondary" type="button">Keluar</button>
@@ -125,7 +136,7 @@
             </div>
             <div class="stat">
               <span class="stat-label">Lap</span>
-              <span id="lapDisplay" class="stat-value">1/1</span>
+              <span id="lapDisplay" class="stat-value">0/1</span>
             </div>
             <div class="stat">
               <span class="stat-label">Progres</span>
@@ -161,4 +172,5 @@
 
   <script type="module" src="js/main.js"></script>
 </body>
+
 </html>

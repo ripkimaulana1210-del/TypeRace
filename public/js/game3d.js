@@ -621,7 +621,7 @@ function buildRoadSurfaceSamples(surfaceMeshes) {
   const samples = [];
   const candidates = surfaceMeshes.filter((mesh) => (
     isPreferredCurveMesh(mesh)
-      && mesh?.geometry?.attributes?.position
+    && mesh?.geometry?.attributes?.position
   ));
 
   candidates.forEach((mesh) => {
@@ -777,7 +777,7 @@ export class Game3D {
       rotation: 12,
       camera: 9
     };
-    
+
     // Remote cars smooth interpolation
     this.remoteCarPreviousPoses = new Map();
     this.remoteCarTargetPoses = new Map();
@@ -1117,9 +1117,16 @@ export class Game3D {
     }
   }
 
-  setRaceText(text, lapCount = null) {
+  setRaceText(text, lapCount = 1) {
     this.raceTextLength = String(text || '').replace(/\s+/g, ' ').trim().length;
-    this.visualLapCount = normalizeVisualLapCount(lapCount) || getVisualLapCountForText(text);
+
+    const normalizedLapCount = Math.round(Number(lapCount) || 1);
+
+    this.visualLapCount = THREE.MathUtils.clamp(
+      normalizedLapCount,
+      1,
+      5
+    );
   }
 
   setVisualLapCount(lapCount) {
@@ -1142,17 +1149,24 @@ export class Game3D {
     const totalLaps = this.getVisualLapCount();
     const normalizedProgress = THREE.MathUtils.clamp(Number(progressPercent) / 100, 0, 1);
     const absoluteProgress = normalizedProgress * totalLaps;
+
+    const completedLaps = normalizedProgress >= 1
+      ? totalLaps
+      : Math.max(0, Math.min(totalLaps, Math.floor(absoluteProgress)));
+
     const currentLap = normalizedProgress >= 1
       ? totalLaps
-      : Math.min(totalLaps, Math.floor(absoluteProgress) + 1);
+      : Math.min(totalLaps, completedLaps + 1);
+
     const lapProgress = normalizedProgress >= 1
-      ? 1
-      : absoluteProgress - Math.floor(absoluteProgress);
+      ? 100
+      : Math.round((absoluteProgress - completedLaps) * 100);
 
     return {
+      completedLaps,
       currentLap,
       totalLaps,
-      lapProgress: Math.round(lapProgress * 100)
+      lapProgress
     };
   }
 
@@ -1186,13 +1200,13 @@ export class Game3D {
       remoteCar.car.progress = 0;
       this.remoteSurfaceCaches.set(playerId, { hit: null, progress: -1 });
       this.positionCarOnCircuit(remoteCar.car, 0, remoteCar.laneOffset, false, this.remoteSurfaceCaches.get(playerId));
-      
+
       // Reset smooth interpolation poses for remote car
       const prevPose = this.remoteCarPreviousPoses.get(playerId) || {};
       prevPose.position = remoteCar.car.group.position.clone();
       prevPose.quaternion = remoteCar.car.group.quaternion.clone();
       this.remoteCarPreviousPoses.set(playerId, prevPose);
-      
+
       const targetPose = this.remoteCarTargetPoses.get(playerId) || {};
       targetPose.position = remoteCar.car.group.position.clone();
       targetPose.quaternion = remoteCar.car.group.quaternion.clone();
@@ -1256,13 +1270,13 @@ export class Game3D {
       remoteCar.car.progress = 0;
       this.remoteSurfaceCaches.set(playerId, { hit: null, progress: -1 });
       this.positionCarOnCircuit(remoteCar.car, 0, remoteCar.laneOffset, false, this.remoteSurfaceCaches.get(playerId));
-      
+
       // Reset smooth interpolation poses for remote car
       const prevPose = this.remoteCarPreviousPoses.get(playerId) || {};
       prevPose.position = remoteCar.car.group.position.clone();
       prevPose.quaternion = remoteCar.car.group.quaternion.clone();
       this.remoteCarPreviousPoses.set(playerId, prevPose);
-      
+
       const targetPose = this.remoteCarTargetPoses.get(playerId) || {};
       targetPose.position = remoteCar.car.group.position.clone();
       targetPose.quaternion = remoteCar.car.group.quaternion.clone();
@@ -1327,7 +1341,13 @@ export class Game3D {
   }
 
   getVisualProgressLimit() {
-    return this.raceRunning ? Number.POSITIVE_INFINITY : this.getMaxVisualProgress();
+    const maxProgress = this.getMaxVisualProgress();
+
+    if (!this.raceRunning) {
+      return maxProgress;
+    }
+
+    return Math.max(0, maxProgress - 0.012);
   }
 
   getCruisingProgressTarget(authoritativeProgress, currentProgress, speed, deltaTime) {
@@ -1352,22 +1372,18 @@ export class Game3D {
     const progressPercent = Number.isFinite(player?.progressExact)
       ? player.progressExact
       : player?.progress || 0;
+
     const typedProgress = THREE.MathUtils.clamp(progressPercent / 100, 0, 1);
     const maxProgress = this.getMaxVisualProgress();
-    const typedLapProgress = typedProgress * maxProgress;
 
-    if (!this.trackLength || !player?.distance) {
-      return this.raceRunning
-        ? Math.max(0, typedLapProgress)
-        : THREE.MathUtils.clamp(typedLapProgress, 0, maxProgress);
+    if (typedProgress >= 1) {
+      return maxProgress;
     }
 
-    const distanceProgress = (player.distance || 0) / (this.trackLength * VISUAL_LAP_DISTANCE_SCALE);
-    const visualProgress = Math.max(typedLapProgress, distanceProgress);
+    const typedLapProgress = typedProgress * maxProgress;
+    const visualLimit = this.getVisualProgressLimit();
 
-    return this.raceRunning
-      ? Math.max(0, visualProgress)
-      : THREE.MathUtils.clamp(visualProgress, 0, maxProgress);
+    return THREE.MathUtils.clamp(typedLapProgress, 0, visualLimit);
   }
 
   getRemoteLaneOffset(playerId) {
@@ -1395,6 +1411,7 @@ export class Game3D {
         const color = REMOTE_CAR_COLORS[this.remoteCars.size % REMOTE_CAR_COLORS.length];
         const car = new Car3D(color);
         const label = createPlayerLabel(player.name, color);
+
         car.group.add(label);
         this.scene.add(car.group);
 
@@ -1412,13 +1429,20 @@ export class Game3D {
 
         this.remoteCars.set(player.id, remoteCar);
         this.remoteSurfaceCaches.set(player.id, { hit: null, progress: -1 });
-        this.positionCarOnCircuit(car, remoteCar.displayProgress, remoteCar.laneOffset, false, this.remoteSurfaceCaches.get(player.id));
-        
-        // Initialize smooth interpolation poses for remote car
+
+        this.positionCarOnCircuit(
+          car,
+          remoteCar.displayProgress,
+          remoteCar.laneOffset,
+          false,
+          this.remoteSurfaceCaches.get(player.id)
+        );
+
         this.remoteCarPreviousPoses.set(player.id, {
           position: car.group.position.clone(),
           quaternion: car.group.quaternion.clone()
         });
+
         this.remoteCarTargetPoses.set(player.id, {
           position: car.group.position.clone(),
           quaternion: car.group.quaternion.clone()
@@ -1426,6 +1450,7 @@ export class Game3D {
       }
 
       const nextProgress = this.getPlayerTargetProgress(player);
+
       if (nextProgress < remoteCar.targetProgress && nextProgress < 0.02) {
         remoteCar.displayProgress = nextProgress;
       }
@@ -1794,18 +1819,18 @@ export class Game3D {
       }
 
       this.localCar.displayProgress = smoothedProgress;
-      
+
       this.positionLocalCarOnCircuit(smoothedProgress);
-      
+
       this.localCarPreviousPose.position.copy(this.localCar.group.position);
       this.localCarPreviousPose.quaternion.copy(this.localCar.group.quaternion);
-      
+
       const posLerpFactor = 1 - Math.exp(-this.localCarSmoothRates.position * deltaTime);
       this.localCar.group.position.lerp(this.localCarTargetPose.position, posLerpFactor);
-      
+
       const rotLerpFactor = 1 - Math.exp(-this.localCarSmoothRates.rotation * deltaTime);
       this.localCar.group.quaternion.slerp(this.localCarTargetPose.quaternion, rotLerpFactor);
-      
+
       this.forwardDirection.copy(this.localCarTargetPose.tangent);
       this.rightDirection.copy(this.localCarTargetPose.right);
     } catch (error) {
@@ -1839,21 +1864,21 @@ export class Game3D {
         }
 
         const cache = this.remoteSurfaceCaches.get(playerId);
-        
+
         const targetPose = this.getTrackPoseForRemote(remoteCar.displayProgress, remoteCar.laneOffset, cache);
         this.remoteCarTargetPoses.set(playerId, targetPose);
-        
+
         const prevPose = this.remoteCarPreviousPoses.get(playerId) || {};
         prevPose.position = remoteCar.car.group.position.clone();
         prevPose.quaternion = remoteCar.car.group.quaternion.clone();
         this.remoteCarPreviousPoses.set(playerId, prevPose);
-        
+
         const posLerpFactor = 1 - Math.exp(-9 * deltaTime);
         remoteCar.car.group.position.lerp(targetPose.position, posLerpFactor);
-        
+
         const rotLerpFactor = 1 - Math.exp(-8 * deltaTime);
         remoteCar.car.group.quaternion.slerp(targetPose.quaternion, rotLerpFactor);
-        
+
         remoteCar.car.updateVisuals(deltaTime);
       });
     } catch (error) {
@@ -1912,7 +1937,7 @@ export class Game3D {
       this.lookTarget.copy(carPosition)
         .addScaledVector(WORLD_UP, this.cameraLookAhead.y)
         .addScaledVector(forward, this.cameraLookAhead.z + speedRatio * 3.2);
-      
+
       const cameraLookLerpFactor = 1 - Math.exp(-deltaTime * 9);
       this.cameraTarget.lerp(this.lookTarget, cameraLookLerpFactor);
       this.camera.lookAt(this.cameraTarget);

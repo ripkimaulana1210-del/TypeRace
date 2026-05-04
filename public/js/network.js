@@ -48,10 +48,12 @@ export class NetworkClient {
       }
 
       let settled = false;
+
       const timer = window.setTimeout(() => {
         if (settled) {
           return;
         }
+
         settled = true;
         reject(new Error(fallbackMessage));
       }, timeoutMs);
@@ -78,6 +80,7 @@ export class NetworkClient {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
+
     this.listeners.get(event).push(handler);
   }
 
@@ -99,14 +102,22 @@ export class NetworkClient {
         if (this.circuitProfile) {
           this.socket.emit('setCircuitProfile', this.getRaceProfile());
         }
+
         resolve();
       });
+
       this.socket.once('connect_error', (error) => reject(error));
 
-      ['roomUpdated', 'countdownStart', 'countdownTick', 'raceStart', 'playerUpdate', 'raceFinished']
-        .forEach((event) => {
-          this.socket.on(event, (payload) => this.emitLocal(event, payload));
-        });
+      [
+        'roomUpdated',
+        'countdownStart',
+        'countdownTick',
+        'raceStart',
+        'playerUpdate',
+        'raceFinished'
+      ].forEach((event) => {
+        this.socket.on(event, (payload) => this.emitLocal(event, payload));
+      });
     });
   }
 
@@ -150,15 +161,15 @@ export class NetworkClient {
     }
   }
 
-  setLapCount(lapCount) {
-    this.lapCount = normalizeLapCount(lapCount);
+  setLapCount(value) {
+    this.lapCount = normalizeLapCount(value);
 
     if (this.circuitProfile) {
       this.circuitProfile.lapCount = this.lapCount;
     }
 
     if (this.socket?.connected && this.roomCode) {
-      this.socket.emit('setCircuitProfile', this.getRaceProfile());
+      this.socket.emit('setLapCount', this.roomCode, this.lapCount);
     }
   }
 
@@ -167,9 +178,10 @@ export class NetworkClient {
       return;
     }
 
-    this.lapCount = normalizeLapCount(profile.lapCount);
+    this.lapCount = normalizeLapCount(profile.lapCount ?? this.lapCount);
 
     const trackLength = Number(profile.trackLength);
+
     if (!Number.isFinite(trackLength) || trackLength <= 0) {
       return;
     }
@@ -210,5 +222,6 @@ export class NetworkClient {
     this.players = [];
     this.hostId = null;
     this.state = 'waiting';
+    this.lapCount = DEFAULT_LAP_COUNT;
   }
 }
