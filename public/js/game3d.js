@@ -2227,6 +2227,7 @@ export class Game3D {
     this.circuitModel = null;
     this.circuitFallback = null;
     this.trackLoadFallbackTimer = null;
+    this.routeLockedForRace = false;
     this.mainRaceDecor = null;
     this.trackLifeDecor = null;
     this.finishCeremonyGroup = null;
@@ -2466,6 +2467,17 @@ export class Game3D {
             prepareCircuitModel(model);
             model.name = 'TrackGLBCircuit';
             model.position.y += TRACK_MODEL_Y_OFFSET;
+
+            if (this.routeLockedForRace) {
+              disposeObject3D(model);
+              this.completeTrackLoad({
+                success: false,
+                deferred: true,
+                reason: 'race-route-locked'
+              });
+              return;
+            }
+
             this.scene.add(model);
             model.updateMatrixWorld(true);
             this.circuitModel = model;
@@ -2762,6 +2774,7 @@ export class Game3D {
 
   startRace(startTime) {
     this.raceRunning = true;
+    this.routeLockedForRace = true;
     this.startTime = startTime;
     this.sound?.setLobbyMusicActive(false);
     this.sound?.startEngineLoop();
@@ -2803,6 +2816,7 @@ export class Game3D {
 
   stopRace() {
     this.raceRunning = false;
+    this.routeLockedForRace = false;
   }
 
   async resumeAudio() {
@@ -2957,6 +2971,7 @@ export class Game3D {
 
   prepareRaceGrid() {
     this.raceRunning = false;
+    this.routeLockedForRace = true;
     this.resetFinishCeremony();
 
     if (this.localCar) {

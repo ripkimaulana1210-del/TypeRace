@@ -100,7 +100,7 @@ const MAX_LAP_COUNT = 5;
 
 const TEXT_CHARS_PER_LAP = 230;
 const MIN_TEXT_CHARS_PER_LAP = 170;
-const MAX_TEXT_CHARS_PER_LAP = 510;
+const MAX_TEXT_CHARS_PER_LAP = 320;
 const MIN_RACE_TEXT_LENGTH = 160;
 const MAX_RACE_TEXT_LENGTH = 1450;
 const LONG_TRACK_TEXT_BUFFER_START = 900;
@@ -241,7 +241,7 @@ function getTargetTextLength(trackLength = DEFAULT_TRACK_LENGTH, lapCount = DEFA
   const charsPerLap = clampNumber(
     baseCharsPerLap + finishSectorBuffer,
     MIN_TEXT_CHARS_PER_LAP,
-    MAX_TEXT_CHARS_PER_LAP + 120
+    MAX_TEXT_CHARS_PER_LAP
   );
   const lapScale = 1 + (safeLapCount - 1) * 0.68;
 

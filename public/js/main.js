@@ -21,6 +21,7 @@ class F1TypingBattleApp {
     this.lastRaceEventId = null;
     this.radioHideTimer = null;
     this.finishReplayTimer = null;
+    this.isTrackReady = false;
     this.elements = this.getElements();
   }
 
@@ -113,10 +114,12 @@ class F1TypingBattleApp {
       this.startRouteHudLoop();
     } catch (error) {
       this.game = null;
+      this.isTrackReady = true;
       if (this.elements.trackLoadingOverlay) {
         this.elements.trackLoadingOverlay.classList.add('hidden');
       }
       this.elements.raceStatusLabel.textContent = 'Mode Typing';
+      this.updateRoomActions();
       console.warn('Scene 3D dinonaktifkan:', error);
     }
   }
@@ -182,6 +185,10 @@ class F1TypingBattleApp {
     });
 
     this.elements.startRaceBtn.addEventListener('click', async () => {
+      if (!this.isTrackReady) {
+        return;
+      }
+
       await this.safeResumeAudio();
       this.syncCircuitProfile();
 
@@ -211,8 +218,10 @@ class F1TypingBattleApp {
 
     window.addEventListener('trackLoaded', (event) => {
       const detail = event?.detail || {};
+      this.isTrackReady = true;
       this.syncCircuitProfile();
       this.renderRouteHud();
+      this.updateRoomActions();
 
       if (this.elements.trackLoadingOverlay) {
         if (detail.success) {
@@ -254,7 +263,11 @@ class F1TypingBattleApp {
     this.syncScreenAudio();
 
     if (name === 'game') {
-      requestAnimationFrame(() => this.elements.typingInput.focus());
+      requestAnimationFrame(() => {
+        if (this.network.state === 'racing' && !this.elements.typingInput.disabled) {
+          this.elements.typingInput.focus();
+        }
+      });
     }
   }
 
@@ -576,6 +589,7 @@ class F1TypingBattleApp {
       return;
     }
 
+    this.setTypingInputActive(false);
     this.elements.countdownOverlay.classList.add('hidden');
     this.showScreen('lobby');
     this.updateRoomActions();
@@ -602,12 +616,14 @@ class F1TypingBattleApp {
 
   resetToMenu() {
     this.stopResultsMusic();
+    this.game?.stopRace();
     this.typing.reset();
     this.latestResults = [];
     this.closeJoinModal();
     this.elements.countdownOverlay.classList.add('hidden');
     this.elements.inputFeedback.textContent = '';
     this.elements.inputFeedback.className = 'input-feedback';
+    this.setTypingInputActive(false);
     this.elements.raceStatusLabel.textContent = 'Grid Siap';
     this.updateSavedRoomUI();
     this.showScreen('menu');
@@ -616,14 +632,16 @@ class F1TypingBattleApp {
   updateRoomActions() {
     const playerCount = this.network.players?.length || 0;
     const isHost = this.network.hostId === this.network.socket?.id;
-    const canStart = isHost && playerCount >= 1 && this.network.state === 'waiting';
+    const canStart = isHost && playerCount >= 1 && this.network.state === 'waiting' && this.isTrackReady;
     const canPlayAgain = isHost && playerCount >= 1 && this.network.state === 'finished';
     const hasRoom = Boolean(this.network.roomCode);
     const canEditLapCount = isHost && (this.network.state === 'waiting' || this.network.state === 'finished');
 
-    this.elements.startRaceBtn.textContent = this.network.state === 'finished'
-      ? 'Main Lagi'
-      : 'Mulai Balapan';
+    this.elements.startRaceBtn.textContent = !this.isTrackReady && this.network.state === 'waiting'
+      ? 'Menyiapkan Sirkuit'
+      : this.network.state === 'finished'
+        ? 'Main Lagi'
+        : 'Mulai Balapan';
 
     this.elements.startRaceBtn.disabled = !(canStart || canPlayAgain);
 
@@ -721,6 +739,7 @@ class F1TypingBattleApp {
 
   handleCountdownStart(payload) {
     this.stopResultsMusic();
+    this.network.state = 'countdown';
     this.network.applyCircuitProfile(payload.circuit);
 
     if (Number.isFinite(Number(payload.lapCount))) {
@@ -735,6 +754,7 @@ class F1TypingBattleApp {
     this.updateLapSelect();
     this.renderTyping();
     this.elements.raceStatusLabel.textContent = 'Bersiap di Grid';
+    this.setTypingInputActive(false);
     this.elements.countdownOverlay.textContent = '3';
     this.elements.countdownOverlay.classList.remove('hidden');
     this.game?.prepareRaceGrid();
@@ -749,6 +769,7 @@ class F1TypingBattleApp {
 
   async handleRaceStart(payload) {
     this.stopResultsMusic();
+    this.network.state = 'racing';
     this.network.applyCircuitProfile(payload.circuit);
 
     if (Number.isFinite(Number(payload.lapCount))) {
@@ -763,7 +784,7 @@ class F1TypingBattleApp {
     this.lastRaceEventId = null;
     this.elements.countdownOverlay.classList.add('hidden');
     this.elements.raceStatusLabel.textContent = 'Balapan Berjalan';
-    this.elements.typingInput.focus();
+    this.setTypingInputActive(true);
     this.game?.startRace(payload.startTime);
     await this.game?.resumeAudio();
     this.game?.playRaceStart();
@@ -825,6 +846,7 @@ class F1TypingBattleApp {
   async handleRaceFinished(payload) {
     this.latestResults = payload.results;
     this.network.state = 'finished';
+    this.setTypingInputActive(false);
     this.game?.triggerFinishCeremony?.();
     this.game?.startFinishReplay?.(FINISH_REPLAY_DURATION_MS);
     this.showFinishReplay(payload.results);
@@ -841,7 +863,8 @@ class F1TypingBattleApp {
   }
 
   handleTyping(event) {
-    if (this.currentScreen !== 'game') {
+    if (this.currentScreen !== 'game' || this.network.state !== 'racing') {
+      event.preventDefault();
       return;
     }
 
@@ -1091,6 +1114,23 @@ class F1TypingBattleApp {
 
       this.elements.resultsList.appendChild(card);
     });
+  }
+
+  setTypingInputActive(active) {
+    if (!this.elements.typingInput) {
+      return;
+    }
+
+    this.elements.typingInput.disabled = !active;
+    this.elements.typingInput.value = '';
+    this.elements.typingInput.placeholder = active ? '' : 'Tunggu start';
+
+    if (active) {
+      requestAnimationFrame(() => this.elements.typingInput.focus());
+      return;
+    }
+
+    this.elements.typingInput.blur();
   }
 
   formatDuration(timeMs = 0) {

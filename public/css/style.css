@@ -296,6 +296,11 @@ body::before {
   box-shadow: 0 0 0 3px rgba(255, 178, 63, 0.15);
 }
 
+.typing-input:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
 .primary-actions,
 .row-actions {
   display: flex;

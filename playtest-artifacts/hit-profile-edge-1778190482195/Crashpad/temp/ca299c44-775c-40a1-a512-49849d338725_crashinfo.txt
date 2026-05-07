@@ -1,0 +1,49 @@
+BrowserMainParts-state=PreBrowserStart
+BrowserProcessImpl-shutdownstate=running
+DumpWithoutCrashing-file=sandbox\policy\win\edge\edge_sandbox_win.cc
+DumpWithoutCrashing-line=546
+IsOfficialBuild=1
+KeepAliveCount=1
+KeepAliveRestartCount=0
+KeepAliveShuttingDown=0
+KeepAlives=REMOTE_DEBUGGING (1)
+LocaleDataPakExists-found_attrs=32
+LocaleDataPakExists-found_path=C:\Program Files (x86)\Microsoft\Edge\Application\147.0.3912.98\Locales\en-US.pak
+SandboxLaunchFailure-LastError=87
+SandboxLaunchFailure-ResultCode=SBOX_ERROR_CANNOT_CREATE_RESTRICTED_TOKEN
+SandboxLaunchFailure-SandboxType=kService
+ap=-full
+breadcrumbs=0:00:00 Microsoft.NewBrowser_Normal
+0:00:00 Microsoft.DeleteProfileHelper.CleanUpDeletedProfiles
+0:00:00 Microsoft.DeleteProfileHelper.CleanUpEphemeralProfiles
+0:00:00 Startup
+
+channel=
+chrome-trace-id=16473073978658574267
+chromium-version=147.0.7727.138
+exe=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+guid=7ab5808c-b0c0-44dd-8561-86b485350959
+is_copilot_mode_enabled=0
+metrics_client_id_hash=4872949486912861214
+metrics_session_id=0
+num-experiments=11
+num-extensions=0
+num-switches=8
+osarch=x86_64
+pid=14668
+plat=Win64
+prod=Edge
+ptype=browser
+reentry_guard_tls_slot=unused
+runtime_variations_seed_etag=
+switch-1=--headless=new
+switch-2=--remote-debugging-port=9356
+switch-3=--user-data-dir=C:\Users\Ace\Desktop\TypeRace\playtest-artifacts\hit-profile-edge-1778190482195
+switch-4=--noerrdialogs
+switch-5=--no-first-run
+switch-6=about:blank
+third_party_modules=UMPDC.dll;WindowManagementAPI.dll
+ux_config_correlation_id=
+variations=b6f29041-ca7d8d80,b357b792-3d47f4f4,f4f00e05-ca7d8d80,9481ce98-3d47f4f4,2a426c03-3d47f4f4,4b935545-3d47f4f4,9a38bae3-3d47f4f4,41ad04e1-16e9df14,2d1e43a3-3d47f4f4,370ace14-3f4a17df,386dc267-3d47f4f4,
+variations_seed_etag=
+ver=147.0.3912.98
