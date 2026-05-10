@@ -71,6 +71,7 @@ body::after {
 .menu-visual,
 .hud-card,
 .lap-settings-card,
+.setup-hero,
 .finish-ceremony-card {
   position: relative;
 }
@@ -79,6 +80,7 @@ body::after {
 .menu-panel::before,
 .hud-card::before,
 .lap-settings-card::before,
+.setup-hero::before,
 .finish-ceremony-card::after {
   content: "";
   position: absolute;
@@ -244,6 +246,139 @@ body::after {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.025)),
     rgba(8, 10, 11, 0.86);
+}
+
+.icon-btn {
+  border-radius: 3px;
+  border-color: rgba(255, 255, 255, 0.2);
+  background:
+    linear-gradient(135deg, rgba(240, 24, 24, 0.18), rgba(255, 255, 255, 0.025)),
+    rgba(7, 9, 10, 0.86);
+  clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+}
+
+.icon-btn:hover {
+  border-color: var(--f1-yellow);
+  color: var(--f1-yellow);
+}
+
+.pause-notice {
+  border-radius: 4px;
+  border-color: rgba(255, 204, 34, 0.32);
+  background:
+    linear-gradient(90deg, rgba(255, 204, 34, 0.14), transparent 44%),
+    rgba(7, 9, 10, 0.78);
+}
+
+.mode-card,
+.difficulty-option,
+.compact-lap-option {
+  border-radius: 3px;
+  border-color: rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 36%),
+    rgba(7, 9, 10, 0.84);
+  clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+}
+
+.setup-hero {
+  overflow: hidden;
+  border-radius: 4px;
+  border-color: rgba(255, 204, 34, 0.28);
+  background:
+    linear-gradient(90deg, rgba(240, 24, 24, 0.16), transparent 44%),
+    rgba(7, 9, 10, 0.76);
+}
+
+.setup-hero span {
+  color: var(--f1-yellow);
+}
+
+.setup-hero strong {
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(240, 24, 24, 0.25);
+}
+
+.mode-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(90deg, rgba(240, 24, 24, 0.24), transparent 56%),
+    linear-gradient(135deg, rgba(255, 204, 34, 0.12), transparent 48%);
+  transition: opacity 0.14s ease;
+}
+
+.mode-card span,
+.mode-card strong,
+.mode-card small {
+  position: relative;
+  z-index: 1;
+}
+
+.mode-card span,
+.compact-lap-option {
+  color: var(--f1-yellow);
+}
+
+.mode-card.active,
+.difficulty-option.active,
+.compact-lap-option.active {
+  border-color: var(--f1-yellow);
+  background:
+    linear-gradient(100deg, rgba(240, 24, 24, 0.28), rgba(255, 204, 34, 0.12)),
+    rgba(7, 9, 10, 0.92);
+  box-shadow: 0 14px 34px rgba(240, 24, 24, 0.18);
+}
+
+.mode-card.active::before {
+  opacity: 1;
+}
+
+.mode-switch .mode-card.active {
+  border-color: rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 36%),
+    rgba(7, 9, 10, 0.84);
+  box-shadow: none;
+}
+
+.mode-switch .mode-card.active::before {
+  opacity: 0;
+}
+
+.mode-switch .mode-card:hover,
+.mode-switch .mode-card:focus-visible {
+  border-color: var(--f1-red);
+  background:
+    linear-gradient(100deg, rgba(240, 24, 24, 0.3), rgba(255, 204, 34, 0.1)),
+    rgba(7, 9, 10, 0.92);
+  box-shadow: 0 14px 34px rgba(240, 24, 24, 0.2);
+}
+
+.mode-switch .mode-card:hover::before,
+.mode-switch .mode-card:focus-visible::before {
+  opacity: 1;
+}
+
+.ai-setup-panel {
+  border-radius: 4px;
+  border-color: rgba(255, 204, 34, 0.28);
+  background:
+    linear-gradient(90deg, rgba(240, 24, 24, 0.12), transparent 38%),
+    rgba(3, 5, 6, 0.58);
+}
+
+.difficulty-option {
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
 }
 
 .lobby-state,
@@ -738,16 +873,72 @@ body::after {
 }
 
 .results-panel {
-  width: min(980px, 100%);
+  width: min(1120px, 100%);
 }
 
 .finish-ceremony-card {
   border-radius: 5px;
   border-color: rgba(255, 204, 34, 0.32);
   background:
+    linear-gradient(118deg, transparent 0 12%, rgba(255, 255, 255, 0.05) 12% 24%, transparent 24% 44%, rgba(240, 24, 24, 0.12) 44% 48%, transparent 48%),
     linear-gradient(100deg, rgba(240, 24, 24, 0.22), transparent 36%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02)),
     rgba(6, 9, 10, 0.9);
+}
+
+.results-broadcast-head h2 {
+  font-size: clamp(2rem, 4.4vw, 4.4rem);
+  line-height: 0.9;
+}
+
+.podium-card {
+  border-radius: 3px;
+  border-color: rgba(255, 255, 255, 0.2);
+  clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+
+.podium-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 34%),
+    repeating-linear-gradient(135deg, transparent 0 24px, rgba(255, 255, 255, 0.035) 24px 26px);
+}
+
+.podium-1 {
+  border-color: rgba(25, 230, 140, 0.48);
+  box-shadow: 0 20px 46px rgba(25, 230, 140, 0.12);
+}
+
+.podium-2,
+.podium-3 {
+  border-color: rgba(255, 204, 34, 0.38);
+}
+
+.podium-card.empty {
+  opacity: 0.48;
+}
+
+.podium-number {
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 8px 28px rgba(0, 0, 0, 0.42);
+}
+
+.podium-driver-silhouette {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.1), transparent 38%),
+    linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.26));
+}
+
+.podium-1 .podium-driver-bar {
+  background: #6cf0c9;
+}
+
+.podium-2 .podium-driver-bar,
+.podium-3 .podium-driver-bar {
+  background: #ff982d;
 }
 
 .finish-checker-strip {

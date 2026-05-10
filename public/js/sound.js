@@ -45,6 +45,8 @@ export class EngineSoundController {
     this.resultsMusicWanted = false;
 
     this.lastCorrectSfxAt = 0;
+    this.bgmVolume = 0.65;
+    this.sfxVolume = 0.75;
 
     this.masterGain = this.context.createGain();
     this.masterGain.gain.value = 0.75;
@@ -262,7 +264,7 @@ export class EngineSoundController {
         return;
       }
 
-      rampParam(this.lobbyMusicGain.gain, 0.32, now, 0.35);
+      rampParam(this.lobbyMusicGain.gain, 0.32 * this.bgmVolume, now, 0.35);
       return;
     }
 
@@ -340,7 +342,7 @@ export class EngineSoundController {
         return;
       }
 
-      rampParam(this.resultsMusicGain.gain, 0.38, now, 0.45);
+      rampParam(this.resultsMusicGain.gain, 0.38 * this.bgmVolume, now, 0.45);
       return;
     }
 
@@ -453,14 +455,14 @@ export class EngineSoundController {
     }
 
     const targetVolume = this.userActivated && engineActive
-      ? ENGINE_VOLUME_IDLE + normalized * (ENGINE_VOLUME_FAST - ENGINE_VOLUME_IDLE)
+      ? (ENGINE_VOLUME_IDLE + normalized * (ENGINE_VOLUME_FAST - ENGINE_VOLUME_IDLE)) * this.sfxVolume
       : 0;
 
     const targetPlaybackRate = 0.78 + normalized * 0.72;
     const targetFilterFrequency = 1100 + normalized * 2600;
     const targetFundamental = 44 + normalized * 82;
     const targetHarmonic = targetFundamental * 2.02;
-    const targetSyntheticGain = 0.16 + normalized * 0.22;
+    const targetSyntheticGain = (0.16 + normalized * 0.22) * this.sfxVolume;
 
     rampParam(this.engineGain.gain, targetVolume, now, 0.12);
     rampParam(this.engineFilter.frequency, targetFilterFrequency, now, 0.12);
@@ -474,5 +476,17 @@ export class EngineSoundController {
       rampParam(this.syntheticEngineHarmonic.frequency, targetHarmonic, now, 0.12);
       rampParam(this.syntheticEngineGain.gain, targetSyntheticGain, now, 0.12);
     }
+  }
+
+  setBgmVolume(value = 0.65) {
+    this.bgmVolume = THREE.MathUtils.clamp(Number(value), 0, 1);
+    this.updateLobbyMusicState();
+    this.updateResultsMusicState();
+  }
+
+  setSfxVolume(value = 0.75) {
+    this.sfxVolume = THREE.MathUtils.clamp(Number(value), 0, 1);
+    const now = this.context.currentTime;
+    rampParam(this.sfxGain.gain, 0.62 * this.sfxVolume, now, 0.08);
   }
 }

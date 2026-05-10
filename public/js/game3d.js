@@ -2819,6 +2819,10 @@ export class Game3D {
     this.routeLockedForRace = false;
   }
 
+  setRacePaused(paused) {
+    this.raceRunning = !paused;
+  }
+
   async resumeAudio() {
     await this.sound?.unlock();
   }
@@ -2829,6 +2833,16 @@ export class Game3D {
 
   async setResultsMusicActive(active) {
     await this.sound?.setResultsMusicActive(active);
+  }
+
+  setAudioVolumes(volumes = {}) {
+    if (Number.isFinite(Number(volumes.bgm))) {
+      this.sound?.setBgmVolume(Number(volumes.bgm));
+    }
+
+    if (Number.isFinite(Number(volumes.sfx))) {
+      this.sound?.setSfxVolume(Number(volumes.sfx));
+    }
   }
 
   playCountdownTick(count) {

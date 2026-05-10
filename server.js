@@ -49,6 +49,62 @@ const RACE_EVENT_TTL_MS = 2200;
 const GHOST_PLAYER_ID_PREFIX = 'ghost:';
 const GHOST_BASE_WPM = 52;
 const GHOST_VARIANCE_WPM = 10;
+const AI_GHOST_COUNT = 5;
+const DEFAULT_GAME_MODE = 'multiplayer';
+const GAME_MODES = new Set(['multiplayer', 'ai']);
+const DEFAULT_BOT_DIFFICULTY = 'medium';
+const BOT_DIFFICULTIES = {
+  'very-easy': {
+    label: 'Very Easy',
+    name: 'Rookie AI',
+    wpm: 28,
+    variance: 4,
+    accuracy: 90,
+    maxSpeedRatio: 0.68,
+    grip: 0.94,
+    momentum: 0.92
+  },
+  easy: {
+    label: 'Easy',
+    name: 'Academy AI',
+    wpm: 38,
+    variance: 5,
+    accuracy: 93,
+    maxSpeedRatio: 0.76,
+    grip: 0.98,
+    momentum: 0.98
+  },
+  medium: {
+    label: 'Medium',
+    name: 'Rival AI',
+    wpm: 52,
+    variance: 7,
+    accuracy: 96,
+    maxSpeedRatio: 0.88,
+    grip: 1.05,
+    momentum: 1.08
+  },
+  hard: {
+    label: 'Hard',
+    name: 'Pro AI',
+    wpm: 66,
+    variance: 8,
+    accuracy: 98,
+    maxSpeedRatio: 0.96,
+    grip: 1.08,
+    momentum: 1.16
+  },
+  'very-hard': {
+    label: 'Very Hard',
+    name: 'Champion AI',
+    wpm: 82,
+    variance: 9,
+    accuracy: 99,
+    maxSpeedRatio: 1,
+    grip: 1.1,
+    momentum: 1.24
+  }
+};
 
 const RACE_SECTORS = [
   {
@@ -217,6 +273,16 @@ function normalizeLapCount(value = DEFAULT_LAP_COUNT) {
   return Math.round(clampNumber(lapCount, MIN_LAP_COUNT, MAX_LAP_COUNT));
 }
 
+function normalizeGameMode(value = DEFAULT_GAME_MODE) {
+  const mode = String(value || DEFAULT_GAME_MODE).trim().toLowerCase();
+  return GAME_MODES.has(mode) ? mode : DEFAULT_GAME_MODE;
+}
+
+function normalizeBotDifficulty(value = DEFAULT_BOT_DIFFICULTY) {
+  const difficulty = String(value || DEFAULT_BOT_DIFFICULTY).trim().toLowerCase();
+  return BOT_DIFFICULTIES[difficulty] ? difficulty : DEFAULT_BOT_DIFFICULTY;
+}
+
 function getTargetTextLength(trackLength = DEFAULT_TRACK_LENGTH, lapCount = DEFAULT_LAP_COUNT) {
   const rawTrackLength = Number(trackLength);
   const safeTrackLength = Number.isFinite(rawTrackLength) && rawTrackLength > 0
@@ -288,12 +354,16 @@ function generateRoomCode() {
   return code;
 }
 
-function createRoom(code, hostId) {
+function createRoom(code, hostId, options = {}) {
   const circuitProfile = normalizeCircuitProfile();
+  const mode = normalizeGameMode(options.mode);
+  const botDifficulty = normalizeBotDifficulty(options.botDifficulty);
 
   const room = {
     code,
     hostId,
+    mode,
+    botDifficulty,
     state: 'waiting',
     players: [],
     text: '',
@@ -304,6 +374,8 @@ function createRoom(code, hostId) {
     lastTextIndex: -1,
     circuitProfile,
     lapCount: circuitProfile.lapCount,
+    pausedFromState: null,
+    pausedAt: null,
     standings: []
   };
 
@@ -617,23 +689,30 @@ function getHumanRoomPlayers(room) {
   return getRoomPlayers(room).filter((player) => !player.isGhost);
 }
 
-function createGhostPlayer(room) {
-  const ghost = createPlayer(`${GHOST_PLAYER_ID_PREFIX}${room.code}:1`, room.code, 'Ghost Pro');
+function createGhostPlayer(room, index = 1) {
+  const difficulty = BOT_DIFFICULTIES[normalizeBotDifficulty(room?.botDifficulty)] || BOT_DIFFICULTIES.medium;
+  const ghostNumber = Math.max(1, Math.min(AI_GHOST_COUNT, Math.round(Number(index) || 1)));
+  const ghost = createPlayer(
+    `${GHOST_PLAYER_ID_PREFIX}${room.code}:${ghostNumber}`,
+    room.code,
+    `${difficulty.name} ${ghostNumber}`
+  );
   const seed = room.code
     .split('')
     .reduce((total, character) => total + character.charCodeAt(0), 0);
 
   ghost.isGhost = true;
-  ghost.minSpeed = MIN_CRUISE_SPEED + 10;
-  ghost.maxSpeed = MAX_SPEED * 0.88;
-  ghost.ghostWpm = GHOST_BASE_WPM + (seed % (GHOST_VARIANCE_WPM + 1));
-  ghost.accuracy = 97;
-  ghost.grip = 1.05;
-  ghost.momentum = 1.08;
+  ghost.minSpeed = MIN_CRUISE_SPEED + Math.round(difficulty.wpm / 7);
+  ghost.maxSpeed = MAX_SPEED * difficulty.maxSpeedRatio;
+  ghost.ghostWpm = difficulty.wpm + ((seed + ghostNumber * 3) % (difficulty.variance + 1));
+  ghost.accuracy = difficulty.accuracy;
+  ghost.grip = difficulty.grip;
+  ghost.momentum = difficulty.momentum;
+  ghost.botDifficulty = normalizeBotDifficulty(room?.botDifficulty);
   ghost.raceEvent = {
     id: 1,
     type: 'ghost',
-    message: 'Ghost Pro masuk sebagai lawan latihan',
+    message: `${difficulty.label} bot masuk sebagai lawan latihan`,
     at: Date.now(),
     expiresAt: Date.now() + RACE_EVENT_TTL_MS
   };
@@ -658,6 +737,11 @@ function ensureGhostOpponent(room) {
     return;
   }
 
+  if (room.mode !== 'ai') {
+    removeGhostOpponent(room);
+    return;
+  }
+
   const humanPlayers = getHumanRoomPlayers(room);
 
   if (humanPlayers.length !== 1) {
@@ -665,19 +749,42 @@ function ensureGhostOpponent(room) {
     return;
   }
 
-  const hasGhost = room.players.some((id) => String(id).startsWith(GHOST_PLAYER_ID_PREFIX));
-  if (hasGhost) {
-    return;
-  }
+  const existingGhostIds = room.players.filter((id) => String(id).startsWith(GHOST_PLAYER_ID_PREFIX));
 
-  const ghost = createGhostPlayer(room);
-  players.set(ghost.id, ghost);
-  room.players.push(ghost.id);
+  existingGhostIds
+    .filter((id) => {
+      const index = Number(String(id).split(':').pop());
+      return !Number.isInteger(index) || index < 1 || index > AI_GHOST_COUNT;
+    })
+    .forEach((id) => players.delete(id));
+
+  room.players = room.players.filter((id) => {
+    if (!String(id).startsWith(GHOST_PLAYER_ID_PREFIX)) {
+      return true;
+    }
+
+    const index = Number(String(id).split(':').pop());
+    return Number.isInteger(index) && index >= 1 && index <= AI_GHOST_COUNT;
+  });
+
+  for (let index = 1; index <= AI_GHOST_COUNT; index += 1) {
+    const ghostId = `${GHOST_PLAYER_ID_PREFIX}${room.code}:${index}`;
+
+    if (players.has(ghostId) && room.players.includes(ghostId)) {
+      continue;
+    }
+
+    const ghost = createGhostPlayer(room, index);
+    players.set(ghost.id, ghost);
+    room.players.push(ghost.id);
+  }
 }
 
 function broadcastRoom(room) {
   io.to(room.code).emit('roomUpdated', {
     roomCode: room.code,
+    mode: room.mode,
+    botDifficulty: room.botDifficulty,
     state: room.state,
     hostId: room.hostId,
     circuit: room.circuitProfile,
@@ -771,7 +878,7 @@ function startPlayerForRace(player, startTime) {
   if (player.isGhost) {
     player.speed = player.minSpeed + 24;
     player.lastCorrectKeyAt = startTime;
-    setRaceEvent(player, 'ghost', 'Ghost Pro menjaga tempo stabil', startTime);
+    setRaceEvent(player, 'ghost', `${player.name} menjaga tempo stabil`, startTime);
   }
 }
 
@@ -1075,10 +1182,14 @@ function removePlayerFromRoom(socketId) {
 }
 
 io.on('connection', (socket) => {
-  socket.on('createRoom', (playerName, circuitProfile, callback) => {
+  socket.on('createRoom', (playerName, circuitProfile, options, callback) => {
     if (typeof circuitProfile === 'function') {
       callback = circuitProfile;
       circuitProfile = null;
+      options = {};
+    } else if (typeof options === 'function') {
+      callback = options;
+      options = {};
     }
 
     callback = typeof callback === 'function' ? callback : () => {};
@@ -1092,7 +1203,7 @@ io.on('connection', (socket) => {
     removePlayerFromRoom(socket.id);
 
     const roomCode = generateRoomCode();
-    const room = createRoom(roomCode, socket.id);
+    const room = createRoom(roomCode, socket.id, options);
 
     updateRoomCircuitProfile(room, circuitProfile);
 
@@ -1100,11 +1211,14 @@ io.on('connection', (socket) => {
 
     players.set(socket.id, player);
     room.players.push(socket.id);
+    ensureGhostOpponent(room);
     socket.join(roomCode);
 
     callback({
       success: true,
       roomCode,
+      mode: room.mode,
+      botDifficulty: room.botDifficulty,
       player: sanitizePlayerForLobby(player)
     });
 
@@ -1140,6 +1254,11 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (room.mode === 'ai') {
+      callback({ success: false, message: 'Room VS AI tidak bisa dimasuki pemain lain.' });
+      return;
+    }
+
     const player = createPlayer(socket.id, normalizedCode, playerName);
 
     players.set(socket.id, player);
@@ -1149,6 +1268,8 @@ io.on('connection', (socket) => {
     callback({
       success: true,
       roomCode: normalizedCode,
+      mode: room.mode,
+      botDifficulty: room.botDifficulty,
       player: sanitizePlayerForLobby(player)
     });
 
@@ -1216,6 +1337,80 @@ io.on('connection', (socket) => {
       return;
     }
 
+    updateRoomCircuitProfile(room, circuitProfile);
+    startCountdown(room);
+  });
+
+  socket.on('pauseAiRace', (roomCode) => {
+    const room = getRoom(String(roomCode || '').trim().toUpperCase());
+
+    if (!room || room.hostId !== socket.id || room.mode !== 'ai' || room.state !== 'racing') {
+      return;
+    }
+
+    const now = Date.now();
+    room.pausedFromState = room.state;
+    room.pausedAt = now;
+    room.state = 'paused';
+
+    getRoomPlayers(room).forEach((player) => {
+      player.speed = 0;
+      player.lastKeyAt = now;
+      player.lastCorrectKeyAt = now;
+    });
+
+    io.to(room.code).emit('racePaused', {
+      roomCode: room.code,
+      state: room.state
+    });
+    broadcastPositions(room);
+  });
+
+  socket.on('resumeAiRace', (roomCode) => {
+    const room = getRoom(String(roomCode || '').trim().toUpperCase());
+
+    if (!room || room.hostId !== socket.id || room.mode !== 'ai' || room.state !== 'paused') {
+      return;
+    }
+
+    const now = Date.now();
+    const pauseDuration = Math.max(0, now - (room.pausedAt || now));
+
+    room.startTime = (room.startTime || now) + pauseDuration;
+    room.state = room.pausedFromState || 'racing';
+    room.pausedFromState = null;
+    room.pausedAt = null;
+
+    getRoomPlayers(room).forEach((player) => {
+      player.lastKeyAt = now;
+      player.lastCorrectKeyAt = now;
+      player.speed = Math.max(player.speed || 0, getRaceSpeedFloor(player));
+    });
+
+    io.to(room.code).emit('raceResumed', {
+      roomCode: room.code,
+      state: room.state,
+      startTime: room.startTime
+    });
+    broadcastRoom(room);
+  });
+
+  socket.on('restartAiRace', (roomCode, circuitProfile) => {
+    const room = getRoom(String(roomCode || '').trim().toUpperCase());
+
+    if (!room || room.hostId !== socket.id || room.mode !== 'ai') {
+      return;
+    }
+
+    if (!['countdown', 'racing', 'paused', 'finished', 'waiting'].includes(room.state)) {
+      return;
+    }
+
+    stopRoomTimers(room);
+    removeGhostOpponent(room);
+    room.state = 'waiting';
+    room.pausedFromState = null;
+    room.pausedAt = null;
     updateRoomCircuitProfile(room, circuitProfile);
     startCountdown(room);
   });

@@ -19,6 +19,10 @@
 </head>
 
 <body>
+  <div class="corner-control-bar">
+    <button id="gameMenuBtn" class="icon-btn hidden" type="button" title="Menu race">MENU</button>
+  </div>
+
   <div id="menuScreen" class="screen active">
     <div class="menu-frame">
       <div class="menu-visual" aria-hidden="true">
@@ -38,19 +42,115 @@
 
       <div class="menu-panel">
         <div class="hero-copy">
-          <p class="eyebrow">Grand Prix Typing</p>
+          <p class="eyebrow">Formula Typing Grand Prix</p>
           <h1>TypeRace 3D</h1>
-          <p class="subtitle">Room cepat, balapan langsung, ritme ketikan jadi tenaga mobil.</p>
+          <p class="subtitle">Masukkan nama pembalap, lalu pilih jalur balapan.</p>
         </div>
 
         <div class="menu-controls">
           <label class="field-label" for="playerNameInput">Nama pembalap</label>
           <input id="playerNameInput" class="input-field" type="text" maxlength="20" placeholder="Nama pembalap">
+          <div class="mode-switch" aria-label="Mode game">
+            <button type="button" class="mode-card" data-mode="multiplayer">
+              <span>01</span>
+              <strong>Multiplayer</strong>
+              <small>Buat room atau gabung dengan kode.</small>
+            </button>
+            <button type="button" class="mode-card" data-mode="ai">
+              <span>02</span>
+              <strong>VS AI</strong>
+              <small>Pilih difficulty bot dan jumlah lap.</small>
+            </button>
+          </div>
           <div class="primary-actions">
-            <button id="createRoomBtn" class="btn btn-primary" type="button">Buat Room</button>
-            <button id="joinRoomBtn" class="btn btn-secondary" type="button">Gabung</button>
+            <button id="settingsBtn" class="btn btn-secondary" type="button">Setting</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="multiplayerSetupScreen" class="screen hidden">
+    <div class="panel setup-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Multiplayer</p>
+          <h2>Paddock Room</h2>
+        </div>
+        <div class="lobby-state">
+          <span>Room code race</span>
+        </div>
+      </div>
+      <div class="setup-hero">
+        <span>Driver</span>
+        <strong id="multiplayerDriverName">Pembalap</strong>
+      </div>
+      <div class="setup-action-grid">
+        <button id="createRoomBtn" class="mode-card setup-action-card" type="button">
+          <span>01</span>
+          <strong>Buat Room</strong>
+          <small>Jadi tuan rumah dan atur jumlah lap di lobby.</small>
+        </button>
+        <button id="joinRoomBtn" class="mode-card setup-action-card" type="button">
+          <span>02</span>
+          <strong>Gabung Room</strong>
+          <small>Masukkan kode room dari temanmu.</small>
+        </button>
+      </div>
+      <div class="row-actions">
+        <button id="backFromMultiplayerBtn" class="btn btn-secondary" type="button">Kembali</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="aiSetupScreen" class="screen hidden">
+    <div class="panel setup-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">VS AI</p>
+          <h2>Bot Challenge</h2>
+        </div>
+        <div class="lobby-state">
+          <span>Solo race</span>
+        </div>
+      </div>
+      <div class="setup-hero">
+        <span>Driver</span>
+        <strong id="aiDriverName">Pembalap</strong>
+      </div>
+      <div id="aiSetupPanel" class="ai-setup-panel">
+        <div class="setup-row">
+          <span class="field-label">Difficulty Bot</span>
+          <div id="botDifficultyGroup" class="difficulty-grid">
+            <button type="button" class="difficulty-option" data-difficulty="very-easy">Very Easy</button>
+            <button type="button" class="difficulty-option" data-difficulty="easy">Easy</button>
+            <button type="button" class="difficulty-option active" data-difficulty="medium">Medium</button>
+            <button type="button" class="difficulty-option" data-difficulty="hard">Hard</button>
+            <button type="button" class="difficulty-option" data-difficulty="very-hard">Very Hard</button>
+          </div>
+        </div>
+
+        <div class="setup-row">
+          <span class="field-label">Jumlah Lap</span>
+          <select id="aiLapCountSelect" class="lap-select-hidden" aria-label="Jumlah lap VS AI">
+            <option value="1">1 Lap</option>
+            <option value="2">2 Lap</option>
+            <option value="3">3 Lap</option>
+            <option value="4">4 Lap</option>
+            <option value="5">5 Lap</option>
+          </select>
+          <div id="aiLapOptionGroup" class="compact-lap-grid">
+            <button type="button" class="compact-lap-option active" data-lap="1">1</button>
+            <button type="button" class="compact-lap-option" data-lap="2">2</button>
+            <button type="button" class="compact-lap-option" data-lap="3">3</button>
+            <button type="button" class="compact-lap-option" data-lap="4">4</button>
+            <button type="button" class="compact-lap-option" data-lap="5">5</button>
+          </div>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button id="startAiBtn" class="btn btn-primary" type="button">Mulai VS AI</button>
+        <button id="backFromAiBtn" class="btn btn-secondary" type="button">Kembali</button>
       </div>
     </div>
   </div>
@@ -68,18 +168,50 @@
     </div>
   </div>
 
+  <div id="gameMenuModal" class="modal hidden">
+    <div class="panel modal-panel game-menu-panel">
+      <p id="gameMenuModeLabel" class="eyebrow">Setting</p>
+      <h2 id="gameMenuTitle">Menu</h2>
+      <div id="aiPauseNotice" class="pause-notice hidden">Mode VS AI sedang dijeda.</div>
+      <div class="settings-panel">
+        <div class="audio-row">
+          <div class="volume-control">
+            <label class="field-label" for="bgmVolumeInput">BGM</label>
+            <input id="bgmVolumeInput" type="range" min="0" max="100" value="65">
+            <span id="bgmVolumeValue">65%</span>
+          </div>
+          <button id="muteBgmBtn" class="btn btn-secondary audio-mute-btn" type="button">Mute BGM</button>
+        </div>
+        <div class="audio-row">
+          <div class="volume-control">
+            <label class="field-label" for="sfxVolumeInput">SFX Mobil</label>
+            <input id="sfxVolumeInput" type="range" min="0" max="100" value="75">
+            <span id="sfxVolumeValue">75%</span>
+          </div>
+          <button id="muteSfxBtn" class="btn btn-secondary audio-mute-btn" type="button">Mute SFX</button>
+        </div>
+      </div>
+      <div class="menu-stack">
+        <button id="resumeGameBtn" class="btn btn-primary" type="button">Resume</button>
+        <button id="restartAiRaceBtn" class="btn btn-secondary hidden" type="button">Restart</button>
+        <button id="gameMenuMainMenuBtn" class="btn btn-secondary" type="button">Main Menu</button>
+        <button id="closeMenuBtn" class="btn btn-primary" type="button">Simpan</button>
+      </div>
+    </div>
+  </div>
+
   <div id="lobbyScreen" class="screen hidden">
     <div class="panel lobby-panel">
       <div class="panel-header">
         <div>
-          <p class="eyebrow">Race Room</p>
+          <p id="lobbyModeLabel" class="eyebrow">Race Room</p>
           <h2 id="roomCodeDisplay">------</h2>
         </div>
         <div class="lobby-state">
           <span id="lobbyStateLabel">Menunggu pembalap</span>
         </div>
       </div>
-      <div class="race-options lap-settings-card">
+      <div id="raceOptionsPanel" class="race-options lap-settings-card">
         <div class="lap-settings-head">
           <div>
             <span class="field-label">Race Distance</span>
@@ -229,23 +361,27 @@
 
   <div id="resultsScreen" class="screen hidden">
     <div class="panel results-panel">
-      <p class="eyebrow">Grand Prix Selesai</p>
-      <h2>Hasil</h2>
-      <p id="roomContextDisplay" class="room-context"></p>
-      <div class="finish-ceremony-card" aria-live="polite">
-        <div class="finish-checker-strip"></div>
+      <div class="results-broadcast-head">
+        <div class="result-speed-lines" aria-hidden="true"><span></span><span></span></div>
         <div>
-          <span>Podium</span>
-          <strong id="winnerDisplay">Podium siap</strong>
-        </div>
-        <div class="finish-light-row" aria-hidden="true">
-          <i></i>
-          <i></i>
-          <i></i>
-          <i></i>
+          <p class="eyebrow">Grand Prix Selesai</p>
+          <h2>Race Result</h2>
+          <p id="roomContextDisplay" class="room-context"></p>
         </div>
       </div>
+      <div class="finish-ceremony-card" aria-live="polite">
+        <div class="podium-title">
+          <span>TypeRace GP</span>
+          <strong id="winnerDisplay">Podium siap</strong>
+        </div>
+        <div id="podiumGrid" class="podium-grid" aria-live="polite"></div>
+      </div>
       <div id="resultsList" class="results-list"></div>
+      <div id="resultsPager" class="results-pager">
+        <button id="resultsPrevBtn" class="btn btn-secondary" type="button">Prev</button>
+        <span id="resultsPageLabel">1 / 1</span>
+        <button id="resultsNextBtn" class="btn btn-secondary" type="button">Next</button>
+      </div>
       <div class="row-actions results-actions">
         <button id="backToRoomBtn" class="btn btn-secondary" type="button">Kembali ke Room</button>
         <button id="playAgainBtn" class="btn btn-primary" type="button">Main Lagi</button>

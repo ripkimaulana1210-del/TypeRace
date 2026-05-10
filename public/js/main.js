@@ -4,9 +4,11 @@ import { TypingEngine } from './typing.js';
 const FAST_INPUT_WINDOW_MS = 360;
 const SLOW_INPUT_WINDOW_MS = 1100;
 const SAVED_SESSION_KEY = 'f1TypingBattle.lastRoom';
+const AUDIO_SETTINGS_KEY = 'f1TypingBattle.audioSettings';
 const ROUTE_DEBUG_QUERY_PARAM = 'debugRoute';
 const BROADCAST_HUD_QUERY_PARAM = 'broadcastHud';
 const FINISH_REPLAY_DURATION_MS = 2600;
+const DEFAULT_BOT_DIFFICULTY = 'medium';
 
 class F1TypingBattleApp {
   constructor() {
@@ -15,8 +17,15 @@ class F1TypingBattleApp {
     this.game = null;
     this.currentScreen = 'menu';
     this.playerName = '';
+    this.selectedMode = 'multiplayer';
+    this.selectedBotDifficulty = DEFAULT_BOT_DIFFICULTY;
+    this.audioSettings = this.loadAudioSettings();
+    this.isGameMenuOpen = false;
+    this.wasPausedByMenu = false;
     this.lastRoomCode = '';
     this.latestResults = [];
+    this.orderedResults = [];
+    this.resultsPageIndex = 0;
     this.routeHudFrameId = null;
     this.lastRaceEventId = null;
     this.radioHideTimer = null;
@@ -28,14 +37,42 @@ class F1TypingBattleApp {
   getElements() {
     return {
       menuScreen: document.getElementById('menuScreen'),
+      gameMenuModal: document.getElementById('gameMenuModal'),
+      multiplayerSetupScreen: document.getElementById('multiplayerSetupScreen'),
+      aiSetupScreen: document.getElementById('aiSetupScreen'),
       joinModal: document.getElementById('joinModal'),
       lobbyScreen: document.getElementById('lobbyScreen'),
       gameScreen: document.getElementById('gameScreen'),
       resultsScreen: document.getElementById('resultsScreen'),
       loadingScreen: document.getElementById('loadingScreen'),
       playerNameInput: document.getElementById('playerNameInput'),
+      modeButtons: Array.from(document.querySelectorAll('.mode-card')),
+      aiSetupPanel: document.getElementById('aiSetupPanel'),
+      botDifficultyGroup: document.getElementById('botDifficultyGroup'),
+      difficultyButtons: Array.from(document.querySelectorAll('.difficulty-option')),
+      aiLapCountSelect: document.getElementById('aiLapCountSelect'),
+      aiLapOptionGroup: document.getElementById('aiLapOptionGroup'),
+      multiplayerDriverName: document.getElementById('multiplayerDriverName'),
+      aiDriverName: document.getElementById('aiDriverName'),
+      settingsBtn: document.getElementById('settingsBtn'),
+      gameMenuBtn: document.getElementById('gameMenuBtn'),
+      bgmVolumeInput: document.getElementById('bgmVolumeInput'),
+      bgmVolumeValue: document.getElementById('bgmVolumeValue'),
+      muteBgmBtn: document.getElementById('muteBgmBtn'),
+      sfxVolumeInput: document.getElementById('sfxVolumeInput'),
+      sfxVolumeValue: document.getElementById('sfxVolumeValue'),
+      muteSfxBtn: document.getElementById('muteSfxBtn'),
+      resumeGameBtn: document.getElementById('resumeGameBtn'),
+      restartAiRaceBtn: document.getElementById('restartAiRaceBtn'),
+      gameMenuMainMenuBtn: document.getElementById('gameMenuMainMenuBtn'),
+      closeMenuBtn: document.getElementById('closeMenuBtn'),
+      gameMenuModeLabel: document.getElementById('gameMenuModeLabel'),
+      gameMenuTitle: document.getElementById('gameMenuTitle'),
+      aiPauseNotice: document.getElementById('aiPauseNotice'),
       roomCodeInput: document.getElementById('roomCodeInput'),
       roomCodeDisplay: document.getElementById('roomCodeDisplay'),
+      lobbyModeLabel: document.getElementById('lobbyModeLabel'),
+      raceOptionsPanel: document.getElementById('raceOptionsPanel'),
       playersList: document.getElementById('playersList'),
       lapCountSelect: document.getElementById('lapCountSelect'),
       lapOptionGroup: document.getElementById('lapOptionGroup'),
@@ -69,10 +106,18 @@ class F1TypingBattleApp {
       raceStatusLabel: document.getElementById('raceStatusLabel'),
       trackLoadingOverlay: document.getElementById('trackLoadingOverlay'),
       resultsList: document.getElementById('resultsList'),
+      resultsPager: document.getElementById('resultsPager'),
+      resultsPrevBtn: document.getElementById('resultsPrevBtn'),
+      resultsNextBtn: document.getElementById('resultsNextBtn'),
+      resultsPageLabel: document.getElementById('resultsPageLabel'),
+      podiumGrid: document.getElementById('podiumGrid'),
       winnerDisplay: document.getElementById('winnerDisplay'),
       roomContextDisplay: document.getElementById('roomContextDisplay'),
       createRoomBtn: document.getElementById('createRoomBtn'),
       joinRoomBtn: document.getElementById('joinRoomBtn'),
+      startAiBtn: document.getElementById('startAiBtn'),
+      backFromMultiplayerBtn: document.getElementById('backFromMultiplayerBtn'),
+      backFromAiBtn: document.getElementById('backFromAiBtn'),
       confirmJoinBtn: document.getElementById('confirmJoinBtn'),
       cancelJoinBtn: document.getElementById('cancelJoinBtn'),
       startRaceBtn: document.getElementById('startRaceBtn'),
@@ -109,6 +154,7 @@ class F1TypingBattleApp {
         canvas: document.getElementById('gameCanvas'),
         getLocalPlayerId: () => this.network.socket?.id || null
       });
+      this.applyAudioSettings();
       this.updateCameraModeButtons();
       this.syncCircuitProfile();
       this.startRouteHudLoop();
@@ -143,6 +189,7 @@ class F1TypingBattleApp {
   async safeResumeAudio() {
     try {
       await this.game?.resumeAudio();
+      this.applyAudioSettings();
       this.syncScreenAudio();
     } catch (error) {
       console.warn('Audio belum bisa diaktifkan:', error);
@@ -162,8 +209,45 @@ class F1TypingBattleApp {
   }
 
   bindUI() {
+    this.syncAudioSettingsUI();
     this.elements.createRoomBtn.addEventListener('click', () => this.createRoom());
     this.elements.joinRoomBtn.addEventListener('click', () => this.openJoinModal());
+    this.elements.startAiBtn?.addEventListener('click', () => this.createVsAiRace());
+    this.elements.modeButtons.forEach((button) => {
+      button.addEventListener('click', () => this.openModeSetup(button.dataset.mode));
+    });
+    this.elements.backFromMultiplayerBtn?.addEventListener('click', () => this.showScreen('menu'));
+    this.elements.backFromAiBtn?.addEventListener('click', () => this.showScreen('menu'));
+    this.elements.settingsBtn?.addEventListener('click', () => this.openAudioMenu());
+    this.elements.gameMenuBtn?.addEventListener('click', () => this.openGameMenu());
+    this.elements.resumeGameBtn?.addEventListener('click', () => this.resumeFromGameMenu());
+    this.elements.restartAiRaceBtn?.addEventListener('click', () => this.restartAiRace());
+    this.elements.closeMenuBtn?.addEventListener('click', () => this.closeUnifiedMenu());
+    this.elements.gameMenuMainMenuBtn?.addEventListener('click', () => this.exitToMainMenuFromGame());
+    this.elements.bgmVolumeInput?.addEventListener('input', () => this.updateAudioSetting('bgm'));
+    this.elements.sfxVolumeInput?.addEventListener('input', () => this.updateAudioSetting('sfx'));
+    this.elements.muteBgmBtn?.addEventListener('click', () => this.toggleAudioMute('bgm'));
+    this.elements.muteSfxBtn?.addEventListener('click', () => this.toggleAudioMute('sfx'));
+    this.elements.botDifficultyGroup?.addEventListener('click', (event) => {
+      const button = event.target.closest('.difficulty-option');
+
+      if (!button) {
+        return;
+      }
+
+      this.selectedBotDifficulty = button.dataset.difficulty || DEFAULT_BOT_DIFFICULTY;
+      this.updateDifficultySelect();
+    });
+    this.elements.aiLapOptionGroup?.addEventListener('click', (event) => {
+      const button = event.target.closest('.compact-lap-option');
+
+      if (!button || !this.elements.aiLapCountSelect) {
+        return;
+      }
+
+      this.elements.aiLapCountSelect.value = button.dataset.lap || '1';
+      this.updateAiLapSelect();
+    });
     this.elements.confirmJoinBtn.addEventListener('click', () => this.joinRoom());
     this.elements.cancelJoinBtn.addEventListener('click', () => this.closeJoinModal());
     this.elements.lapOptionGroup?.addEventListener('click', (event) => {
@@ -204,6 +288,8 @@ class F1TypingBattleApp {
     this.elements.backToRoomBtn.addEventListener('click', () => this.returnToRoom());
     this.elements.playAgainBtn.addEventListener('click', async () => this.playAgain());
     this.elements.backToMenuBtn.addEventListener('click', () => this.leaveLobby());
+    this.elements.resultsPrevBtn?.addEventListener('click', () => this.changeResultsPage(-1));
+    this.elements.resultsNextBtn?.addEventListener('click', () => this.changeResultsPage(1));
     this.elements.typingInput.addEventListener('keydown', (event) => this.handleTyping(event));
     this.elements.cameraModeButtons.forEach((button) => {
       button.addEventListener('click', () => {
@@ -239,17 +325,258 @@ class F1TypingBattleApp {
     });
   }
 
+  openModeSetup(mode = 'multiplayer') {
+    const playerName = this.requireName();
+    if (!playerName) {
+      return;
+    }
+
+    this.selectedMode = mode === 'ai' ? 'ai' : 'multiplayer';
+
+    this.elements.modeButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.mode === this.selectedMode);
+    });
+
+    if (this.elements.multiplayerDriverName) {
+      this.elements.multiplayerDriverName.textContent = playerName;
+    }
+
+    if (this.elements.aiDriverName) {
+      this.elements.aiDriverName.textContent = playerName;
+    }
+
+    this.showScreen(this.selectedMode === 'ai' ? 'aiSetup' : 'multiplayerSetup');
+  }
+
+  updateDifficultySelect() {
+    this.elements.difficultyButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.difficulty === this.selectedBotDifficulty);
+    });
+  }
+
+  updateAiLapSelect() {
+    const selectedLap = this.elements.aiLapCountSelect?.value || '1';
+    const buttons = this.elements.aiLapOptionGroup?.querySelectorAll('.compact-lap-option') || [];
+
+    buttons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.lap === selectedLap);
+    });
+  }
+
   bindNetwork() {
     this.network.on('roomUpdated', (payload) => this.handleRoomUpdated(payload));
     this.network.on('countdownStart', (payload) => this.handleCountdownStart(payload));
     this.network.on('countdownTick', (payload) => this.handleCountdownTick(payload));
     this.network.on('raceStart', (payload) => this.handleRaceStart(payload));
+    this.network.on('racePaused', (payload) => this.handleRacePaused(payload));
+    this.network.on('raceResumed', (payload) => this.handleRaceResumed(payload));
     this.network.on('playerUpdate', (payload) => this.handlePlayerUpdate(payload));
     this.network.on('raceFinished', (payload) => this.handleRaceFinished(payload));
   }
 
+  loadAudioSettings() {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(AUDIO_SETTINGS_KEY) || 'null');
+      return {
+        bgm: this.clampVolume(saved?.bgm, 0.65),
+        sfx: this.clampVolume(saved?.sfx, 0.75),
+        bgmMuted: Boolean(saved?.bgmMuted),
+        sfxMuted: Boolean(saved?.sfxMuted)
+      };
+    } catch (_error) {
+      return { bgm: 0.65, sfx: 0.75, bgmMuted: false, sfxMuted: false };
+    }
+  }
+
+  clampVolume(value, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return fallback;
+    }
+
+    return Math.max(0, Math.min(1, number));
+  }
+
+  saveAudioSettings() {
+    try {
+      window.localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(this.audioSettings));
+    } catch (_error) {}
+  }
+
+  syncAudioSettingsUI() {
+    const bgmPercent = Math.round(this.audioSettings.bgm * 100);
+    const sfxPercent = Math.round(this.audioSettings.sfx * 100);
+
+    if (this.elements.bgmVolumeInput) {
+      this.elements.bgmVolumeInput.value = String(bgmPercent);
+    }
+
+    if (this.elements.sfxVolumeInput) {
+      this.elements.sfxVolumeInput.value = String(sfxPercent);
+    }
+
+    if (this.elements.bgmVolumeValue) {
+      this.elements.bgmVolumeValue.textContent = this.audioSettings.bgmMuted ? 'Muted' : `${bgmPercent}%`;
+    }
+
+    if (this.elements.sfxVolumeValue) {
+      this.elements.sfxVolumeValue.textContent = this.audioSettings.sfxMuted ? 'Muted' : `${sfxPercent}%`;
+    }
+
+    if (this.elements.muteBgmBtn) {
+      this.elements.muteBgmBtn.textContent = this.audioSettings.bgmMuted ? 'Unmute BGM' : 'Mute BGM';
+      this.elements.muteBgmBtn.classList.toggle('active', this.audioSettings.bgmMuted);
+    }
+
+    if (this.elements.muteSfxBtn) {
+      this.elements.muteSfxBtn.textContent = this.audioSettings.sfxMuted ? 'Unmute SFX' : 'Mute SFX';
+      this.elements.muteSfxBtn.classList.toggle('active', this.audioSettings.sfxMuted);
+    }
+  }
+
+  updateAudioSetting(type) {
+    if (type === 'bgm') {
+      this.audioSettings.bgm = this.clampVolume(Number(this.elements.bgmVolumeInput?.value || 0) / 100, 0.65);
+      this.audioSettings.bgmMuted = false;
+    }
+
+    if (type === 'sfx') {
+      this.audioSettings.sfx = this.clampVolume(Number(this.elements.sfxVolumeInput?.value || 0) / 100, 0.75);
+      this.audioSettings.sfxMuted = false;
+    }
+
+    this.syncAudioSettingsUI();
+    this.applyAudioSettings();
+    this.saveAudioSettings();
+  }
+
+  toggleAudioMute(type) {
+    if (type === 'bgm') {
+      this.audioSettings.bgmMuted = !this.audioSettings.bgmMuted;
+    }
+
+    if (type === 'sfx') {
+      this.audioSettings.sfxMuted = !this.audioSettings.sfxMuted;
+    }
+
+    this.syncAudioSettingsUI();
+    this.applyAudioSettings();
+    this.saveAudioSettings();
+  }
+
+  applyAudioSettings() {
+    this.game?.setAudioVolumes?.({
+      bgm: this.audioSettings.bgmMuted ? 0 : this.audioSettings.bgm,
+      sfx: this.audioSettings.sfxMuted ? 0 : this.audioSettings.sfx
+    });
+  }
+
+  openAudioMenu() {
+    this.syncAudioSettingsUI();
+    this.isGameMenuOpen = false;
+    this.wasPausedByMenu = false;
+    this.elements.resumeGameBtn?.classList.add('hidden');
+    this.elements.restartAiRaceBtn?.classList.add('hidden');
+    this.elements.gameMenuMainMenuBtn?.classList.add('hidden');
+    this.elements.aiPauseNotice?.classList.add('hidden');
+
+    if (this.elements.gameMenuModeLabel) {
+      this.elements.gameMenuModeLabel.textContent = 'Audio';
+    }
+
+    if (this.elements.gameMenuTitle) {
+      this.elements.gameMenuTitle.textContent = 'Setting Suara';
+    }
+
+    if (this.elements.closeMenuBtn) {
+      this.elements.closeMenuBtn.textContent = 'Simpan';
+    }
+
+    this.elements.gameMenuModal?.classList.remove('hidden');
+  }
+
+  closeUnifiedMenu() {
+    if (this.currentScreen === 'game' && this.isGameMenuOpen) {
+      this.resumeFromGameMenu();
+      return;
+    }
+
+    this.elements.gameMenuModal?.classList.add('hidden');
+  }
+
+  openGameMenu() {
+    if (this.currentScreen !== 'game') {
+      return;
+    }
+
+    const isVsAi = this.network.mode === 'ai';
+    this.isGameMenuOpen = true;
+    this.wasPausedByMenu = isVsAi && this.network.state === 'racing';
+
+    if (this.wasPausedByMenu) {
+      this.network.state = 'paused';
+      this.network.pauseAiRace();
+      this.game?.setRacePaused?.(true);
+      this.setTypingInputActive(false);
+    }
+
+    this.elements.restartAiRaceBtn?.classList.toggle('hidden', !isVsAi);
+    this.elements.aiPauseNotice?.classList.toggle('hidden', !isVsAi);
+    this.elements.resumeGameBtn?.classList.remove('hidden');
+    this.elements.gameMenuMainMenuBtn?.classList.remove('hidden');
+
+    if (this.elements.gameMenuModeLabel) {
+      this.elements.gameMenuModeLabel.textContent = isVsAi ? 'VS AI Menu' : 'Multiplayer Menu';
+    }
+
+    if (this.elements.gameMenuTitle) {
+      this.elements.gameMenuTitle.textContent = 'Menu Balapan';
+    }
+
+    if (this.elements.closeMenuBtn) {
+      this.elements.closeMenuBtn.textContent = 'Simpan & Resume';
+    }
+
+    this.elements.gameMenuModal?.classList.remove('hidden');
+  }
+
+  resumeFromGameMenu() {
+    const shouldResumeAi = this.network.mode === 'ai' && (this.wasPausedByMenu || this.network.state === 'paused');
+    this.elements.gameMenuModal?.classList.add('hidden');
+    this.isGameMenuOpen = false;
+
+    if (shouldResumeAi) {
+      this.network.resumeAiRace();
+    } else if (this.currentScreen === 'game' && this.network.state === 'racing') {
+      this.setTypingInputActive(true);
+    }
+
+    this.wasPausedByMenu = false;
+  }
+
+  restartAiRace() {
+    if (this.network.mode !== 'ai') {
+      return;
+    }
+
+    this.elements.gameMenuModal?.classList.add('hidden');
+    this.isGameMenuOpen = false;
+    this.wasPausedByMenu = false;
+    this.setTypingInputActive(false);
+    this.elements.countdownOverlay.classList.add('hidden');
+    this.syncCircuitProfile();
+    this.network.restartAiRace();
+  }
+
+  exitToMainMenuFromGame() {
+    this.elements.gameMenuModal?.classList.add('hidden');
+    this.isGameMenuOpen = false;
+    this.wasPausedByMenu = false;
+    this.leaveLobby();
+  }
+
   showScreen(name) {
-    ['menu', 'lobby', 'game', 'results', 'loading'].forEach((screenName) => {
+    ['menu', 'multiplayerSetup', 'aiSetup', 'lobby', 'game', 'results', 'loading'].forEach((screenName) => {
       const element = this.elements[`${screenName}Screen`];
       if (!element) {
         return;
@@ -260,6 +587,7 @@ class F1TypingBattleApp {
     });
 
     this.currentScreen = name;
+    this.elements.gameMenuBtn?.classList.toggle('hidden', name !== 'game');
     this.syncScreenAudio();
 
     if (name === 'game') {
@@ -272,7 +600,7 @@ class F1TypingBattleApp {
   }
 
   syncScreenAudio() {
-    const shouldPlayLobbyMusic = ['menu', 'loading', 'lobby'].includes(this.currentScreen);
+    const shouldPlayLobbyMusic = ['menu', 'multiplayerSetup', 'aiSetup', 'loading', 'lobby'].includes(this.currentScreen);
     this.game?.setLobbyMusicActive(shouldPlayLobbyMusic);
 
     if (this.currentScreen !== 'results') {
@@ -508,11 +836,35 @@ class F1TypingBattleApp {
     this.elements.loadingText.textContent = 'Membuat ruang...';
 
     try {
-      const response = await this.network.createRoom(playerName);
+      const response = await this.network.createRoom(playerName, { mode: 'multiplayer' });
       this.rememberRoom(response.roomCode, playerName);
     } catch (error) {
       console.error(error);
       alert(error.message || 'Ruang tidak bisa dibuat.');
+      this.showScreen('menu');
+    }
+  }
+
+  async createVsAiRace() {
+    const playerName = this.requireName();
+    if (!playerName) {
+      return;
+    }
+
+    const lapCount = this.elements.aiLapCountSelect?.value || '1';
+    this.network.setLapCount(lapCount);
+
+    await this.safeResumeAudio();
+    this.showScreen('loading');
+    this.elements.loadingText.textContent = 'Menyiapkan duel VS AI...';
+
+    try {
+      const response = await this.network.createVsAiRoom(playerName, this.selectedBotDifficulty);
+      this.rememberRoom(response.roomCode, playerName);
+      this.network.setLapCount(lapCount);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Duel VS AI tidak bisa dibuat.');
       this.showScreen('menu');
     }
   }
@@ -620,6 +972,9 @@ class F1TypingBattleApp {
     this.typing.reset();
     this.latestResults = [];
     this.closeJoinModal();
+    this.elements.gameMenuModal?.classList.add('hidden');
+    this.isGameMenuOpen = false;
+    this.wasPausedByMenu = false;
     this.elements.countdownOverlay.classList.add('hidden');
     this.elements.inputFeedback.textContent = '';
     this.elements.inputFeedback.className = 'input-feedback';
@@ -690,6 +1045,8 @@ class F1TypingBattleApp {
     this.network.players = payload.players || [];
     this.network.hostId = payload.hostId || payload.players?.[0]?.id || null;
     this.network.state = payload.state;
+    this.network.mode = payload.mode || this.network.mode || 'multiplayer';
+    this.network.botDifficulty = payload.botDifficulty || this.network.botDifficulty || DEFAULT_BOT_DIFFICULTY;
 
     if (Number.isFinite(Number(payload.lapCount))) {
       this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount))));
@@ -703,7 +1060,14 @@ class F1TypingBattleApp {
       this.showScreen('lobby');
     }
 
-    this.elements.roomCodeDisplay.textContent = payload.roomCode;
+    const isVsAi = this.network.mode === 'ai';
+    this.elements.roomCodeDisplay.textContent = isVsAi ? 'VS AI' : payload.roomCode;
+    if (this.elements.lobbyModeLabel) {
+      this.elements.lobbyModeLabel.textContent = isVsAi
+        ? `VS AI - ${this.formatDifficulty(this.network.botDifficulty)}`
+        : 'Race Room';
+    }
+    this.elements.raceOptionsPanel?.classList.toggle('hidden', isVsAi);
     this.elements.lobbyStateLabel.textContent = this.formatState(payload.state);
     this.updateLapSelect();
     this.elements.playersList.innerHTML = '';
@@ -729,6 +1093,41 @@ class F1TypingBattleApp {
     this.updateRoomActions();
   }
 
+  handleRacePaused(_payload) {
+    if (this.network.mode !== 'ai') {
+      return;
+    }
+
+    this.network.state = 'paused';
+    this.game?.setRacePaused?.(true);
+    this.setTypingInputActive(false);
+    this.elements.raceStatusLabel.textContent = 'Race Dijeda';
+  }
+
+  handleRaceResumed(payload) {
+    if (this.network.mode !== 'ai') {
+      return;
+    }
+
+    this.network.state = payload?.state || 'racing';
+    this.game?.setRacePaused?.(false);
+    this.elements.raceStatusLabel.textContent = 'Balapan Berjalan';
+
+    if (this.currentScreen === 'game' && !this.isGameMenuOpen) {
+      this.setTypingInputActive(true);
+    }
+  }
+
+  formatDifficulty(difficulty) {
+    return ({
+      'very-easy': 'Very Easy',
+      easy: 'Easy',
+      medium: 'Medium',
+      hard: 'Hard',
+      'very-hard': 'Very Hard'
+    })[difficulty] || 'Medium';
+  }
+
   formatState(state) {
     if (state === 'waiting') return 'Menunggu pembalap';
     if (state === 'countdown') return 'Bersiap di grid';
@@ -739,6 +1138,9 @@ class F1TypingBattleApp {
 
   handleCountdownStart(payload) {
     this.stopResultsMusic();
+    this.elements.gameMenuModal?.classList.add('hidden');
+    this.isGameMenuOpen = false;
+    this.wasPausedByMenu = false;
     this.network.state = 'countdown';
     this.network.applyCircuitProfile(payload.circuit);
 
@@ -770,6 +1172,7 @@ class F1TypingBattleApp {
   async handleRaceStart(payload) {
     this.stopResultsMusic();
     this.network.state = 'racing';
+    this.game?.setRacePaused?.(false);
     this.network.applyCircuitProfile(payload.circuit);
 
     if (Number.isFinite(Number(payload.lapCount))) {
@@ -845,6 +1248,9 @@ class F1TypingBattleApp {
 
   async handleRaceFinished(payload) {
     this.latestResults = payload.results;
+    this.elements.gameMenuModal?.classList.add('hidden');
+    this.isGameMenuOpen = false;
+    this.wasPausedByMenu = false;
     this.network.state = 'finished';
     this.setTypingInputActive(false);
     this.game?.triggerFinishCeremony?.();
@@ -1076,9 +1482,12 @@ class F1TypingBattleApp {
   }
 
   renderResults(results) {
-    this.elements.resultsList.innerHTML = '';
     const roomCode = this.network.roomCode || this.getSavedRoomCode();
     const winner = Array.isArray(results) ? results[0] : null;
+    this.orderedResults = Array.isArray(results)
+      ? results.slice().sort((a, b) => (a.position || 99) - (b.position || 99))
+      : [];
+    this.resultsPageIndex = 0;
 
     if (this.elements.roomContextDisplay) {
       this.elements.roomContextDisplay.textContent = roomCode
@@ -1088,12 +1497,69 @@ class F1TypingBattleApp {
 
     if (this.elements.winnerDisplay) {
       this.elements.winnerDisplay.textContent = winner
-        ? `${winner.name} finis P${winner.position}`
+        ? `${winner.name} wins`
         : 'Podium siap';
     }
 
-    results.forEach((player) => {
+    this.renderResultsPage();
+  }
+
+  getResultsPageCount() {
+    const resultCount = this.orderedResults?.length || 0;
+    return 1 + Math.ceil(Math.max(0, resultCount - 3) / 5);
+  }
+
+  changeResultsPage(delta) {
+    const pageCount = this.getResultsPageCount();
+    this.resultsPageIndex = Math.max(0, Math.min(pageCount - 1, this.resultsPageIndex + delta));
+    this.renderResultsPage();
+  }
+
+  renderResultsPage() {
+    this.elements.resultsList.innerHTML = '';
+
+    if (this.elements.podiumGrid) {
+      this.elements.podiumGrid.innerHTML = '';
+    }
+
+    const pageCount = this.getResultsPageCount();
+    const isPodiumPage = this.resultsPageIndex === 0;
+    const ceremonyCard = document.querySelector('.finish-ceremony-card');
+
+    ceremonyCard?.classList.toggle('hidden', !isPodiumPage);
+
+    if (isPodiumPage) {
+      this.renderPodium(this.orderedResults.slice(0, 3));
+    }
+
+    this.elements.resultsList.classList.toggle('hidden', isPodiumPage);
+
+    const startIndex = isPodiumPage ? 0 : 3 + ((this.resultsPageIndex - 1) * 5);
+    const endIndex = isPodiumPage ? 0 : startIndex + 5;
+    const pagePlayers = this.orderedResults.slice(startIndex, endIndex);
+    const slotCount = isPodiumPage ? 0 : 5;
+
+    for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
+      const player = pagePlayers[slotIndex];
       const card = document.createElement('div');
+
+      if (!player) {
+        card.className = 'result-card empty-result';
+        card.innerHTML = `
+          <div>
+            <strong>P${startIndex + slotIndex + 1} - Empty Slot</strong>
+            <div class="result-meta">Belum ada pembalap di posisi ini</div>
+          </div>
+          <div class="result-meta">KPM -</div>
+          <div class="result-meta">Akurasi -</div>
+          <div class="result-meta">Typo -</div>
+          <div class="result-meta">Grip -</div>
+          <div class="result-meta">Best -</div>
+        `;
+        this.elements.resultsList.appendChild(card);
+        continue;
+      }
+
       card.className = `result-card ${player.isGhost ? 'ghost-result' : ''}`;
       const bestSector = player.bestSector?.label
         ? `${player.bestSector.label} ${this.formatDuration(player.bestSector.timeMs)}`
@@ -1113,7 +1579,83 @@ class F1TypingBattleApp {
       `;
 
       this.elements.resultsList.appendChild(card);
-    });
+    }
+
+    const fromPosition = isPodiumPage ? 1 : startIndex + 1;
+    const toPosition = isPodiumPage
+      ? Math.min(3, this.orderedResults.length || 1)
+      : Math.min(startIndex + 5, this.orderedResults.length || startIndex + 1);
+
+    if (this.elements.resultsPageLabel) {
+      this.elements.resultsPageLabel.textContent = `P${fromPosition}-P${toPosition} / ${pageCount}`;
+    }
+
+    if (this.elements.resultsPrevBtn) {
+      this.elements.resultsPrevBtn.disabled = this.resultsPageIndex <= 0;
+    }
+
+    if (this.elements.resultsNextBtn) {
+      this.elements.resultsNextBtn.disabled = this.resultsPageIndex >= pageCount - 1;
+    }
+
+    this.elements.resultsPager?.classList.toggle('hidden', pageCount <= 1);
+  }
+
+  renderPodium(topPlayers = []) {
+    if (!this.elements.podiumGrid) {
+      return;
+    }
+
+    const podiumOrder = [2, 1, 3];
+    const podiumHtml = podiumOrder
+      .map((position) => {
+        const player = topPlayers.find((candidate) => Number(candidate.position) === position);
+
+        if (!player) {
+          return `
+            <div class="podium-card podium-${position} empty">
+              <div class="podium-number">${position}</div>
+              <div class="podium-driver-silhouette">--</div>
+              <div class="podium-driver-bar">Waiting</div>
+            </div>
+          `;
+        }
+
+        const initials = this.getInitials(player.name);
+        const meta = player.isGhost ? 'AI' : 'Driver';
+        const score = `${player.wpm ?? 0} KPM`;
+
+        return `
+          <div class="podium-card podium-${position} ${player.isGhost ? 'ghost-result' : ''}">
+            <div class="podium-number">${position}</div>
+            <div class="podium-driver-silhouette">${this.escapeHtml(initials)}</div>
+            <div class="podium-stats">
+              <span>${this.escapeHtml(meta)}</span>
+              <strong>${this.escapeHtml(score)}</strong>
+            </div>
+            <div class="podium-driver-bar">
+              <strong>${this.escapeHtml(player.name)}</strong>
+              <span>${player.accuracy ?? 100}% ACC</span>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    this.elements.podiumGrid.innerHTML = podiumHtml;
+  }
+
+  getInitials(name = '') {
+    const words = String(name || 'DR')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    return words
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase() || 'DR';
   }
 
   setTypingInputActive(active) {

@@ -1,6 +1,8 @@
 const DEFAULT_LAP_COUNT = 1;
 const MIN_LAP_COUNT = 1;
 const MAX_LAP_COUNT = 5;
+const DEFAULT_GAME_MODE = 'multiplayer';
+const DEFAULT_BOT_DIFFICULTY = 'medium';
 
 function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -23,6 +25,8 @@ export class NetworkClient {
     this.players = [];
     this.hostId = null;
     this.state = 'waiting';
+    this.mode = DEFAULT_GAME_MODE;
+    this.botDifficulty = DEFAULT_BOT_DIFFICULTY;
     this.circuitProfile = null;
     this.lapCount = DEFAULT_LAP_COUNT;
     this.listeners = new Map();
@@ -113,6 +117,8 @@ export class NetworkClient {
         'countdownStart',
         'countdownTick',
         'raceStart',
+        'racePaused',
+        'raceResumed',
         'playerUpdate',
         'raceFinished'
       ].forEach((event) => {
@@ -121,14 +127,23 @@ export class NetworkClient {
     });
   }
 
-  createRoom(playerName) {
+  createRoom(playerName, options = {}) {
     return this.emitWithAck(
       'createRoom',
-      [playerName, this.getRaceProfile()],
+      [playerName, this.getRaceProfile(), this.getRoomOptions(options)],
       'Ruang tidak bisa dibuat. Server tidak merespons.'
     ).then((response) => {
       this.roomCode = response.roomCode;
+      this.mode = response.mode || options.mode || DEFAULT_GAME_MODE;
+      this.botDifficulty = response.botDifficulty || options.botDifficulty || DEFAULT_BOT_DIFFICULTY;
       return response;
+    });
+  }
+
+  createVsAiRoom(playerName, botDifficulty = DEFAULT_BOT_DIFFICULTY) {
+    return this.createRoom(playerName, {
+      mode: 'ai',
+      botDifficulty
     });
   }
 
@@ -139,6 +154,8 @@ export class NetworkClient {
       'Tidak bisa masuk ke ruang. Server tidak merespons.'
     ).then((response) => {
       this.roomCode = response.roomCode;
+      this.mode = response.mode || DEFAULT_GAME_MODE;
+      this.botDifficulty = response.botDifficulty || DEFAULT_BOT_DIFFICULTY;
       return response;
     });
   }
@@ -200,6 +217,13 @@ export class NetworkClient {
     };
   }
 
+  getRoomOptions(options = {}) {
+    return {
+      mode: options.mode || DEFAULT_GAME_MODE,
+      botDifficulty: options.botDifficulty || DEFAULT_BOT_DIFFICULTY
+    };
+  }
+
   startRace() {
     if (this.roomCode) {
       this.socket.emit('startRace', this.roomCode, this.getRaceProfile());
@@ -209,6 +233,24 @@ export class NetworkClient {
   playAgain() {
     if (this.roomCode) {
       this.socket.emit('playAgain', this.roomCode, this.getRaceProfile());
+    }
+  }
+
+  pauseAiRace() {
+    if (this.roomCode) {
+      this.socket.emit('pauseAiRace', this.roomCode);
+    }
+  }
+
+  resumeAiRace() {
+    if (this.roomCode) {
+      this.socket.emit('resumeAiRace', this.roomCode);
+    }
+  }
+
+  restartAiRace() {
+    if (this.roomCode) {
+      this.socket.emit('restartAiRace', this.roomCode, this.getRaceProfile());
     }
   }
 
@@ -222,6 +264,8 @@ export class NetworkClient {
     this.players = [];
     this.hostId = null;
     this.state = 'waiting';
+    this.mode = DEFAULT_GAME_MODE;
+    this.botDifficulty = DEFAULT_BOT_DIFFICULTY;
     this.lapCount = DEFAULT_LAP_COUNT;
   }
 }
