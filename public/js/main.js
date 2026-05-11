@@ -98,6 +98,7 @@ class F1TypingBattleApp {
       aiPauseNotice: document.getElementById('aiPauseNotice'),
       roomCodeInput: document.getElementById('roomCodeInput'),
       roomCodeDisplay: document.getElementById('roomCodeDisplay'),
+      copyRoomCodeBtn: document.getElementById('copyRoomCodeBtn'),
       lobbyModeLabel: document.getElementById('lobbyModeLabel'),
       lobbyRoomMeta: document.getElementById('lobbyRoomMeta'),
       raceOptionsPanel: document.getElementById('raceOptionsPanel'),
@@ -108,6 +109,7 @@ class F1TypingBattleApp {
       lapOptionGroup: document.getElementById('lapOptionGroup'),
       lapPreviewValue: document.getElementById('lapPreviewValue'),
       lobbyStateLabel: document.getElementById('lobbyStateLabel'),
+      trackReadyLabel: document.getElementById('trackReadyLabel'),
       loadingText: document.getElementById('loadingText'),
       textToType: document.getElementById('textToType'),
       typingInput: document.getElementById('typingInput'),
@@ -263,9 +265,10 @@ class F1TypingBattleApp {
     this.elements.chatForm?.addEventListener('submit', (event) => this.sendChatMessage(event));
     this.elements.voiceToggleBtn?.addEventListener('click', () => this.toggleVoiceChat());
     this.elements.resumeRoomBtn?.addEventListener('click', () => this.resumeLastRoom());
+    this.elements.copyRoomCodeBtn?.addEventListener('click', () => this.copyRoomCode());
     this.elements.playerNameInput?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
-        this.openModeSetup(this.selectedMode || 'multiplayer');
+        this.openModeSetup(this.selectedMode);
       }
     });
     this.elements.authPasswordInput?.addEventListener('keydown', (event) => {
@@ -273,8 +276,8 @@ class F1TypingBattleApp {
         this.loginWithFirebase();
       }
     });
-    this.elements.createRoomBtn.addEventListener('click', () => this.createRoom());
-    this.elements.joinRoomBtn.addEventListener('click', () => this.openJoinModal());
+    this.elements.createRoomBtn?.addEventListener('click', () => this.createRoom());
+    this.elements.joinRoomBtn?.addEventListener('click', () => this.openJoinModal());
     this.elements.startAiBtn?.addEventListener('click', () => this.createVsAiRace());
     this.elements.modeButtons.forEach((button) => {
       button.addEventListener('click', () => this.openModeSetup(button.dataset.mode));
@@ -566,8 +569,14 @@ class F1TypingBattleApp {
     if (this.elements.chatInput) {
       this.elements.chatInput.disabled = !roomActive;
       this.elements.chatInput.placeholder = roomActive
-        ? 'Ketik pesan...'
-        : 'Login dan masuk room untuk chat';
+        ? 'Ketik pesan'
+        : isLoggedIn ? 'Masuk room dulu' : 'Login untuk chat';
+    }
+
+    if (this.elements.chatMessages) {
+      this.elements.chatMessages.dataset.emptyLabel = roomActive
+        ? 'Belum ada pesan di room ini.'
+        : isLoggedIn ? 'Masuk room untuk memakai chat.' : 'Login Firebase untuk chat dan voice.';
     }
 
     if (this.elements.voiceToggleBtn) {
@@ -1370,6 +1379,28 @@ class F1TypingBattleApp {
     }
   }
 
+  async copyRoomCode() {
+    const roomCode = this.network.roomCode || this.getSavedRoomCode();
+
+    if (!roomCode || this.network.mode === 'ai') {
+      return;
+    }
+
+    try {
+      await navigator.clipboard?.writeText(roomCode);
+      if (this.elements.copyRoomCodeBtn) {
+        this.elements.copyRoomCodeBtn.textContent = 'Copied';
+        window.setTimeout(() => {
+          if (this.elements.copyRoomCodeBtn) {
+            this.elements.copyRoomCodeBtn.textContent = 'Copy';
+          }
+        }, 1400);
+      }
+    } catch (_error) {
+      window.prompt('Salin kode room:', roomCode);
+    }
+  }
+
   leaveLobby() {
     this.network.leaveRoom();
     this.leaveFirebaseRoom();
@@ -1469,6 +1500,11 @@ class F1TypingBattleApp {
       }
     }
 
+    if (this.elements.trackReadyLabel) {
+      this.elements.trackReadyLabel.textContent = this.isTrackReady ? 'Track ready' : 'Track loading';
+      this.elements.trackReadyLabel.classList.toggle('ready', this.isTrackReady);
+    }
+
     if (this.network.state === 'finished') {
       this.elements.playAgainBtn.textContent = isHost ? 'Main Lagi' : 'Kembali ke Room';
       this.elements.playAgainBtn.disabled = isHost ? !canPlayAgain : !hasRoom;
@@ -1523,6 +1559,7 @@ class F1TypingBattleApp {
 
     const isVsAi = this.network.mode === 'ai';
     this.elements.roomCodeDisplay.textContent = isVsAi ? 'VS AI' : payload.roomCode;
+    this.elements.copyRoomCodeBtn?.classList.toggle('hidden', isVsAi);
     if (this.elements.lobbyModeLabel) {
       this.elements.lobbyModeLabel.textContent = isVsAi
         ? `VS AI - ${this.formatDifficulty(this.network.botDifficulty)}`
@@ -1547,15 +1584,24 @@ class F1TypingBattleApp {
       const isYou = player.id === this.network.socket.id;
       const isHost = player.id === this.network.hostId;
       const driverType = player.isGhost ? 'AI Bot' : isYou ? 'Kamu' : 'Pembalap';
+      const badges = [
+        isHost ? '<span class="badge">Host</span>' : '',
+        isYou ? '<span class="badge">Kamu</span>' : ''
+      ].join('');
 
       card.innerHTML = `
         <span class="grid-slot">P${index + 1}</span>
-        <div>
-          <strong>${this.escapeHtml(player.name)}</strong>
-          <div class="player-meta">${driverType} - KPM ${player.wpm ?? 0} - Akurasi ${player.accuracy ?? 100}%</div>
+        <div class="player-info">
+          <div class="player-name-line">
+            <strong>${this.escapeHtml(player.name)}</strong>
+            <span class="player-role">${driverType}</span>
+          </div>
+          <div class="player-meta">
+            <span>KPM ${player.wpm ?? 0}</span>
+            <span>Akurasi ${player.accuracy ?? 100}%</span>
+          </div>
         </div>
-        ${isHost ? '<span class="badge">Tuan rumah</span>' : '<span></span>'}
-        ${isYou ? '<span class="badge">Kamu</span>' : '<span></span>'}
+        <div class="player-badges">${badges}</div>
       `;
 
       this.elements.playersList.appendChild(card);

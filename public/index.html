@@ -47,9 +47,9 @@
       <button id="voiceToggleBtn" class="icon-btn voice-toggle-btn" type="button" title="Open mic" disabled>MIC</button>
     </div>
     <div id="onlineUsersList" class="online-users-list" aria-live="polite"></div>
-    <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+    <div id="chatMessages" class="chat-messages" aria-live="polite" data-empty-label="Belum ada pesan. Login Firebase untuk chat dan voice."></div>
     <form id="chatForm" class="chat-form">
-      <input id="chatInput" class="input-field" type="text" maxlength="500" placeholder="Ketik pesan..." autocomplete="off">
+      <input id="chatInput" class="input-field" type="text" maxlength="500" placeholder="Ketik pesan" autocomplete="off">
       <button id="sendChatBtn" class="btn btn-primary" type="submit" disabled>Kirim</button>
     </form>
   </aside>
@@ -151,32 +151,33 @@
   </div>
 
   <div id="multiplayerSetupScreen" class="screen hidden">
-    <div class="panel setup-panel">
+    <div class="panel setup-panel setup-choice-panel">
       <div class="panel-header">
         <div>
           <p class="eyebrow">Multiplayer</p>
           <h2>Paddock Room</h2>
         </div>
-        <div class="lobby-state">
-          <span>Room code race</span>
-        </div>
+        <span class="status-pill online">Room Setup</span>
       </div>
+
       <div class="setup-hero">
         <span>Driver</span>
         <strong id="multiplayerDriverName">Pembalap</strong>
       </div>
+
       <div class="setup-action-grid">
         <button id="createRoomBtn" class="setup-action-card" type="button">
-          <span>01</span>
+          <span>Host</span>
           <strong>Buat Room</strong>
-          <small>Jadi tuan rumah dan atur jumlah lap di lobby.</small>
+          <small>Buat room baru, lalu bagikan kode room ke teman.</small>
         </button>
         <button id="joinRoomBtn" class="setup-action-card" type="button">
-          <span>02</span>
+          <span>Join</span>
           <strong>Gabung Room</strong>
-          <small>Masukkan kode room dari temanmu.</small>
+          <small>Masukkan kode dari teman untuk masuk lobby.</small>
         </button>
       </div>
+
       <div class="row-actions">
         <button id="backFromMultiplayerBtn" class="btn btn-secondary" type="button">Kembali</button>
       </div>
@@ -184,20 +185,20 @@
   </div>
 
   <div id="aiSetupScreen" class="screen hidden">
-    <div class="panel setup-panel">
+    <div class="panel setup-panel setup-choice-panel">
       <div class="panel-header">
         <div>
           <p class="eyebrow">VS AI</p>
           <h2>Bot Challenge</h2>
         </div>
-        <div class="lobby-state">
-          <span>Solo race</span>
-        </div>
+        <span class="status-pill">Solo Race</span>
       </div>
+
       <div class="setup-hero">
         <span>Driver</span>
         <strong id="aiDriverName">Pembalap</strong>
       </div>
+
       <div id="aiSetupPanel" class="ai-setup-panel">
         <div class="setup-row">
           <span class="field-label">Difficulty Bot</span>
@@ -228,6 +229,7 @@
           </div>
         </div>
       </div>
+
       <div class="row-actions">
         <button id="startAiBtn" class="btn btn-primary" type="button">Mulai VS AI</button>
         <button id="backFromAiBtn" class="btn btn-secondary" type="button">Kembali</button>
@@ -282,14 +284,18 @@
 
   <div id="lobbyScreen" class="screen hidden">
     <div class="panel lobby-panel">
-      <div class="panel-header">
-        <div>
+      <div class="panel-header lobby-header">
+        <div class="room-summary">
           <p id="lobbyModeLabel" class="eyebrow">Race Room</p>
-          <h2 id="roomCodeDisplay">------</h2>
+          <div class="room-code-row">
+            <h2 id="roomCodeDisplay">------</h2>
+            <button id="copyRoomCodeBtn" class="btn btn-secondary" type="button" title="Salin kode room">Copy</button>
+          </div>
           <p id="lobbyRoomMeta" class="room-context">Bagikan kode room ke temanmu.</p>
         </div>
-        <div class="lobby-state">
+        <div class="lobby-state" aria-live="polite">
           <span id="lobbyStateLabel">Menunggu pembalap</span>
+          <span id="trackReadyLabel">Track loading</span>
         </div>
       </div>
       <div class="lobby-grid">

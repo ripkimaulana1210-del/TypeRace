@@ -1,4 +1,7 @@
 node_modules/
+playtest-artifacts/
+playtest-result.png
+.vercel/
 .DS_Store
 *.log
 npm-debug.log*

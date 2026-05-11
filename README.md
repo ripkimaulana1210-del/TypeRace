@@ -42,7 +42,7 @@ npm run dev
 
 ## Firebase Setup
 
-Firebase is optional until configured. Fill `public/js/firebase-config.js`, enable Email/Password Authentication, create a Realtime Database, and apply the rules in `FIREBASE_SETUP.md`.
+Firebase is optional until configured. Fill `public/js/firebase-config.js`, enable Email/Password Authentication, create a Realtime Database, and apply the rules in `docs/FIREBASE_SETUP.md`.
 
 ## How to Play
 
