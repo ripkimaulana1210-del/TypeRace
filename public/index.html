@@ -19,54 +19,134 @@
 </head>
 
 <body>
+  <header class="app-topbar" aria-label="TypeRace controls">
+    <div class="app-brand">
+      <span class="brand-mark">TR</span>
+      <div>
+        <strong>TypeRace 3D</strong>
+        <small>Race Control</small>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="appConnectionLabel" class="status-pill">Menghubungkan</span>
+      <button id="authOpenBtn" class="topbar-btn" type="button">Login</button>
+      <button id="settingsBtn" class="topbar-btn" type="button">Setting</button>
+    </div>
+  </header>
+
   <div class="corner-control-bar">
     <button id="gameMenuBtn" class="icon-btn hidden" type="button" title="Menu race">MENU</button>
   </div>
 
-  <div id="menuScreen" class="screen active">
-    <div class="menu-frame">
-      <div class="menu-visual" aria-hidden="true">
-        <div class="track-orbit">
-          <span class="car-token"></span>
-          <span class="apex-marker marker-one"></span>
-          <span class="apex-marker marker-two"></span>
-          <span class="apex-marker marker-three"></span>
+  <aside id="raceCommsPanel" class="race-comms-panel hidden" aria-label="Race communications">
+    <div class="race-comms-head">
+      <div>
+        <span id="firebaseStatusText" class="field-label">Firebase</span>
+        <strong id="authUserLabel">Belum login</strong>
+      </div>
+      <button id="voiceToggleBtn" class="icon-btn voice-toggle-btn" type="button" title="Open mic" disabled>MIC</button>
+    </div>
+    <div id="onlineUsersList" class="online-users-list" aria-live="polite"></div>
+    <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+    <form id="chatForm" class="chat-form">
+      <input id="chatInput" class="input-field" type="text" maxlength="500" placeholder="Ketik pesan..." autocomplete="off">
+      <button id="sendChatBtn" class="btn btn-primary" type="submit" disabled>Kirim</button>
+    </form>
+  </aside>
+
+  <div id="authModal" class="modal hidden">
+    <div class="panel modal-panel auth-modal-panel">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Akun</p>
+          <h2>Chat & Voice</h2>
         </div>
-        <div class="speed-bars">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
+        <button id="authCloseBtn" class="icon-btn" type="button" title="Tutup login">X</button>
+      </div>
+      <div class="auth-panel" aria-label="Akun pengguna">
+        <div class="auth-panel-head">
+          <div>
+            <span class="field-label">Status</span>
+            <strong id="authStateLabel">Login untuk chat dan voice</strong>
+          </div>
+          <button id="authLogoutBtn" class="btn btn-secondary hidden" type="button">Logout</button>
+        </div>
+        <div class="auth-grid">
+          <input id="authNameInput" class="input-field" type="text" maxlength="32" placeholder="Nama akun">
+          <input id="authEmailInput" class="input-field" type="email" autocomplete="email" placeholder="Email">
+          <input id="authPasswordInput" class="input-field" type="password" autocomplete="current-password" placeholder="Password">
+        </div>
+        <div class="auth-actions">
+          <button id="authLoginBtn" class="btn btn-primary" type="button">Login</button>
+          <button id="authRegisterBtn" class="btn btn-secondary" type="button">Registrasi</button>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="menu-panel">
+  <div id="menuScreen" class="screen active">
+    <div class="start-dashboard">
+      <section class="start-panel">
         <div class="hero-copy">
           <p class="eyebrow">Formula Typing Grand Prix</p>
-          <h1>TypeRace 3D</h1>
-          <p class="subtitle">Masukkan nama pembalap, lalu pilih jalur balapan.</p>
+          <h1>Mulai Race</h1>
+          <p class="subtitle">Pilih nama dan mode. Login hanya dibutuhkan untuk chat, status online, dan voice.</p>
         </div>
 
         <div class="menu-controls">
-          <label class="field-label" for="playerNameInput">Nama pembalap</label>
-          <input id="playerNameInput" class="input-field" type="text" maxlength="20" placeholder="Nama pembalap">
+          <div class="launch-flow" aria-label="Alur mulai race">
+            <span class="flow-step active">Driver</span>
+            <span class="flow-step">Mode</span>
+            <span class="flow-step">Lobby</span>
+            <span class="flow-step">Start</span>
+          </div>
+
+          <div class="driver-panel">
+            <div>
+              <label class="field-label" for="playerNameInput">Nama pembalap</label>
+              <input id="playerNameInput" class="input-field" type="text" maxlength="20" placeholder="Nama pembalap">
+            </div>
+            <button id="resumeRoomBtn" class="btn btn-secondary hidden" type="button">Room Terakhir</button>
+          </div>
+          <p id="savedRoomHint" class="saved-room-hint hidden"></p>
+
           <div class="mode-switch" aria-label="Mode game">
-            <button type="button" class="mode-card" data-mode="multiplayer">
+            <button type="button" class="mode-card active" data-mode="multiplayer">
               <span>01</span>
               <strong>Multiplayer</strong>
-              <small>Buat room atau gabung dengan kode.</small>
+              <small>Buat room atau masuk dengan kode teman.</small>
             </button>
             <button type="button" class="mode-card" data-mode="ai">
               <span>02</span>
               <strong>VS AI</strong>
-              <small>Pilih difficulty bot dan jumlah lap.</small>
+              <small>Atur bot dan lap sebelum start.</small>
             </button>
           </div>
-          <div class="primary-actions">
-            <button id="settingsBtn" class="btn btn-secondary" type="button">Setting</button>
+        </div>
+      </section>
+
+      <aside class="start-side-panel" aria-label="Race preview">
+        <div class="quick-preview" aria-hidden="true">
+          <div class="preview-track">
+            <span class="preview-car"></span>
+            <span class="preview-dot dot-green"></span>
+            <span class="preview-dot dot-yellow"></span>
+            <span class="preview-dot dot-blue"></span>
           </div>
         </div>
-      </div>
+        <div class="side-status-grid">
+          <div class="side-status-card">
+            <span>Multiplayer</span>
+            <strong>Room Code</strong>
+            <small>Buat room lalu bagikan kodenya.</small>
+          </div>
+          <div class="side-status-card">
+            <span>Realtime</span>
+            <strong>Chat & Voice</strong>
+            <small>Login Firebase untuk komunikasi.</small>
+          </div>
+        </div>
+      </aside>
     </div>
   </div>
 
@@ -86,12 +166,12 @@
         <strong id="multiplayerDriverName">Pembalap</strong>
       </div>
       <div class="setup-action-grid">
-        <button id="createRoomBtn" class="mode-card setup-action-card" type="button">
+        <button id="createRoomBtn" class="setup-action-card" type="button">
           <span>01</span>
           <strong>Buat Room</strong>
           <small>Jadi tuan rumah dan atur jumlah lap di lobby.</small>
         </button>
-        <button id="joinRoomBtn" class="mode-card setup-action-card" type="button">
+        <button id="joinRoomBtn" class="setup-action-card" type="button">
           <span>02</span>
           <strong>Gabung Room</strong>
           <small>Masukkan kode room dari temanmu.</small>
@@ -206,67 +286,80 @@
         <div>
           <p id="lobbyModeLabel" class="eyebrow">Race Room</p>
           <h2 id="roomCodeDisplay">------</h2>
+          <p id="lobbyRoomMeta" class="room-context">Bagikan kode room ke temanmu.</p>
         </div>
         <div class="lobby-state">
           <span id="lobbyStateLabel">Menunggu pembalap</span>
         </div>
       </div>
-      <div id="raceOptionsPanel" class="race-options lap-settings-card">
-        <div class="lap-settings-head">
-          <div>
-            <span class="field-label">Race Distance</span>
-            <h3>Pilih Jumlah Lap</h3>
-            <p>Atur panjang balapan sebelum race dimulai.</p>
+      <div class="lobby-grid">
+        <section id="raceOptionsPanel" class="race-options lap-settings-card" aria-label="Pengaturan race">
+          <div class="lap-settings-head">
+            <div>
+              <span class="field-label">Race Distance</span>
+              <h3>Pilih Jumlah Lap</h3>
+              <p>Host mengatur panjang balapan sebelum start.</p>
+            </div>
+
+            <div class="lap-preview">
+              <span id="lapPreviewValue">1</span>
+              <small>LAP</small>
+            </div>
           </div>
 
-          <div class="lap-preview">
-            <span id="lapPreviewValue">1</span>
-            <small>LAP</small>
+          <select id="lapCountSelect" class="lap-select-hidden" aria-label="Jumlah lap">
+            <option value="1">1 Lap</option>
+            <option value="2">2 Lap</option>
+            <option value="3">3 Lap</option>
+            <option value="4">4 Lap</option>
+            <option value="5">5 Lap</option>
+          </select>
+
+          <div id="lapOptionGroup" class="lap-option-grid">
+            <button type="button" class="lap-option active" data-lap="1">
+              <span>01</span>
+              <strong>Sprint</strong>
+              <small>Singkat</small>
+            </button>
+
+            <button type="button" class="lap-option" data-lap="2">
+              <span>02</span>
+              <strong>Short</strong>
+              <small>Santai</small>
+            </button>
+
+            <button type="button" class="lap-option" data-lap="3">
+              <span>03</span>
+              <strong>Standard</strong>
+              <small>Seimbang</small>
+            </button>
+
+            <button type="button" class="lap-option" data-lap="4">
+              <span>04</span>
+              <strong>Extended</strong>
+              <small>Panjang</small>
+            </button>
+
+            <button type="button" class="lap-option" data-lap="5">
+              <span>05</span>
+              <strong>Endurance</strong>
+              <small>Fokus</small>
+            </button>
           </div>
-        </div>
+        </section>
 
-        <select id="lapCountSelect" class="lap-select-hidden" aria-label="Jumlah lap">
-          <option value="1">1 Lap</option>
-          <option value="2">2 Lap</option>
-          <option value="3">3 Lap</option>
-          <option value="4">4 Lap</option>
-          <option value="5">5 Lap</option>
-        </select>
-
-        <div id="lapOptionGroup" class="lap-option-grid">
-          <button type="button" class="lap-option active" data-lap="1">
-            <span>01</span>
-            <strong>Sprint</strong>
-            <small>Singkat</small>
-          </button>
-
-          <button type="button" class="lap-option" data-lap="2">
-            <span>02</span>
-            <strong>Short</strong>
-            <small>Santai</small>
-          </button>
-
-          <button type="button" class="lap-option" data-lap="3">
-            <span>03</span>
-            <strong>Standard</strong>
-            <small>Seimbang</small>
-          </button>
-
-          <button type="button" class="lap-option" data-lap="4">
-            <span>04</span>
-            <strong>Extended</strong>
-            <small>Panjang</small>
-          </button>
-
-          <button type="button" class="lap-option" data-lap="5">
-            <span>05</span>
-            <strong>Endurance</strong>
-            <small>Fokus</small>
-          </button>
-        </div>
+        <section class="lobby-drivers" aria-label="Daftar pembalap">
+          <div class="lobby-section-head">
+            <div>
+              <span class="field-label">Grid</span>
+              <h3>Pembalap</h3>
+            </div>
+            <strong id="lobbyDriverCount">0</strong>
+          </div>
+          <div id="playersList" class="players-list"></div>
+          <p id="lobbyHintText" class="saved-room-hint">Menunggu pembalap masuk ke room.</p>
+        </section>
       </div>
-
-      <div id="playersList" class="players-list"></div>
       <div class="row-actions">
         <button id="startRaceBtn" class="btn btn-primary" type="button" disabled>Mulai Balapan</button>
         <button id="leaveLobbyBtn" class="btn btn-secondary" type="button">Keluar</button>

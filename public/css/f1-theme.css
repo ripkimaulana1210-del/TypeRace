@@ -52,6 +52,8 @@ body::after {
 .panel,
 .menu-panel,
 .menu-visual,
+.start-panel,
+.start-side-panel,
 .hud-card,
 .route-minimap,
 .camera-mode-group,
@@ -69,6 +71,8 @@ body::after {
 .panel,
 .menu-panel,
 .menu-visual,
+.start-panel,
+.start-side-panel,
 .hud-card,
 .lap-settings-card,
 .setup-hero,
@@ -78,6 +82,8 @@ body::after {
 
 .panel::before,
 .menu-panel::before,
+.start-panel::before,
+.start-side-panel::before,
 .hud-card::before,
 .lap-settings-card::before,
 .setup-hero::before,
@@ -94,12 +100,68 @@ body::after {
 
 .menu-frame {
   width: min(1180px, 100%);
-  grid-template-columns: minmax(0, 1.12fr) minmax(360px, 450px);
+  grid-template-columns: minmax(0, 0.95fr) minmax(380px, 450px);
   gap: 16px;
 }
 
+.app-topbar {
+  background:
+    linear-gradient(90deg, rgba(240, 24, 24, 0.13), transparent 34%),
+    rgba(4, 7, 8, 0.9);
+}
+
+.brand-mark,
+.status-pill,
+.topbar-btn {
+  border-radius: 3px;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+.start-dashboard {
+  width: min(1120px, 100%);
+}
+
+.start-panel,
+.start-side-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 5px;
+  border-color: var(--f1-line);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 24%),
+    linear-gradient(180deg, var(--f1-panel-strong), var(--f1-panel));
+}
+
+.quick-preview {
+  border-radius: 4px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.032) 0 2px, transparent 2px 12px),
+    linear-gradient(135deg, rgba(240, 24, 24, 0.13), transparent 44%),
+    rgba(4, 7, 8, 0.72);
+}
+
+.preview-track {
+  border-top-color: var(--f1-red);
+  border-right-color: var(--f1-yellow);
+  border-bottom-color: var(--f1-green);
+}
+
+.preview-car {
+  background:
+    linear-gradient(90deg, #070809 0 7px, transparent 7px calc(100% - 7px), #070809 calc(100% - 7px)),
+    linear-gradient(90deg, var(--f1-red), #ff5a38 62%, var(--f1-yellow));
+}
+
+.side-status-card {
+  border-radius: 3px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 40%),
+    rgba(7, 9, 10, 0.75);
+}
+
 .menu-visual {
-  min-height: 560px;
+  min-height: min(520px, calc(100vh - 72px));
   isolation: isolate;
   background:
     radial-gradient(circle at 50% 48%, rgba(240, 24, 24, 0.22), transparent 25%),
@@ -121,11 +183,11 @@ body::after {
   position: absolute;
   left: 32px;
   right: 32px;
-  bottom: 34px;
+  bottom: 26px;
   z-index: 0;
   overflow: hidden;
   color: rgba(245, 247, 242, 0.045);
-  font-size: clamp(4.4rem, 10vw, 8.8rem);
+  font-size: clamp(3.2rem, 8vw, 7rem);
   font-weight: 950;
   line-height: 0.78;
   letter-spacing: 0;
@@ -134,7 +196,7 @@ body::after {
 
 .track-orbit {
   z-index: 1;
-  width: min(76%, 590px);
+  width: min(72%, 520px);
   border-width: 16px;
   border-color: rgba(245, 247, 242, 0.16);
   border-top-color: var(--f1-red);
@@ -177,7 +239,7 @@ body::after {
 
 .hero-copy h1 {
   max-width: 9ch;
-  font-size: clamp(3.2rem, 7vw, 5.2rem);
+  font-size: clamp(2.7rem, 5.6vw, 4.25rem);
   letter-spacing: 0;
 }
 
@@ -271,6 +333,7 @@ body::after {
 }
 
 .mode-card,
+.setup-action-card,
 .difficulty-option,
 .compact-lap-option {
   border-radius: 3px;
@@ -299,12 +362,14 @@ body::after {
   text-shadow: 0 0 18px rgba(240, 24, 24, 0.25);
 }
 
-.mode-card {
+.mode-card,
+.setup-action-card {
   position: relative;
   overflow: hidden;
 }
 
-.mode-card::before {
+.mode-card::before,
+.setup-action-card::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -318,12 +383,16 @@ body::after {
 
 .mode-card span,
 .mode-card strong,
-.mode-card small {
+.mode-card small,
+.setup-action-card span,
+.setup-action-card strong,
+.setup-action-card small {
   position: relative;
   z-index: 1;
 }
 
 .mode-card span,
+.setup-action-card span,
 .compact-lap-option {
   color: var(--f1-yellow);
 }
@@ -343,15 +412,15 @@ body::after {
 }
 
 .mode-switch .mode-card.active {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--f1-yellow);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 36%),
-    rgba(7, 9, 10, 0.84);
-  box-shadow: none;
+    linear-gradient(100deg, rgba(240, 24, 24, 0.28), rgba(255, 204, 34, 0.12)),
+    rgba(7, 9, 10, 0.92);
+  box-shadow: 0 14px 34px rgba(240, 24, 24, 0.18);
 }
 
 .mode-switch .mode-card.active::before {
-  opacity: 0;
+  opacity: 1;
 }
 
 .mode-switch .mode-card:hover,
@@ -374,6 +443,71 @@ body::after {
   background:
     linear-gradient(90deg, rgba(240, 24, 24, 0.12), transparent 38%),
     rgba(3, 5, 6, 0.58);
+}
+
+.auth-panel,
+.race-comms-panel {
+  border-radius: 4px;
+  border-color: rgba(255, 204, 34, 0.24);
+  background:
+    linear-gradient(90deg, rgba(240, 24, 24, 0.12), transparent 42%),
+    rgba(4, 7, 8, 0.88);
+}
+
+.auth-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-panel::before,
+.race-comms-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, var(--f1-red) 0 32%, transparent 32% 56%, var(--f1-yellow) 56% 62%, transparent 62% 100%) top left / 100% 3px no-repeat;
+}
+
+.race-comms-panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 72px rgba(0, 0, 0, 0.42);
+}
+
+.race-comms-head,
+.online-users-list,
+.chat-messages,
+.chat-form,
+.auth-panel-head,
+.auth-grid,
+.auth-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.voice-toggle-btn.active {
+  border-color: var(--f1-green);
+  background:
+    linear-gradient(135deg, rgba(25, 230, 140, 0.22), rgba(255, 255, 255, 0.025)),
+    rgba(7, 9, 10, 0.9);
+  color: var(--f1-green);
+}
+
+.chat-message {
+  border-radius: 3px;
+  border-color: rgba(255, 255, 255, 0.13);
+  background:
+    linear-gradient(90deg, rgba(240, 24, 24, 0.08), transparent 34%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.chat-message.own {
+  border-color: rgba(255, 204, 34, 0.3);
+  background:
+    linear-gradient(90deg, rgba(255, 204, 34, 0.13), transparent 38%),
+    rgba(255, 255, 255, 0.04);
 }
 
 .difficulty-option {

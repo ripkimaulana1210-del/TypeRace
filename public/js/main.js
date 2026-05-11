@@ -1,5 +1,6 @@
 import { NetworkClient } from './network.js';
 import { TypingEngine } from './typing.js';
+import { FirebaseRaceService, isFirebaseConfigured } from './firebase-service.js';
 
 const FAST_INPUT_WINDOW_MS = 360;
 const SLOW_INPUT_WINDOW_MS = 1100;
@@ -13,6 +14,7 @@ const DEFAULT_BOT_DIFFICULTY = 'medium';
 class F1TypingBattleApp {
   constructor() {
     this.network = new NetworkClient();
+    this.firebase = new FirebaseRaceService();
     this.typing = new TypingEngine();
     this.game = null;
     this.currentScreen = 'menu';
@@ -31,12 +33,15 @@ class F1TypingBattleApp {
     this.radioHideTimer = null;
     this.finishReplayTimer = null;
     this.isTrackReady = false;
+    this.chatMessageIds = new Set();
+    this.latestPresenceUsers = [];
     this.elements = this.getElements();
   }
 
   getElements() {
     return {
       menuScreen: document.getElementById('menuScreen'),
+      raceCommsPanel: document.getElementById('raceCommsPanel'),
       gameMenuModal: document.getElementById('gameMenuModal'),
       multiplayerSetupScreen: document.getElementById('multiplayerSetupScreen'),
       aiSetupScreen: document.getElementById('aiSetupScreen'),
@@ -45,8 +50,30 @@ class F1TypingBattleApp {
       gameScreen: document.getElementById('gameScreen'),
       resultsScreen: document.getElementById('resultsScreen'),
       loadingScreen: document.getElementById('loadingScreen'),
+      authModal: document.getElementById('authModal'),
+      authOpenBtn: document.getElementById('authOpenBtn'),
+      authCloseBtn: document.getElementById('authCloseBtn'),
+      appConnectionLabel: document.getElementById('appConnectionLabel'),
       playerNameInput: document.getElementById('playerNameInput'),
-      modeButtons: Array.from(document.querySelectorAll('.mode-card')),
+      authPanel: document.querySelector('.auth-panel'),
+      authStateLabel: document.getElementById('authStateLabel'),
+      authNameInput: document.getElementById('authNameInput'),
+      authEmailInput: document.getElementById('authEmailInput'),
+      authPasswordInput: document.getElementById('authPasswordInput'),
+      authLoginBtn: document.getElementById('authLoginBtn'),
+      authRegisterBtn: document.getElementById('authRegisterBtn'),
+      authLogoutBtn: document.getElementById('authLogoutBtn'),
+      firebaseStatusText: document.getElementById('firebaseStatusText'),
+      authUserLabel: document.getElementById('authUserLabel'),
+      onlineUsersList: document.getElementById('onlineUsersList'),
+      chatMessages: document.getElementById('chatMessages'),
+      chatForm: document.getElementById('chatForm'),
+      chatInput: document.getElementById('chatInput'),
+      sendChatBtn: document.getElementById('sendChatBtn'),
+      voiceToggleBtn: document.getElementById('voiceToggleBtn'),
+      modeButtons: Array.from(document.querySelectorAll('.mode-switch .mode-card[data-mode]')),
+      resumeRoomBtn: document.getElementById('resumeRoomBtn'),
+      savedRoomHint: document.getElementById('savedRoomHint'),
       aiSetupPanel: document.getElementById('aiSetupPanel'),
       botDifficultyGroup: document.getElementById('botDifficultyGroup'),
       difficultyButtons: Array.from(document.querySelectorAll('.difficulty-option')),
@@ -72,8 +99,11 @@ class F1TypingBattleApp {
       roomCodeInput: document.getElementById('roomCodeInput'),
       roomCodeDisplay: document.getElementById('roomCodeDisplay'),
       lobbyModeLabel: document.getElementById('lobbyModeLabel'),
+      lobbyRoomMeta: document.getElementById('lobbyRoomMeta'),
       raceOptionsPanel: document.getElementById('raceOptionsPanel'),
       playersList: document.getElementById('playersList'),
+      lobbyDriverCount: document.getElementById('lobbyDriverCount'),
+      lobbyHintText: document.getElementById('lobbyHintText'),
       lapCountSelect: document.getElementById('lapCountSelect'),
       lapOptionGroup: document.getElementById('lapOptionGroup'),
       lapPreviewValue: document.getElementById('lapPreviewValue'),
@@ -135,14 +165,24 @@ class F1TypingBattleApp {
     this.restoreSavedSession();
     this.bindUI();
     this.bindNetwork();
+    this.bindFirebase();
+    this.initFirebase();
 
     try {
       await this.network.connect();
+      if (this.elements.appConnectionLabel) {
+        this.elements.appConnectionLabel.textContent = 'Server online';
+        this.elements.appConnectionLabel.classList.add('online');
+      }
       await this.initGame();
       this.updateSavedRoomUI();
       this.showScreen('menu');
     } catch (error) {
       this.elements.loadingText.textContent = 'Koneksi gagal. Muat ulang untuk mencoba lagi.';
+      if (this.elements.appConnectionLabel) {
+        this.elements.appConnectionLabel.textContent = 'Server offline';
+        this.elements.appConnectionLabel.classList.remove('online');
+      }
       console.error(error);
     }
   }
@@ -210,6 +250,29 @@ class F1TypingBattleApp {
 
   bindUI() {
     this.syncAudioSettingsUI();
+    this.elements.authLoginBtn?.addEventListener('click', () => this.loginWithFirebase());
+    this.elements.authRegisterBtn?.addEventListener('click', () => this.registerWithFirebase());
+    this.elements.authLogoutBtn?.addEventListener('click', () => this.logoutFromFirebase());
+    this.elements.authOpenBtn?.addEventListener('click', () => this.openAuthModal());
+    this.elements.authCloseBtn?.addEventListener('click', () => this.closeAuthModal());
+    this.elements.authModal?.addEventListener('click', (event) => {
+      if (event.target === this.elements.authModal) {
+        this.closeAuthModal();
+      }
+    });
+    this.elements.chatForm?.addEventListener('submit', (event) => this.sendChatMessage(event));
+    this.elements.voiceToggleBtn?.addEventListener('click', () => this.toggleVoiceChat());
+    this.elements.resumeRoomBtn?.addEventListener('click', () => this.resumeLastRoom());
+    this.elements.playerNameInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        this.openModeSetup(this.selectedMode || 'multiplayer');
+      }
+    });
+    this.elements.authPasswordInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        this.loginWithFirebase();
+      }
+    });
     this.elements.createRoomBtn.addEventListener('click', () => this.createRoom());
     this.elements.joinRoomBtn.addEventListener('click', () => this.openJoinModal());
     this.elements.startAiBtn?.addEventListener('click', () => this.createVsAiRace());
@@ -372,6 +435,361 @@ class F1TypingBattleApp {
     this.network.on('raceResumed', (payload) => this.handleRaceResumed(payload));
     this.network.on('playerUpdate', (payload) => this.handlePlayerUpdate(payload));
     this.network.on('raceFinished', (payload) => this.handleRaceFinished(payload));
+  }
+
+  bindFirebase() {
+    this.firebase.on('statusChanged', (payload) => this.handleFirebaseStatus(payload));
+    this.firebase.on('authChanged', (payload) => this.handleFirebaseAuth(payload));
+    this.firebase.on('messageAdded', (message) => this.renderChatMessage(message));
+    this.firebase.on('presenceChanged', (payload) => this.renderPresence(payload.users || []));
+    this.firebase.on('voiceChanged', (payload) => this.updateVoiceState(payload.active));
+    this.firebase.on('roomChanged', () => this.updateCommsVisibility());
+  }
+
+  initFirebase() {
+    this.updateFirebaseControls({
+      configured: isFirebaseConfigured,
+      ready: false,
+      message: isFirebaseConfigured ? 'Menghubungkan Firebase...' : 'Firebase belum dikonfigurasi.'
+    });
+
+    this.firebase.init().catch((error) => {
+      console.error(error);
+      this.updateFirebaseControls({
+        configured: isFirebaseConfigured,
+        ready: false,
+        message: 'Firebase gagal dimuat.'
+      });
+    });
+  }
+
+  handleFirebaseStatus(payload) {
+    this.updateFirebaseControls(payload);
+  }
+
+  handleFirebaseAuth(payload) {
+    const user = payload.user;
+    const displayName = payload.displayName || user?.displayName || '';
+
+    if (displayName) {
+      this.playerName = displayName.slice(0, 20);
+
+      if (this.elements.playerNameInput && !this.elements.playerNameInput.value.trim()) {
+        this.elements.playerNameInput.value = this.playerName;
+      }
+
+      if (this.elements.authNameInput) {
+        this.elements.authNameInput.value = displayName;
+      }
+    }
+
+    this.updateFirebaseControls({
+      configured: isFirebaseConfigured,
+      ready: this.firebase.ready,
+      message: user ? 'Firebase online.' : 'Login untuk chat dan voice.'
+    });
+
+    if (user && this.network.roomCode) {
+      this.joinFirebaseRoom(this.network.roomCode);
+    }
+  }
+
+  openAuthModal() {
+    this.elements.authModal?.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      if (this.firebase.getCurrentUser()) {
+        this.elements.authCloseBtn?.focus();
+        return;
+      }
+
+      const target = this.elements.authEmailInput?.value
+        ? this.elements.authPasswordInput
+        : this.elements.authEmailInput;
+      target?.focus();
+    });
+  }
+
+  closeAuthModal() {
+    this.elements.authModal?.classList.add('hidden');
+  }
+
+  updateFirebaseControls(payload = {}) {
+    const user = this.firebase.getCurrentUser();
+    const isReady = Boolean(payload.ready || this.firebase.ready);
+    const isConfigured = Boolean(payload.configured ?? isFirebaseConfigured);
+    const isLoggedIn = Boolean(user);
+    const roomActive = Boolean(this.network.roomCode && isLoggedIn && isReady);
+    const statusText = !isConfigured
+      ? 'Config belum diisi'
+      : payload.message || (isReady ? 'Firebase siap' : 'Firebase memuat');
+
+    if (this.elements.firebaseStatusText) {
+      this.elements.firebaseStatusText.textContent = statusText;
+    }
+
+    if (this.elements.authStateLabel) {
+      this.elements.authStateLabel.textContent = isLoggedIn
+        ? `Login sebagai ${user.displayName || this.firebase.displayName || user.email || 'Pengguna'}`
+        : statusText;
+    }
+
+    if (this.elements.authUserLabel) {
+      this.elements.authUserLabel.textContent = isLoggedIn
+        ? (user.displayName || this.firebase.displayName || user.email || 'Pengguna')
+        : 'Belum login';
+    }
+
+    this.elements.authPanel?.classList.toggle('signed-in', isLoggedIn);
+
+    if (this.elements.authOpenBtn) {
+      this.elements.authOpenBtn.textContent = isLoggedIn
+        ? (user.displayName || this.firebase.displayName || 'Akun')
+        : 'Login';
+      this.elements.authOpenBtn.classList.toggle('signed-in', isLoggedIn);
+    }
+
+    [this.elements.authLoginBtn, this.elements.authRegisterBtn].forEach((button) => {
+      if (button) {
+        button.disabled = !isConfigured || !isReady || isLoggedIn;
+      }
+    });
+
+    this.elements.authLogoutBtn?.classList.toggle('hidden', !isLoggedIn);
+    if (this.elements.authLogoutBtn) {
+      this.elements.authLogoutBtn.disabled = !isReady || !isLoggedIn;
+    }
+
+    if (this.elements.sendChatBtn) {
+      this.elements.sendChatBtn.disabled = !roomActive;
+    }
+
+    if (this.elements.chatInput) {
+      this.elements.chatInput.disabled = !roomActive;
+      this.elements.chatInput.placeholder = roomActive
+        ? 'Ketik pesan...'
+        : 'Login dan masuk room untuk chat';
+    }
+
+    if (this.elements.voiceToggleBtn) {
+      this.elements.voiceToggleBtn.disabled = !roomActive;
+    }
+
+    this.updateCommsVisibility();
+  }
+
+  getAuthFormValues() {
+    return {
+      displayName: this.elements.authNameInput?.value?.trim() || this.elements.playerNameInput?.value?.trim() || '',
+      email: this.elements.authEmailInput?.value?.trim() || '',
+      password: this.elements.authPasswordInput?.value || ''
+    };
+  }
+
+  async loginWithFirebase() {
+    try {
+      const values = this.getAuthFormValues();
+      await this.firebase.login(values);
+
+      if (values.displayName) {
+        this.elements.playerNameInput.value = values.displayName.slice(0, 20);
+        this.playerName = values.displayName.slice(0, 20);
+      }
+
+      this.closeAuthModal();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Login Firebase gagal.');
+    }
+  }
+
+  async registerWithFirebase() {
+    try {
+      const values = this.getAuthFormValues();
+      await this.firebase.register(values);
+
+      if (values.displayName) {
+        this.elements.playerNameInput.value = values.displayName.slice(0, 20);
+        this.playerName = values.displayName.slice(0, 20);
+      }
+
+      this.closeAuthModal();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Registrasi Firebase gagal.');
+    }
+  }
+
+  async logoutFromFirebase() {
+    try {
+      await this.firebase.logout();
+      this.chatMessageIds.clear();
+      if (this.elements.chatMessages) {
+        this.elements.chatMessages.innerHTML = '';
+      }
+      this.renderPresence([]);
+      this.updateFirebaseControls({
+        configured: isFirebaseConfigured,
+        ready: this.firebase.ready,
+        message: 'Logout berhasil.'
+      });
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Logout Firebase gagal.');
+    }
+  }
+
+  async joinFirebaseRoom(roomCode) {
+    if (!this.firebase.ready || !this.firebase.getCurrentUser()) {
+      this.updateFirebaseControls();
+      return;
+    }
+
+    try {
+      const normalizedRoomCode = String(roomCode || '').trim().toUpperCase();
+      const isNewFirebaseRoom = this.firebase.currentRoomCode !== normalizedRoomCode;
+      await this.firebase.setDisplayName(this.playerName || this.elements.playerNameInput?.value);
+      await this.firebase.joinRoom(normalizedRoomCode, this.playerName || this.elements.playerNameInput?.value, this.network.socket?.id || '');
+
+      if (isNewFirebaseRoom && this.elements.chatMessages) {
+        this.chatMessageIds.clear();
+        this.elements.chatMessages.innerHTML = '';
+      }
+
+      this.updateFirebaseControls();
+    } catch (error) {
+      console.warn('Firebase room sync failed:', error);
+      this.updateFirebaseControls({
+        configured: isFirebaseConfigured,
+        ready: this.firebase.ready,
+        message: 'Firebase room gagal sync.'
+      });
+    }
+  }
+
+  async leaveFirebaseRoom() {
+    try {
+      await this.firebase.leaveRoom();
+    } catch (error) {
+      console.warn('Firebase leave failed:', error);
+    }
+
+    this.chatMessageIds.clear();
+    if (this.elements.chatMessages) {
+      this.elements.chatMessages.innerHTML = '';
+    }
+    this.renderPresence([]);
+    this.updateFirebaseControls();
+  }
+
+  async sendChatMessage(event) {
+    event.preventDefault();
+
+    const text = this.elements.chatInput?.value || '';
+
+    try {
+      const sent = await this.firebase.sendMessage(text);
+
+      if (sent && this.elements.chatInput) {
+        this.elements.chatInput.value = '';
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Pesan gagal dikirim.');
+    }
+  }
+
+  async toggleVoiceChat() {
+    try {
+      await this.firebase.toggleVoice();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Voice chat gagal dinyalakan.');
+      this.updateVoiceState(false);
+    }
+  }
+
+  updateCommsVisibility() {
+    const shouldShow = Boolean(
+      this.elements.raceCommsPanel
+      && this.network.roomCode
+      && ['lobby', 'results'].includes(this.currentScreen)
+    );
+
+    this.elements.raceCommsPanel?.classList.toggle('hidden', !shouldShow);
+  }
+
+  updateVoiceState(active) {
+    if (!this.elements.voiceToggleBtn) {
+      return;
+    }
+
+    this.elements.voiceToggleBtn.classList.toggle('active', Boolean(active));
+    this.elements.voiceToggleBtn.textContent = active ? 'LIVE' : 'MIC';
+    this.elements.voiceToggleBtn.title = active ? 'Matikan open mic' : 'Nyalakan open mic';
+  }
+
+  renderChatMessage(message) {
+    if (!message?.id || this.chatMessageIds.has(message.id)) {
+      return;
+    }
+
+    this.chatMessageIds.add(message.id);
+
+    if (!this.elements.chatMessages) {
+      return;
+    }
+
+    const row = document.createElement('div');
+    const isOwn = message.uid && message.uid === this.firebase.getCurrentUser()?.uid;
+    const timestamp = Number(message.createdAt);
+    const timeText = Number.isFinite(timestamp)
+      ? new Date(timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : '';
+
+    row.className = `chat-message ${isOwn ? 'own' : ''}`;
+    row.innerHTML = `
+      <div class="chat-message-meta">
+        <strong>${this.escapeHtml(message.name || 'Pembalap')}</strong>
+        <span>${this.escapeHtml(timeText)}</span>
+      </div>
+      <p>${this.escapeHtml(message.text || '')}</p>
+    `;
+
+    this.elements.chatMessages.appendChild(row);
+
+    while (this.elements.chatMessages.children.length > 80) {
+      this.elements.chatMessages.firstElementChild?.remove();
+    }
+
+    this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+  }
+
+  renderPresence(users = []) {
+    this.latestPresenceUsers = users;
+
+    if (!this.elements.onlineUsersList) {
+      return;
+    }
+
+    if (!users.length) {
+      this.elements.onlineUsersList.innerHTML = '<span class="presence-empty">Belum ada user online</span>';
+      return;
+    }
+
+    this.elements.onlineUsersList.innerHTML = users
+      .map((user) => {
+        const state = user.state === 'offline' ? 'offline' : 'online';
+        const mic = user.mic ? '<span class="mic-pill">MIC</span>' : '';
+
+        return `
+          <div class="presence-user ${state}">
+            <span class="presence-dot"></span>
+            <strong>${this.escapeHtml(user.displayName || 'Pengguna')}</strong>
+            ${mic}
+          </div>
+        `;
+      })
+      .join('');
   }
 
   loadAudioSettings() {
@@ -587,7 +1005,9 @@ class F1TypingBattleApp {
     });
 
     this.currentScreen = name;
+    document.body.dataset.screen = name;
     this.elements.gameMenuBtn?.classList.toggle('hidden', name !== 'game');
+    this.updateCommsVisibility();
     this.syncScreenAudio();
 
     if (name === 'game') {
@@ -810,7 +1230,22 @@ class F1TypingBattleApp {
   }
 
   updateSavedRoomUI() {
-    return;
+    const roomCode = this.getSavedRoomCode();
+    const hasRoom = Boolean(roomCode);
+
+    this.elements.resumeRoomBtn?.classList.toggle('hidden', !hasRoom);
+
+    if (this.elements.resumeRoomBtn) {
+      this.elements.resumeRoomBtn.disabled = !hasRoom || !this.network.socket?.connected;
+      this.elements.resumeRoomBtn.textContent = hasRoom ? `Room ${roomCode}` : 'Room Terakhir';
+    }
+
+    if (this.elements.savedRoomHint) {
+      this.elements.savedRoomHint.classList.toggle('hidden', !hasRoom);
+      this.elements.savedRoomHint.textContent = hasRoom
+        ? `Room terakhir tersimpan: ${roomCode}. Pakai tombol itu untuk masuk ulang.`
+        : '';
+    }
   }
 
   requireName() {
@@ -822,6 +1257,11 @@ class F1TypingBattleApp {
     }
 
     this.playerName = name;
+
+    if (this.elements.authNameInput && !this.elements.authNameInput.value.trim()) {
+      this.elements.authNameInput.value = name;
+    }
+
     return name;
   }
 
@@ -932,6 +1372,7 @@ class F1TypingBattleApp {
 
   leaveLobby() {
     this.network.leaveRoom();
+    this.leaveFirebaseRoom();
     this.resetToMenu();
   }
 
@@ -991,6 +1432,7 @@ class F1TypingBattleApp {
     const canPlayAgain = isHost && playerCount >= 1 && this.network.state === 'finished';
     const hasRoom = Boolean(this.network.roomCode);
     const canEditLapCount = isHost && (this.network.state === 'waiting' || this.network.state === 'finished');
+    const isVsAi = this.network.mode === 'ai';
 
     this.elements.startRaceBtn.textContent = !this.isTrackReady && this.network.state === 'waiting'
       ? 'Menyiapkan Sirkuit'
@@ -1008,6 +1450,24 @@ class F1TypingBattleApp {
     lapButtons.forEach((button) => {
       button.disabled = !canEditLapCount;
     });
+
+    if (this.elements.lobbyDriverCount) {
+      this.elements.lobbyDriverCount.textContent = String(playerCount);
+    }
+
+    if (this.elements.lobbyHintText) {
+      if (!isHost) {
+        this.elements.lobbyHintText.textContent = 'Kamu sudah masuk grid. Tunggu host menekan start.';
+      } else if (!this.isTrackReady) {
+        this.elements.lobbyHintText.textContent = 'Sirkuit sedang dimuat. Tombol start aktif setelah siap.';
+      } else if (this.network.state === 'finished') {
+        this.elements.lobbyHintText.textContent = 'Race selesai. Host bisa memulai ulang dari sini.';
+      } else if (isVsAi) {
+        this.elements.lobbyHintText.textContent = 'Bot sudah siap. Tekan start untuk countdown.';
+      } else {
+        this.elements.lobbyHintText.textContent = 'Bagikan kode room, atur lap, lalu tekan start saat grid siap.';
+      }
+    }
 
     if (this.network.state === 'finished') {
       this.elements.playAgainBtn.textContent = isHost ? 'Main Lagi' : 'Kembali ke Room';
@@ -1055,6 +1515,7 @@ class F1TypingBattleApp {
     this.network.applyCircuitProfile(payload.circuit);
     this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount) || this.network.lapCount || 1)));
     this.rememberRoom(payload.roomCode, this.playerName || this.elements.playerNameInput.value);
+    this.joinFirebaseRoom(payload.roomCode);
 
     if (payload.state === 'waiting' || this.currentScreen === 'loading') {
       this.showScreen('lobby');
@@ -1067,21 +1528,31 @@ class F1TypingBattleApp {
         ? `VS AI - ${this.formatDifficulty(this.network.botDifficulty)}`
         : 'Race Room';
     }
+
+    if (this.elements.lobbyRoomMeta) {
+      const isHost = this.network.hostId === this.network.socket?.id;
+      this.elements.lobbyRoomMeta.textContent = isVsAi
+        ? 'Solo challenge siap. Chat tetap aktif jika kamu login.'
+        : `${isHost ? 'Kamu host.' : 'Kamu pembalap.'} Kode room: ${payload.roomCode}.`;
+    }
+
     this.elements.raceOptionsPanel?.classList.toggle('hidden', isVsAi);
     this.elements.lobbyStateLabel.textContent = this.formatState(payload.state);
     this.updateLapSelect();
     this.elements.playersList.innerHTML = '';
 
-    this.network.players.forEach((player) => {
+    this.network.players.forEach((player, index) => {
       const card = document.createElement('div');
       card.className = 'player-card';
       const isYou = player.id === this.network.socket.id;
       const isHost = player.id === this.network.hostId;
+      const driverType = player.isGhost ? 'AI Bot' : isYou ? 'Kamu' : 'Pembalap';
 
       card.innerHTML = `
+        <span class="grid-slot">P${index + 1}</span>
         <div>
           <strong>${this.escapeHtml(player.name)}</strong>
-          <div class="player-meta">KPM ${player.wpm ?? 0} - Akurasi ${player.accuracy ?? 100}%</div>
+          <div class="player-meta">${driverType} - KPM ${player.wpm ?? 0} - Akurasi ${player.accuracy ?? 100}%</div>
         </div>
         ${isHost ? '<span class="badge">Tuan rumah</span>' : '<span></span>'}
         ${isYou ? '<span class="badge">Kamu</span>' : '<span></span>'}
