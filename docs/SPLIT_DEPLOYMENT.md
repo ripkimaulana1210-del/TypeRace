@@ -1,25 +1,26 @@
-# Split Deployment: Vercel Frontend + Render Backend
+# Split Deployment: Vercel Frontend + Railway Backend
 
 Project ini bisa dipisah menjadi:
 
 - Frontend static di Vercel: `public/`
-- Backend realtime di Render/Railway: `server.js`
+- Backend realtime di Railway: `server.js`
 - Firebase tetap untuk login, chat, presence, dan voice signaling.
 
-## 1. Deploy Backend Ke Render
+## 1. Deploy Backend Ke Railway
 
 1. Push repo ke GitHub.
-2. Render > New > Web Service.
+2. Railway > New Project > Deploy from GitHub repo.
 3. Pilih repo TypeRace.
-4. Set:
+4. Railway akan membaca `package.json` dan `railway.json`.
+5. Pastikan service punya public domain di Settings > Networking > Generate Domain.
+6. Config backend yang dipakai:
 
 ```txt
-Runtime: Node
-Build Command: npm ci
 Start Command: npm start
+Healthcheck Path: /health
 ```
 
-5. Environment variable backend:
+7. Environment variable backend:
 
 ```txt
 CLIENT_ORIGIN=https://nama-project.vercel.app
@@ -27,10 +28,10 @@ CLIENT_ORIGIN=https://nama-project.vercel.app
 
 Untuk awal boleh pakai `CLIENT_ORIGIN=*`, tapi production lebih baik isi domain frontend Vercel.
 
-6. Setelah deploy, cek:
+8. Setelah deploy, cek:
 
 ```txt
-https://nama-backend.onrender.com/health
+https://nama-backend.up.railway.app/health
 ```
 
 Harus mengembalikan JSON `ok: true`.
@@ -43,7 +44,7 @@ Harus mengembalikan JSON `ok: true`.
 4. Set environment variable frontend:
 
 ```txt
-TYPERACE_SOCKET_URL=https://nama-backend.onrender.com
+TYPERACE_SOCKET_URL=https://nama-backend.up.railway.app
 ```
 
 5. Deploy.
@@ -100,4 +101,4 @@ npm run build:frontend
 - Jangan deploy `server.js` sebagai Vercel Function untuk multiplayer utama.
 - Frontend Vercel menggunakan Socket.IO client dari CDN.
 - Three.js juga menggunakan CDN supaya frontend static tidak bergantung pada route `/vendor/three` dari Express.
-- Backend Render tetap bisa serve frontend juga untuk testing, tapi domain utama user bisa memakai Vercel.
+- Backend Railway tetap bisa serve frontend juga untuk testing, tapi domain utama user bisa memakai Vercel.

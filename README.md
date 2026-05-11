@@ -46,10 +46,10 @@ Firebase is optional until configured. Fill `public/js/firebase-config.js`, enab
 
 ## Deployment
 
-For a full single-host deployment, use Render/Railway and run `npm start`.
+For a full single-host deployment, use Railway and run `npm start`.
 
 For split deployment:
-- Backend: deploy `server.js` to Render/Railway.
+- Backend: deploy `server.js` to Railway.
 - Frontend: deploy `public/` to Vercel.
 - Set Vercel env `TYPERACE_SOCKET_URL` to the backend URL.
 - Set backend env `CLIENT_ORIGIN` to the Vercel frontend URL.
