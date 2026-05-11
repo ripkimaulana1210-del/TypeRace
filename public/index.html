@@ -70,6 +70,19 @@
     </form>
   </aside>
 
+  <aside id="inviteFriendsPanel" class="race-friends-panel hidden collapsed" aria-label="Invite friends">
+    <button id="inviteFriendsToggleBtn" class="race-friends-toggle" type="button" aria-expanded="false">
+      <span>Friends</span>
+      <strong>Invite Friend</strong>
+    </button>
+    <div class="race-friends-body">
+      <div class="race-friends-head">
+        <span class="field-label">Online Friends</span>
+      </div>
+      <div id="lobbyInviteList" class="account-list"></div>
+    </div>
+  </aside>
+
   <div id="authModal" class="modal hidden">
     <div class="panel modal-panel auth-modal-panel">
       <div class="modal-head">
@@ -483,16 +496,6 @@
           </div>
           <div id="playersList" class="players-list"></div>
           <p id="lobbyHintText" class="saved-room-hint">Waiting for drivers to join the room.</p>
-        </section>
-
-        <section id="inviteFriendsPanel" class="lobby-drivers invite-friends-panel hidden" aria-label="Invite friends">
-          <div class="lobby-section-head">
-            <div>
-              <span class="field-label">Invite Friend</span>
-              <h3>Online Friends</h3>
-            </div>
-          </div>
-          <div id="lobbyInviteList" class="account-list"></div>
         </section>
       </div>
       <div class="row-actions">

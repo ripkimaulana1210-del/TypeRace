@@ -91,6 +91,12 @@ body.chat-open[data-screen="results"] .screen.active {
   padding-right: min(390px, 30vw);
 }
 
+body.friends-open[data-screen="lobby"] .screen.active {
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding-right: min(390px, 30vw);
+}
+
 .screen.active {
   opacity: 1;
   pointer-events: auto;
@@ -865,11 +871,131 @@ body.chat-open .chat-toggle-btn {
   transform: translateY(-50%);
 }
 
+.race-friends-panel {
+  position: fixed;
+  top: 146px;
+  right: clamp(14px, 2vw, 28px);
+  z-index: 34;
+  width: min(326px, calc(100vw - 36px));
+  max-height: min(260px, calc(100vh - 118px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: rgba(12, 15, 14, 0.9);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+.race-friends-toggle {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(220, 234, 226, 0.1);
+  padding: 12px;
+  background: rgba(245, 247, 242, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.race-friends-toggle span {
+  color: var(--accent-2);
+  font-size: 0.66rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.race-friends-toggle strong {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.race-friends-toggle::after {
+  content: "OPEN";
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 178, 63, 0.28);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: var(--accent-2);
+  font-size: 0.56rem;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+}
+
+.race-friends-panel:not(.collapsed) .race-friends-toggle::after {
+  content: "CLOSE";
+}
+
+.race-friends-body {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 12px;
+}
+
+.race-friends-panel.collapsed {
+  width: 132px;
+  max-height: 54px;
+  grid-template-rows: auto;
+}
+
+.race-friends-panel.collapsed .race-friends-body {
+  display: none;
+}
+
+.race-friends-panel.collapsed .race-friends-toggle {
+  min-height: 52px;
+  justify-content: center;
+  border-bottom: 0;
+  padding: 10px 14px;
+}
+
+.race-friends-panel.collapsed .race-friends-toggle span,
+.race-friends-panel.collapsed .race-friends-toggle strong,
+.race-friends-panel.collapsed .race-friends-toggle::after {
+  display: none;
+}
+
+.race-friends-panel.collapsed .race-friends-toggle::before {
+  content: "FRIENDS";
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.race-friends-panel .account-list {
+  min-height: 0;
+  max-height: 164px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
 body[data-screen="lobby"] .race-comms-panel,
 body[data-screen="results"] .race-comms-panel {
   top: 76px;
   max-height: calc(100vh - 100px);
   transform: none;
+}
+
+body[data-screen="lobby"] .race-comms-panel {
+  max-height: min(430px, calc(100vh - 390px));
+}
+
+body.chat-open[data-screen="lobby"] .race-friends-panel {
+  top: calc(76px + min(430px, calc(100vh - 390px)) + 14px);
 }
 
 .race-comms-head {
@@ -1719,10 +1845,6 @@ body[data-screen="results"] .race-comms-panel {
   color: var(--accent-2);
   font-style: normal;
   font-weight: 950;
-}
-
-.invite-friends-panel {
-  grid-column: 1 / -1;
 }
 
 .auth-modal-panel {
@@ -3328,7 +3450,8 @@ body[data-screen="results"] .race-comms-panel {
   }
 
   body.chat-open[data-screen="lobby"] .screen.active,
-  body.chat-open[data-screen="results"] .screen.active {
+  body.chat-open[data-screen="results"] .screen.active,
+  body.friends-open[data-screen="lobby"] .screen.active {
     justify-content: center;
     padding-right: 14px;
     padding-left: 14px;
@@ -3411,6 +3534,19 @@ body[data-screen="results"] .race-comms-panel {
     width: auto;
     max-height: 44vh;
     transform: none;
+  }
+
+  .race-friends-panel {
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+    max-height: 300px;
+  }
+
+  body.chat-open[data-screen="lobby"] .race-friends-panel {
+    bottom: calc(44vh + 24px);
   }
 
   .chat-toggle-btn {

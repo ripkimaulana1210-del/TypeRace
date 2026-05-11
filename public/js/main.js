@@ -43,6 +43,7 @@ class F1TypingBattleApp {
     this.roomMaxPlayers = MAX_ROOM_PLAYERS;
     this.chatMessageIds = new Set();
     this.latestPresenceUsers = [];
+    this.isFriendsPanelOpen = false;
     this.accountData = {
       profile: null,
       status: null,
@@ -98,6 +99,7 @@ class F1TypingBattleApp {
       accountInvitesList: document.getElementById('accountInvitesList'),
       matchHistoryList: document.getElementById('matchHistoryList'),
       inviteFriendsPanel: document.getElementById('inviteFriendsPanel'),
+      inviteFriendsToggleBtn: document.getElementById('inviteFriendsToggleBtn'),
       lobbyInviteList: document.getElementById('lobbyInviteList'),
       authOpenBtn: document.getElementById('authOpenBtn'),
       authCloseBtn: document.getElementById('authCloseBtn'),
@@ -326,6 +328,7 @@ class F1TypingBattleApp {
     this.elements.friendsList?.addEventListener('click', (event) => this.handleFriendAction(event));
     this.elements.accountInvitesList?.addEventListener('click', (event) => this.handleInviteAction(event));
     this.elements.lobbyInviteList?.addEventListener('click', (event) => this.handleFriendAction(event));
+    this.elements.inviteFriendsToggleBtn?.addEventListener('click', () => this.toggleFriendsPanel());
     this.elements.authModal?.addEventListener('click', (event) => {
       if (event.target === this.elements.authModal) {
         this.closeAuthModal();
@@ -1112,27 +1115,47 @@ class F1TypingBattleApp {
   renderLobbyInvites() {
     const panel = this.elements.inviteFriendsPanel;
     const list = this.elements.lobbyInviteList;
+    const toggle = this.elements.inviteFriendsToggleBtn;
 
     if (!panel || !list) {
       return;
     }
 
-    const canInvite = Boolean(this.network.roomCode && this.network.mode !== 'ai' && this.firebase.getCurrentUser());
-    const onlineFriends = (this.accountData.friends || []).filter((friend) => this.getFriendPresence(friend.uid)?.state === 'online');
+    const canInvite = Boolean(this.currentScreen === 'lobby' && this.network.roomCode && this.network.mode !== 'ai' && this.firebase.getCurrentUser());
+    const friends = [...(this.accountData.friends || [])].sort((a, b) => {
+      const aOnline = this.getFriendPresence(a.uid)?.state === 'online';
+      const bOnline = this.getFriendPresence(b.uid)?.state === 'online';
+      return Number(bOnline) - Number(aOnline);
+    });
     panel.classList.toggle('hidden', !canInvite);
+    panel.classList.toggle('collapsed', !this.isFriendsPanelOpen);
+    toggle?.setAttribute('aria-expanded', String(canInvite && this.isFriendsPanelOpen));
+    document.body.classList.toggle('friends-open', canInvite && this.isFriendsPanelOpen);
 
     if (!canInvite) {
+      this.isFriendsPanelOpen = false;
       list.innerHTML = '';
       return;
     }
 
-    list.innerHTML = onlineFriends.length
-      ? onlineFriends.map((friend) => this.renderAccountListItem({
-          title: friend.displayName || 'Driver',
-          meta: friend.username ? `@${friend.username}` : 'Online now',
-          actions: `<button class="mini-btn primary" data-friend-action="invite" data-uid="${this.escapeHtml(friend.uid)}">Invite</button>`
-        })).join('')
+    list.innerHTML = friends.length
+      ? friends.map((friend) => {
+          const online = this.getFriendPresence(friend.uid)?.state === 'online';
+          return this.renderAccountListItem({
+            title: friend.displayName || 'Driver',
+            meta: friend.username ? `@${friend.username}` : online ? 'Online now' : 'Offline',
+            status: online ? 'online' : 'offline',
+            actions: online
+              ? `<button class="mini-btn primary" data-friend-action="invite" data-uid="${this.escapeHtml(friend.uid)}">Invite</button>`
+              : '<button class="mini-btn" type="button" disabled>Offline</button>'
+          });
+        }).join('')
       : '<div class="account-list-empty">No online friends to invite.</div>';
+  }
+
+  toggleFriendsPanel() {
+    this.isFriendsPanelOpen = !this.isFriendsPanelOpen;
+    this.renderLobbyInvites();
   }
 
   requireSignedIn(message = 'Sign in to continue.') {
@@ -1824,6 +1847,7 @@ class F1TypingBattleApp {
       isReady: this.firebase.ready
     });
     this.updateCommsVisibility();
+    this.renderLobbyInvites();
     this.syncScreenAudio();
 
     if (name === 'game') {
@@ -2977,17 +3001,20 @@ class F1TypingBattleApp {
       const card = document.createElement('div');
 
       if (!player) {
-        card.className = 'result-card empty-result';
-        card.innerHTML = `
-          <div>
-            <strong>P${startIndex + slotIndex + 1} - Empty Slot</strong>
-            <div class="result-meta">No driver in this position yet</div>
+      card.className = 'result-card empty-result';
+      card.innerHTML = `
+          <span class="classification-position">${startIndex + slotIndex + 1}</span>
+          <div class="result-driver-avatar empty-avatar">--</div>
+          <div class="classification-driver">
+            <strong>Empty Slot</strong>
+            <span>No driver classified</span>
           </div>
-          <div class="result-meta">WPM -</div>
-          <div class="result-meta">Accuracy -</div>
-          <div class="result-meta">Typo -</div>
-          <div class="result-meta">Grip -</div>
-          <div class="result-meta">Best -</div>
+          <div class="classification-metrics">
+            <span>WPM <b>-</b></span>
+            <span>ACC <b>-</b></span>
+            <span>TYPO <b>-</b></span>
+            <span>BEST <b>-</b></span>
+          </div>
         `;
         this.elements.resultsList.appendChild(card);
         continue;
@@ -2998,17 +3025,21 @@ class F1TypingBattleApp {
         ? `${player.bestSector.label} ${this.formatDuration(player.bestSector.timeMs)}`
         : '-';
       const typoText = `${player.mistakes ?? 0}/${player.totalKeys ?? 0}`;
+      const role = this.getResultRole(player);
 
       card.innerHTML = `
-        <div>
-          <strong>P${player.position} - ${this.escapeHtml(player.name)}${player.isGhost ? ' - Ghost' : ''}</strong>
-          <div class="result-meta">Progress ${player.progress}% - Streak ${player.longestStreak ?? 0}</div>
+        <span class="classification-position">${player.position}</span>
+        ${this.renderResultAvatar(player, 'result-driver-avatar')}
+        <div class="classification-driver">
+          <strong>${this.escapeHtml(player.name)}</strong>
+          <span>${this.escapeHtml(role)} - Progress ${player.progress}% - Streak ${player.longestStreak ?? 0}</span>
         </div>
-        <div class="result-meta">WPM ${player.wpm}</div>
-        <div class="result-meta">Accuracy ${player.accuracy}%</div>
-        <div class="result-meta">Typo ${typoText}</div>
-        <div class="result-meta">Grip ${player.grip ?? 100}%</div>
-        <div class="result-meta">Best ${this.escapeHtml(bestSector)}</div>
+        <div class="classification-metrics">
+          <span>WPM <b>${this.escapeHtml(player.wpm ?? 0)}</b></span>
+          <span>ACC <b>${this.escapeHtml(player.accuracy ?? 100)}%</b></span>
+          <span>TYPO <b>${this.escapeHtml(typoText)}</b></span>
+          <span>BEST <b>${this.escapeHtml(bestSector)}</b></span>
+        </div>
       `;
 
       this.elements.resultsList.appendChild(card);
@@ -3055,16 +3086,18 @@ class F1TypingBattleApp {
         }
 
         const initials = this.getInitials(player.name);
-        const meta = player.isGhost ? 'AI' : 'Driver';
+        const meta = this.getResultRole(player);
         const score = `${player.wpm ?? 0} WPM`;
+        const typoText = `${player.mistakes ?? 0}/${player.totalKeys ?? 0}`;
 
         return `
           <div class="podium-card podium-${position} ${player.isGhost ? 'ghost-result' : ''}">
             <div class="podium-number">${position}</div>
-            <div class="podium-driver-silhouette">${this.escapeHtml(initials)}</div>
+            ${this.renderResultAvatar(player, 'podium-driver-portrait', initials)}
             <div class="podium-stats">
               <span>${this.escapeHtml(meta)}</span>
               <strong>${this.escapeHtml(score)}</strong>
+              <em>${this.escapeHtml(typoText)} TYPO</em>
             </div>
             <div class="podium-driver-bar">
               <strong>${this.escapeHtml(player.name)}</strong>
@@ -3076,6 +3109,54 @@ class F1TypingBattleApp {
       .join('');
 
     this.elements.podiumGrid.innerHTML = podiumHtml;
+  }
+
+  getResultRole(player = {}) {
+    if (player.isGhost) {
+      return 'AI Bot';
+    }
+
+    if (player.id && player.id === this.network.socket?.id) {
+      return 'Player';
+    }
+
+    return 'Driver';
+  }
+
+  getResultPhotoURL(player = {}) {
+    if (player.photoURL) {
+      return String(player.photoURL);
+    }
+
+    if (player.id && player.id === this.network.socket?.id) {
+      return this.accountData.profile?.photoURL || this.firebase.authUser?.photoURL || '';
+    }
+
+    const friend = (this.accountData.friends || []).find((candidate) => (
+      String(candidate.displayName || '').trim().toLowerCase() === String(player.name || '').trim().toLowerCase()
+    ));
+
+    return friend?.photoURL || '';
+  }
+
+  renderResultAvatar(player = {}, className = 'result-driver-avatar', fallbackInitials = '') {
+    const roleClass = player.isGhost ? 'bot-avatar' : 'player-avatar';
+    const photoURL = this.getResultPhotoURL(player);
+    const initials = fallbackInitials || this.getInitials(player.name);
+
+    if (photoURL && !player.isGhost) {
+      return `
+        <div class="${className} ${roleClass}">
+          <img src="${this.escapeHtml(photoURL)}" alt="">
+        </div>
+      `;
+    }
+
+    return `
+      <div class="${className} ${roleClass}">
+        <span>${player.isGhost ? 'AI' : this.escapeHtml(initials)}</span>
+      </div>
+    `;
   }
 
   getInitials(name = '') {
