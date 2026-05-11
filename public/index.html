@@ -38,6 +38,14 @@
     <button id="gameMenuBtn" class="icon-btn hidden" type="button" title="Menu race">MENU</button>
   </div>
 
+  <div id="accountMenu" class="account-menu hidden" aria-label="Account menu">
+    <button type="button" data-account-action="profile">View Profile</button>
+    <button type="button" data-account-action="edit">Edit Profile</button>
+    <button type="button" data-account-action="friends">Friends</button>
+    <button type="button" data-account-action="history">Match History</button>
+    <button type="button" data-account-action="logout">Logout</button>
+  </div>
+
   <button id="chatToggleBtn" class="chat-toggle-btn hidden" type="button" aria-controls="raceCommsPanel" aria-expanded="false" title="Buka chat race">
     <span>CHAT</span>
     <strong id="chatUnreadBadge" class="chat-unread-badge hidden">0</strong>
@@ -92,10 +100,105 @@
         <div class="auth-divider"><span>or</span></div>
         <div class="auth-actions">
           <button id="authLoginBtn" class="btn btn-google" type="button">
-            <span class="google-mark">G</span>
+            <span class="google-mark" aria-hidden="true">
+              <img src="assets/google-logo.svg" alt="">
+            </span>
             <span>Continue with Google</span>
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="accountModal" class="modal hidden">
+    <div class="panel modal-panel account-modal-panel">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Account</p>
+          <h2>Driver Profile</h2>
+          <p class="auth-copy">Driver identity, squad, and race record.</p>
+        </div>
+        <button id="accountCloseBtn" class="icon-btn" type="button" title="Close profile">X</button>
+      </div>
+
+      <div class="account-tabs" aria-label="Account sections">
+        <button type="button" class="active" data-account-tab="profile">Profile</button>
+        <button type="button" data-account-tab="edit">Edit</button>
+        <button type="button" data-account-tab="friends">Friends</button>
+        <button type="button" data-account-tab="history">History</button>
+      </div>
+
+      <div id="accountProfilePanel" class="account-panel active" data-account-panel="profile">
+        <div class="account-player-card">
+          <div class="account-profile-head">
+            <div id="accountAvatar" class="account-avatar">DR</div>
+            <div class="account-driver-copy">
+              <span class="field-label">Race License</span>
+              <strong id="accountProfileName">Driver</strong>
+              <p id="accountProfileMeta" class="room-context">Signed in profile</p>
+            </div>
+          </div>
+          <p id="accountProfileBio" class="account-bio">No bio yet.</p>
+        </div>
+        <div class="account-section-title">
+          <span>Telemetry</span>
+          <strong>Driver Stats</strong>
+        </div>
+        <div id="accountStatsGrid" class="account-stats-grid"></div>
+      </div>
+
+      <div id="accountEditPanel" class="account-panel" data-account-panel="edit">
+        <div class="account-form-grid">
+          <label>
+            <span class="field-label">Driver Name</span>
+            <input id="profileDisplayNameInput" class="input-field" type="text" maxlength="32" placeholder="Driver name">
+          </label>
+          <label>
+            <span class="field-label">Username</span>
+            <input id="profileUsernameInput" class="input-field" type="text" maxlength="24" placeholder="username">
+          </label>
+          <label class="account-field-wide">
+            <span class="field-label">Avatar URL</span>
+            <input id="profileAvatarInput" class="input-field" type="url" maxlength="500" placeholder="https://...">
+          </label>
+          <label class="account-field-wide">
+            <span class="field-label">Bio / Status</span>
+            <textarea id="profileBioInput" class="input-field account-textarea" maxlength="120" placeholder="Short racing status"></textarea>
+          </label>
+        </div>
+        <div class="row-actions">
+          <button id="profileSaveBtn" class="btn btn-primary" type="button">Save Profile</button>
+        </div>
+      </div>
+
+      <div id="accountFriendsPanel" class="account-panel" data-account-panel="friends">
+        <div class="account-search-row">
+          <input id="friendSearchInput" class="input-field" type="text" maxlength="32" placeholder="Search username or nickname">
+          <button id="friendSearchBtn" class="btn btn-secondary" type="button">Search</button>
+        </div>
+        <div class="account-list-wrap">
+          <section>
+            <span class="field-label">Search Results</span>
+            <div id="friendSearchResults" class="account-list"></div>
+          </section>
+          <section>
+            <span class="field-label">Requests</span>
+            <div id="friendRequestsList" class="account-list"></div>
+          </section>
+          <section>
+            <span class="field-label">Friends</span>
+            <div id="friendsList" class="account-list"></div>
+          </section>
+          <section>
+            <span class="field-label">Lobby Invites</span>
+            <div id="accountInvitesList" class="account-list"></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="accountHistoryPanel" class="account-panel" data-account-panel="history">
+        <div id="accountHistoryStats" class="account-stats-grid"></div>
+        <div id="matchHistoryList" class="match-history-list"></div>
       </div>
     </div>
   </div>
@@ -106,7 +209,12 @@
         <div class="hero-copy">
           <p class="eyebrow">Formula Typing Grand Prix</p>
           <h1>Start Race</h1>
-          <p class="subtitle">Sign in first, then choose your driver name and race mode.</p>
+          <p class="subtitle">Choose a grid and chase your fastest lap.</p>
+          <div class="hero-telemetry" aria-label="Race highlights">
+            <span><strong>3D</strong> Circuit</span>
+            <span><strong>Live</strong> Rooms</span>
+            <span><strong>WPM</strong> Timing</span>
+          </div>
         </div>
 
         <div class="menu-controls">
@@ -117,25 +225,16 @@
             <span class="flow-step">Start</span>
           </div>
 
-          <div class="driver-panel">
-            <div>
-              <label class="field-label" for="playerNameInput">Driver name</label>
-              <input id="playerNameInput" class="input-field" type="text" maxlength="20" placeholder="Driver name">
-            </div>
-            <button id="resumeRoomBtn" class="btn btn-secondary hidden" type="button">Last Room</button>
-          </div>
-          <p id="savedRoomHint" class="saved-room-hint hidden"></p>
-
           <div class="mode-switch" aria-label="Mode game">
             <button type="button" class="mode-card active" data-mode="multiplayer">
-              <span>01</span>
+              <span class="mode-kicker"><i>01</i><em>Online Grid</em></span>
               <strong>Multiplayer</strong>
-              <small>Create a room or join with a friend's code.</small>
+              <small>Race friends in a shared room.</small>
             </button>
             <button type="button" class="mode-card" data-mode="ai">
-              <span>02</span>
+              <span class="mode-kicker"><i>02</i><em>Solo Sprint</em></span>
               <strong>VS AI</strong>
-              <small>Set bot difficulty and laps before start.</small>
+              <small>Train pace against bots.</small>
             </button>
           </div>
         </div>
@@ -143,6 +242,10 @@
 
       <aside class="start-side-panel" aria-label="Race preview">
         <div class="quick-preview" aria-hidden="true">
+          <div class="preview-hud">
+            <span>Live Circuit</span>
+            <strong>TypeRace GP</strong>
+          </div>
           <div class="preview-track">
             <span class="preview-car"></span>
             <span class="preview-dot dot-green"></span>
@@ -152,14 +255,14 @@
         </div>
         <div class="side-status-grid">
           <div class="side-status-card">
-            <span>Multiplayer</span>
-            <strong>Room Code</strong>
-            <small>Create a room, then share the code.</small>
+            <span>Grid</span>
+            <strong>Room Race</strong>
+            <small>Host or join from multiplayer.</small>
           </div>
           <div class="side-status-card">
-            <span>Realtime</span>
+            <span>Comms</span>
             <strong>Chat & Voice</strong>
-            <small>Sign in with Firebase to communicate.</small>
+            <small>Realtime squad channel.</small>
           </div>
         </div>
       </aside>
@@ -380,6 +483,16 @@
           </div>
           <div id="playersList" class="players-list"></div>
           <p id="lobbyHintText" class="saved-room-hint">Waiting for drivers to join the room.</p>
+        </section>
+
+        <section id="inviteFriendsPanel" class="lobby-drivers invite-friends-panel hidden" aria-label="Invite friends">
+          <div class="lobby-section-head">
+            <div>
+              <span class="field-label">Invite Friend</span>
+              <h3>Online Friends</h3>
+            </div>
+          </div>
+          <div id="lobbyInviteList" class="account-list"></div>
         </section>
       </div>
       <div class="row-actions">

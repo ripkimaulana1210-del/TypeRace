@@ -628,19 +628,6 @@ body.chat-open[data-screen="results"] .screen.active {
   display: none;
 }
 
-.driver-panel {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(126px, auto);
-  gap: 8px;
-  align-items: end;
-}
-
-.driver-panel .btn {
-  min-height: 44px;
-  padding-inline: 12px;
-  font-size: 0.74rem;
-}
-
 .auth-panel-head {
   display: flex;
   align-items: center;
@@ -738,27 +725,45 @@ body.chat-open[data-screen="results"] .screen.active {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(15, 23, 42, 0.16);
   background: #f8fafc;
-  color: #131820;
+  color: #111827;
+  opacity: 1;
+  text-shadow: none;
+}
+
+.btn-google:hover:not(:disabled) {
+  background: #ffffff;
+  color: #0f172a;
+  filter: none;
+}
+
+.btn-google > span:not(.google-mark) {
+  color: inherit;
+  opacity: 1;
+  font-weight: 950;
 }
 
 .btn-google:disabled {
-  opacity: 0.72;
-  color: #64748b;
+  opacity: 0.92;
+  color: #334155;
 }
 
 .google-mark {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #fff;
-  color: #1a73e8;
-  font-size: 0.92rem;
-  font-weight: 950;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   letter-spacing: 0;
+  text-shadow: none;
+}
+
+.google-mark img {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .mode-card.locked {
@@ -1414,6 +1419,310 @@ body[data-screen="results"] .race-comms-panel {
 .loading-panel {
   width: min(430px, 100%);
   padding: 28px;
+}
+
+.account-menu {
+  position: fixed;
+  top: 72px;
+  right: clamp(64px, 7vw, 168px);
+  z-index: 36;
+  width: 230px;
+  border: 1px solid rgba(220, 234, 226, 0.16);
+  border-radius: 7px;
+  padding: 8px;
+  background: rgba(8, 11, 10, 0.96);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(14px);
+}
+
+.account-menu button {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-radius: 5px;
+  padding: 9px 11px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.account-menu button:hover {
+  background: rgba(255, 178, 63, 0.12);
+  color: var(--accent-2);
+}
+
+.account-modal-panel {
+  width: min(860px, calc(100vw - 28px));
+  max-height: min(760px, calc(100vh - 28px));
+  overflow-y: auto;
+}
+
+.account-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.account-tabs button {
+  min-height: 38px;
+  border: 1px solid var(--stroke);
+  border-radius: 5px;
+  background: rgba(245, 247, 242, 0.055);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.account-tabs button.active {
+  border-color: rgba(255, 178, 63, 0.62);
+  background: rgba(255, 178, 63, 0.14);
+  color: var(--accent-2);
+}
+
+.account-panel {
+  display: none;
+}
+
+.account-panel.active {
+  display: block;
+}
+
+.account-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.account-avatar {
+  width: 70px;
+  height: 70px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 178, 63, 0.38);
+  border-radius: 8px;
+  background: rgba(255, 178, 63, 0.12);
+  color: var(--accent-2);
+  font-size: 1.4rem;
+  font-weight: 950;
+  overflow: hidden;
+}
+
+.account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-bio {
+  min-height: 42px;
+  margin: 0 0 14px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+#accountProfileMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: max-content;
+  border: 1px solid rgba(220, 234, 226, 0.14);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(245, 247, 242, 0.055);
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-badge.online {
+  border-color: rgba(66, 232, 141, 0.38);
+  background: rgba(66, 232, 141, 0.11);
+  color: var(--green);
+}
+
+.status-badge.offline {
+  border-color: rgba(255, 75, 50, 0.28);
+  background: rgba(255, 75, 50, 0.075);
+  color: #c6cbc6;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #7a837d;
+}
+
+.status-dot.online {
+  background: var(--green);
+  box-shadow: 0 0 12px rgba(66, 232, 141, 0.72);
+}
+
+.status-dot.offline {
+  background: #8b2d2a;
+}
+
+.account-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.account-stat-card {
+  border: 1px solid rgba(220, 234, 226, 0.1);
+  border-radius: 7px;
+  padding: 12px;
+  background: rgba(245, 247, 242, 0.045);
+}
+
+.account-stat-card span {
+  display: block;
+  color: var(--subtle);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-stat-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 1.18rem;
+}
+
+.account-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.account-field-wide {
+  grid-column: 1 / -1;
+}
+
+.account-textarea {
+  min-height: 86px;
+  resize: vertical;
+}
+
+.account-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.account-list-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.account-list {
+  display: grid;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.account-list-empty {
+  border: 1px dashed rgba(220, 234, 226, 0.12);
+  border-radius: 7px;
+  padding: 12px;
+  color: var(--subtle);
+  font-size: 0.82rem;
+}
+
+.account-list-item,
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(220, 234, 226, 0.1);
+  border-radius: 7px;
+  padding: 10px;
+  background: rgba(7, 10, 9, 0.62);
+}
+
+.account-list-item strong,
+.history-row strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.account-list-item small,
+.history-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--subtle);
+}
+
+.account-item-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.mini-btn {
+  min-height: 30px;
+  border: 1px solid rgba(220, 234, 226, 0.14);
+  border-radius: 5px;
+  padding: 6px 9px;
+  background: rgba(245, 247, 242, 0.065);
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.mini-btn.primary {
+  border-color: rgba(255, 178, 63, 0.42);
+  background: rgba(255, 178, 63, 0.16);
+  color: var(--accent-2);
+}
+
+.match-history-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.history-row {
+  grid-template-columns: auto minmax(0, 1fr) repeat(3, auto);
+}
+
+.history-row em {
+  color: var(--accent-2);
+  font-style: normal;
+  font-weight: 950;
+}
+
+.invite-friends-panel {
+  grid-column: 1 / -1;
 }
 
 .auth-modal-panel {
@@ -2673,44 +2982,66 @@ body[data-screen="results"] .race-comms-panel {
 
 .text-to-type {
   position: relative;
-  min-height: 92px;
-  max-height: 154px;
-  overflow-y: auto;
+  box-sizing: border-box;
+  height: 68px;
+  min-height: 68px;
+  max-height: 68px;
+  overflow: hidden;
   border: 1px solid rgba(220, 234, 226, 0.1);
   border-radius: 7px;
-  padding: 13px;
+  padding: 10px 150px 10px 12px;
   background: rgba(8, 10, 9, 0.62);
   color: var(--muted);
   font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
-  font-size: 1rem;
-  line-height: 1.65;
+  font-size: 0.92rem;
+  line-height: 1.45;
   margin-bottom: 10px;
+  overflow-wrap: anywhere;
+  text-align: left;
+  text-indent: 0;
+  white-space: pre-wrap;
 }
 
 .text-to-type::after {
   content: attr(data-segment);
-  position: sticky;
-  float: right;
+  position: absolute;
   right: 0;
   bottom: 0;
-  margin-left: 12px;
+  padding: 2px 7px 3px;
+  background: rgba(8, 10, 9, 0.72);
   color: rgba(168, 179, 170, 0.72);
   font-family: Inter, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   font-size: 0.72rem;
+  min-width: 118px;
+  text-align: right;
 }
 
 .typed {
+  margin-left: 0;
+  padding-left: 0;
   color: var(--green);
+  text-indent: 0;
+  vertical-align: top;
 }
 
 .current {
+  display: inline-block;
+  min-width: 0.62ch;
+  margin-left: 0;
+  padding-left: 0;
   color: #14120f;
   background: var(--accent-2);
   border-radius: 4px;
+  text-indent: 0;
+  vertical-align: top;
 }
 
 .remaining {
+  margin-left: 0;
+  padding-left: 0;
   color: var(--muted);
+  text-indent: 0;
+  vertical-align: top;
 }
 
 .input-feedback {
@@ -2888,8 +3219,7 @@ body[data-screen="results"] .race-comms-panel {
     font-size: 0.82rem;
   }
 
-  .auth-grid .input-field,
-  .driver-panel .input-field {
+  .auth-grid .input-field {
     min-height: 38px;
     padding-block: 8px;
   }
@@ -2898,9 +3228,6 @@ body[data-screen="results"] .race-comms-panel {
     min-height: 36px;
   }
 
-  .driver-panel .btn {
-    min-height: 38px;
-  }
 
   .mode-card {
     min-height: 82px;
@@ -3140,10 +3467,6 @@ body[data-screen="results"] .race-comms-panel {
     grid-template-columns: 1fr;
   }
 
-  .driver-panel {
-    grid-template-columns: 1fr;
-  }
-
   .lap-settings-head {
     flex-direction: column;
   }
@@ -3197,12 +3520,28 @@ body[data-screen="results"] .race-comms-panel {
   }
 
   .text-to-type {
-    max-height: 128px;
-    font-size: 0.92rem;
+    height: 62px;
+    min-height: 62px;
+    max-height: 62px;
+    padding-right: 132px;
+    font-size: 0.84rem;
   }
 
   .player-card,
   .result-card {
+    grid-template-columns: 1fr;
+  }
+
+  .account-tabs,
+  .account-stats-grid,
+  .account-form-grid,
+  .account-list-wrap,
+  .account-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .history-row,
+  .account-list-item {
     grid-template-columns: 1fr;
   }
 

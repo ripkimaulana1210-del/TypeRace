@@ -310,6 +310,33 @@ body::after {
     rgba(8, 10, 11, 0.86);
 }
 
+.btn-google {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: #f8fafc;
+  color: #111827;
+  opacity: 1;
+  text-shadow: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 12px 24px rgba(0, 0, 0, 0.18);
+}
+
+.btn-google:hover:not(:disabled) {
+  background: #ffffff;
+  color: #0f172a;
+  filter: none;
+}
+
+.btn-google:disabled {
+  opacity: 0.92;
+  color: #334155;
+}
+
+.btn-google > span:not(.google-mark) {
+  color: inherit;
+  opacity: 1;
+}
+
 .icon-btn {
   border-radius: 3px;
   border-color: rgba(255, 255, 255, 0.2);
@@ -763,21 +790,27 @@ body::after {
 }
 
 .text-to-type {
-  min-height: 56px;
-  max-height: 84px;
-  padding: 9px 11px;
+  height: 58px;
+  min-height: 58px;
+  max-height: 58px;
+  padding: 7px 142px 7px 10px;
   border-radius: 4px;
   border-color: rgba(255, 255, 255, 0.14);
   background:
     linear-gradient(90deg, rgba(0, 0, 0, 0.22), transparent),
     rgba(2, 4, 5, 0.38);
   color: #b7c1bc;
-  font-size: 0.9rem;
-  line-height: 1.52;
+  font-size: 0.84rem;
+  line-height: 1.38;
   margin-bottom: 7px;
+  overflow-wrap: anywhere;
+  text-align: left;
+  text-indent: 0;
+  white-space: pre-wrap;
 }
 
 .text-to-type::after {
+  background: rgba(2, 4, 5, 0.78);
   color: rgba(255, 204, 34, 0.78);
 }
 
@@ -1187,5 +1220,462 @@ body::after {
     right: 12px;
     bottom: 92px;
     width: auto;
+  }
+}
+
+/* Premium start/profile pass */
+.start-dashboard {
+  width: min(1200px, calc(100vw - 56px));
+  min-height: min(620px, calc(100vh - 124px));
+  grid-template-columns: minmax(430px, 1fr) minmax(360px, 0.78fr);
+  gap: 20px;
+}
+
+.start-panel {
+  isolation: isolate;
+  align-content: end;
+  gap: clamp(18px, 2.3vw, 28px);
+  padding: clamp(30px, 4.3vw, 54px);
+  background:
+    linear-gradient(112deg, rgba(240, 24, 24, 0.18), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(255, 204, 34, 0.12), transparent 24%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.026) 0 2px, transparent 2px 16px),
+    linear-gradient(180deg, rgba(21, 25, 24, 0.98), rgba(3, 6, 7, 0.96));
+}
+
+.start-panel::after {
+  content: "";
+  position: absolute;
+  right: -12%;
+  bottom: 18%;
+  z-index: -1;
+  width: 46%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 204, 34, 0.7), transparent);
+  transform: rotate(-16deg);
+  box-shadow:
+    0 18px 0 rgba(240, 24, 24, 0.52),
+    0 36px 0 rgba(245, 247, 242, 0.12);
+}
+
+.hero-copy {
+  max-width: 620px;
+}
+
+.hero-copy h1 {
+  max-width: 8ch;
+  margin-bottom: 10px;
+  font-size: clamp(3.6rem, 7vw, 6.45rem);
+  line-height: 0.82;
+}
+
+.hero-copy .subtitle {
+  max-width: 34rem;
+  color: rgba(245, 247, 242, 0.82);
+  font-size: 1rem;
+}
+
+.hero-telemetry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.hero-telemetry span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(245, 247, 242, 0.055);
+  color: #cfd7d2;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-telemetry strong {
+  color: var(--f1-yellow);
+}
+
+.menu-controls {
+  max-width: 700px;
+  gap: 14px;
+}
+
+.launch-flow {
+  width: min(100%, 580px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 5px;
+  background: rgba(3, 5, 6, 0.62);
+}
+
+.flow-step {
+  min-height: 30px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.flow-step.active {
+  background:
+    linear-gradient(90deg, rgba(240, 24, 24, 0.34), rgba(255, 204, 34, 0.14)),
+    rgba(255, 204, 34, 0.08);
+}
+
+.mode-switch {
+  gap: 12px;
+}
+
+.mode-card {
+  min-height: 132px;
+  padding: 18px 18px 16px;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+}
+
+.mode-card .mode-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.mode-kicker i,
+.mode-kicker em {
+  font-style: normal;
+}
+
+.mode-kicker i {
+  color: var(--f1-yellow);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+}
+
+.mode-kicker em {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #c4cec8;
+  font-size: 0.58rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mode-card strong {
+  font-size: clamp(1.28rem, 2vw, 1.75rem);
+  line-height: 0.96;
+}
+
+.mode-card small {
+  max-width: 18rem;
+  color: rgba(245, 247, 242, 0.7);
+  font-size: 0.82rem;
+}
+
+.mode-card.active .mode-kicker em {
+  border-color: rgba(66, 232, 141, 0.32);
+  background: rgba(66, 232, 141, 0.1);
+  color: #dfffea;
+}
+
+.start-side-panel {
+  padding: 18px;
+  gap: 14px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.055), transparent 28%),
+    linear-gradient(180deg, rgba(15, 20, 20, 0.98), rgba(5, 7, 8, 0.97));
+}
+
+.quick-preview {
+  min-height: 0;
+  height: 100%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 42%),
+    radial-gradient(circle at 50% 46%, rgba(255, 204, 34, 0.11), transparent 34%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.028) 0 2px, transparent 2px 12px),
+    rgba(4, 7, 8, 0.78);
+}
+
+.preview-hud {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+}
+
+.preview-hud span {
+  color: var(--f1-yellow);
+  font-size: 0.66rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.preview-hud strong {
+  color: #fff;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+}
+
+.preview-track {
+  width: min(82%, 440px);
+  border-width: 16px;
+}
+
+.side-status-card {
+  min-height: 104px;
+  padding: 14px;
+  justify-content: end;
+  background:
+    linear-gradient(135deg, rgba(240, 24, 24, 0.13), transparent 46%),
+    rgba(7, 9, 10, 0.82);
+}
+
+.side-status-card strong {
+  font-size: 1.06rem;
+}
+
+.account-modal-panel {
+  width: min(980px, calc(100vw - 32px));
+  background:
+    linear-gradient(145deg, rgba(240, 24, 24, 0.12), transparent 28%),
+    radial-gradient(circle at 78% 8%, rgba(255, 204, 34, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(18, 22, 22, 0.98), rgba(4, 7, 8, 0.98));
+}
+
+.account-modal-panel .modal-head {
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.account-modal-panel .modal-head h2 {
+  font-size: clamp(1.8rem, 3vw, 2.65rem);
+}
+
+.account-tabs {
+  margin: 18px 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 5px;
+  background: rgba(2, 4, 5, 0.62);
+}
+
+.account-tabs button {
+  min-height: 42px;
+  border-radius: 999px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.account-tabs button.active {
+  border-color: rgba(255, 204, 34, 0.48);
+  background:
+    linear-gradient(90deg, rgba(240, 24, 24, 0.26), rgba(255, 204, 34, 0.12)),
+    rgba(255, 204, 34, 0.08);
+}
+
+.account-player-card {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  padding: 18px;
+  background:
+    linear-gradient(120deg, rgba(240, 24, 24, 0.16), transparent 40%),
+    linear-gradient(180deg, rgba(245, 247, 242, 0.06), rgba(245, 247, 242, 0.025));
+}
+
+.account-profile-head {
+  margin-bottom: 0;
+  align-items: center;
+  gap: 18px;
+}
+
+.account-avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 7px;
+  background:
+    linear-gradient(135deg, rgba(0, 207, 255, 0.95), rgba(0, 130, 154, 0.8)),
+    rgba(255, 204, 34, 0.1);
+  color: #fff;
+  font-size: 2.2rem;
+}
+
+.account-driver-copy {
+  min-width: 0;
+}
+
+.account-driver-copy #accountProfileName {
+  display: block;
+  margin: 4px 0 7px;
+  color: #fff;
+  font-size: clamp(1.4rem, 2.6vw, 2.25rem);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+#accountProfileMeta {
+  gap: 8px 10px;
+}
+
+.account-bio {
+  min-height: 0;
+  margin: 0;
+  max-width: 760px;
+  color: rgba(245, 247, 242, 0.76);
+  font-size: 0.95rem;
+}
+
+.account-section-title {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.account-section-title span {
+  color: var(--f1-yellow);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.account-section-title strong {
+  color: #fff;
+  font-size: 1rem;
+}
+
+.account-stats-grid {
+  gap: 12px;
+}
+
+.account-stat-card {
+  min-height: 92px;
+  display: grid;
+  align-content: space-between;
+  border-radius: 6px;
+  padding: 14px 15px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), transparent 48%),
+    rgba(8, 11, 11, 0.76);
+}
+
+.account-stat-card span {
+  color: #9da9a1;
+}
+
+.account-stat-card strong {
+  margin-top: 10px;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.account-form-grid,
+.account-list-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  padding: 16px;
+  background: rgba(4, 7, 8, 0.5);
+}
+
+.account-list-item {
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 42%),
+    rgba(245, 247, 242, 0.04);
+}
+
+@media (max-width: 980px) {
+  .start-dashboard {
+    width: min(100%, calc(100vw - 28px));
+    min-height: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .hero-copy h1 {
+    max-width: 9ch;
+    font-size: clamp(3rem, 11vw, 5rem);
+  }
+
+  .start-side-panel {
+    grid-template-rows: minmax(260px, 1fr) auto;
+  }
+
+  .account-modal-panel {
+    width: min(920px, calc(100vw - 24px));
+  }
+
+  .account-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .start-panel {
+    padding: 24px 20px;
+  }
+
+  .hero-telemetry {
+    gap: 6px;
+  }
+
+  .hero-telemetry span {
+    font-size: 0.62rem;
+  }
+
+  .launch-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 14px;
+  }
+
+  .mode-switch,
+  .side-status-grid,
+  .account-tabs,
+  .account-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-card {
+    min-height: 108px;
+  }
+
+  .account-tabs {
+    border-radius: 12px;
+  }
+
+  .account-tabs button {
+    border-radius: 8px;
+  }
+
+  .account-player-card {
+    padding: 14px;
+  }
+
+  .account-profile-head {
+    align-items: flex-start;
+  }
+
+  .account-avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 1.8rem;
   }
 }

@@ -8,6 +8,8 @@ const SPEAKING_LEVEL_THRESHOLD = 9;
 const SPEAKING_WRITE_INTERVAL_MS = 520;
 const SPEAKING_KEEPALIVE_INTERVAL_MS = 1800;
 const SPEAKING_METER_INTERVAL_MS = 160;
+const MAX_BIO_LENGTH = 120;
+const MAX_HISTORY_ITEMS = 24;
 
 function normalizeRoomCode(roomCode = '') {
   return String(roomCode || '').trim().toUpperCase();
@@ -20,6 +22,18 @@ function cleanDisplayName(name = '', fallback = 'Driver') {
 
 function cleanChatText(text = '') {
   return String(text || '').replace(/\s+/g, ' ').trim().slice(0, MAX_CHAT_LENGTH);
+}
+
+function cleanBio(text = '') {
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, MAX_BIO_LENGTH);
+}
+
+function cleanUsername(name = '') {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 24);
 }
 
 function snapshotList(snapshot) {
@@ -43,6 +57,7 @@ export class FirebaseRaceService {
     this.listeners = new Map();
     this.roomUnsubscribers = [];
     this.presenceUnsubscribers = [];
+    this.accountUnsubscribers = [];
     this.voiceUnsubscribers = [];
     this.peerConnections = new Map();
     this.remoteAudioElements = new Map();
@@ -228,6 +243,7 @@ export class FirebaseRaceService {
 
     if (!user) {
       this.cleanupPresenceListeners();
+      this.cleanupAccountListeners();
       this.emitLocal('authChanged', { user: null, displayName: '' });
       return;
     }
@@ -241,6 +257,7 @@ export class FirebaseRaceService {
     }
 
     this.startGlobalPresence();
+    this.subscribeAccountData();
 
     this.emitLocal('authChanged', {
       user,
@@ -259,10 +276,28 @@ export class FirebaseRaceService {
       return;
     }
 
-    const { ref, set, serverTimestamp } = this.modules;
-    await set(ref(this.db, `users/${user.uid}/profile`), {
+    const { ref, get, update, serverTimestamp } = this.modules;
+    const fallbackUsername = cleanUsername(user.email?.split('@')[0] || displayName || 'driver');
+    const existingProfile = (await get(ref(this.db, `users/${user.uid}/profile`))).val() || {};
+    const username = cleanUsername(existingProfile.username || fallbackUsername);
+
+    await update(ref(this.db, `users/${user.uid}/profile`), {
       uid: user.uid,
       displayName: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver'),
+      username,
+      usernameLower: username,
+      email: user.email || '',
+      photoURL: existingProfile.photoURL || user.photoURL || '',
+      bio: existingProfile.bio || '',
+      updatedAt: serverTimestamp()
+    });
+
+    await update(ref(this.db, `userDirectory/${user.uid}`), {
+      uid: user.uid,
+      displayName: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver'),
+      username,
+      usernameLower: username,
+      photoURL: existingProfile.photoURL || user.photoURL || '',
       updatedAt: serverTimestamp()
     });
   }
@@ -281,6 +316,310 @@ export class FirebaseRaceService {
 
     await this.upsertUserProfile(this.authUser, nextName);
     await this.refreshPresenceName(nextName);
+  }
+
+  subscribeAccountData() {
+    this.cleanupAccountListeners();
+
+    if (!this.ready || !this.authUser) {
+      return;
+    }
+
+    const { ref, query, limitToLast, onValue } = this.modules;
+    const uid = this.authUser.uid;
+    const latest = {
+      profile: null,
+      status: null,
+      stats: null,
+      friends: [],
+      requests: [],
+      invites: [],
+      history: [],
+      statuses: {}
+    };
+    const emit = () => this.emitLocal('accountDataChanged', {
+      ...latest,
+      uid
+    });
+
+    const bindValue = (path, key, mapper = (snapshot) => snapshot.val()) => {
+      const unsubscribe = onValue(ref(this.db, path), (snapshot) => {
+        latest[key] = mapper(snapshot);
+        emit();
+      });
+      this.accountUnsubscribers.push(unsubscribe);
+    };
+
+    bindValue(`users/${uid}/profile`, 'profile');
+    bindValue(`users/${uid}/status`, 'status');
+    bindValue(`stats/${uid}`, 'stats');
+    bindValue(`friends/${uid}`, 'friends', snapshotList);
+    bindValue(`friendRequests/${uid}`, 'requests', snapshotList);
+    bindValue(`invites/${uid}`, 'invites', snapshotList);
+    bindValue('users', 'statuses', (snapshot) => {
+      const users = snapshot.val() || {};
+      return Object.fromEntries(
+        Object.entries(users).map(([userUid, userData]) => [userUid, userData?.status || null])
+      );
+    });
+
+    const historyUnsubscribe = onValue(
+      query(ref(this.db, `matchHistory/${uid}`), limitToLast(MAX_HISTORY_ITEMS)),
+      (snapshot) => {
+        latest.history = snapshotList(snapshot).reverse();
+        emit();
+      }
+    );
+    this.accountUnsubscribers.push(historyUnsubscribe);
+  }
+
+  cleanupAccountListeners() {
+    this.accountUnsubscribers.forEach((unsubscribe) => unsubscribe());
+    this.accountUnsubscribers = [];
+  }
+
+  async updateProfileData(profile = {}) {
+    this.ensureSignedIn();
+
+    const displayName = cleanDisplayName(profile.displayName, this.displayName || 'Driver');
+    const username = cleanUsername(profile.username || displayName);
+    const bio = cleanBio(profile.bio || '');
+    const photoURL = String(profile.photoURL || '').trim().slice(0, 500);
+    const { ref, update, serverTimestamp } = this.modules;
+
+    this.displayName = displayName;
+
+    await this.modules.updateProfile(this.authUser, {
+      displayName,
+      photoURL: photoURL || null
+    });
+
+    await update(ref(this.db, `users/${this.authUser.uid}/profile`), {
+      uid: this.authUser.uid,
+      displayName,
+      username,
+      usernameLower: username,
+      email: this.authUser.email || '',
+      photoURL,
+      bio,
+      updatedAt: serverTimestamp()
+    });
+
+    await update(ref(this.db, `userDirectory/${this.authUser.uid}`), {
+      uid: this.authUser.uid,
+      displayName,
+      username,
+      usernameLower: username,
+      photoURL,
+      updatedAt: serverTimestamp()
+    });
+
+    await this.refreshPresenceName(displayName);
+    this.emitLocal('authChanged', { user: this.authUser, displayName });
+    return { displayName, username, bio, photoURL };
+  }
+
+  async searchUsers(term = '') {
+    this.ensureSignedIn();
+
+    const needle = String(term || '').trim().toLowerCase();
+
+    if (needle.length < 2) {
+      return [];
+    }
+
+    const { ref, get } = this.modules;
+    const [directorySnapshot, statusSnapshot] = await Promise.all([
+      get(ref(this.db, 'userDirectory')),
+      get(ref(this.db, 'users'))
+    ]);
+    const directory = directorySnapshot.val() || {};
+    const users = statusSnapshot.val() || {};
+
+    return Object.values(directory)
+      .filter((profile) => profile?.uid && profile.uid !== this.authUser.uid)
+      .filter((profile) => {
+        const haystack = `${profile.displayName || ''} ${profile.username || ''}`.toLowerCase();
+        return haystack.includes(needle);
+      })
+      .slice(0, 12)
+      .map((profile) => ({
+        ...profile,
+        status: users[profile.uid]?.status || null
+      }));
+  }
+
+  async sendFriendRequest(targetUid) {
+    this.ensureSignedIn();
+
+    const target = String(targetUid || '').trim();
+
+    if (!target || target === this.authUser.uid) {
+      return false;
+    }
+
+    const { ref, update, serverTimestamp } = this.modules;
+    await update(ref(this.db, `friendRequests/${target}/${this.authUser.uid}`), {
+      uid: this.authUser.uid,
+      fromUid: this.authUser.uid,
+      fromName: this.displayName || this.authUser.displayName || 'Driver',
+      fromPhotoURL: this.authUser.photoURL || '',
+      createdAt: serverTimestamp()
+    });
+    await update(ref(this.db, `friendRequestsSent/${this.authUser.uid}/${target}`), {
+      uid: target,
+      createdAt: serverTimestamp()
+    });
+    return true;
+  }
+
+  async respondFriendRequest(fromUid, accept = false) {
+    this.ensureSignedIn();
+
+    const otherUid = String(fromUid || '').trim();
+
+    if (!otherUid) {
+      return false;
+    }
+
+    const { ref, get, update, remove, serverTimestamp } = this.modules;
+    const otherProfile = (await get(ref(this.db, `users/${otherUid}/profile`))).val() || {};
+    const ownProfile = (await get(ref(this.db, `users/${this.authUser.uid}/profile`))).val() || {};
+
+    if (accept) {
+      await update(ref(this.db, `friends/${this.authUser.uid}/${otherUid}`), {
+        uid: otherUid,
+        displayName: otherProfile.displayName || 'Driver',
+        username: otherProfile.username || '',
+        photoURL: otherProfile.photoURL || '',
+        since: serverTimestamp()
+      });
+      await update(ref(this.db, `friends/${otherUid}/${this.authUser.uid}`), {
+        uid: this.authUser.uid,
+        displayName: ownProfile.displayName || this.displayName || 'Driver',
+        username: ownProfile.username || '',
+        photoURL: ownProfile.photoURL || '',
+        since: serverTimestamp()
+      });
+    }
+
+    await remove(ref(this.db, `friendRequests/${this.authUser.uid}/${otherUid}`));
+    await remove(ref(this.db, `friendRequestsSent/${otherUid}/${this.authUser.uid}`));
+    return true;
+  }
+
+  async removeFriend(friendUid) {
+    this.ensureSignedIn();
+
+    const otherUid = String(friendUid || '').trim();
+
+    if (!otherUid) {
+      return false;
+    }
+
+    const { ref, remove } = this.modules;
+    await Promise.all([
+      remove(ref(this.db, `friends/${this.authUser.uid}/${otherUid}`)),
+      remove(ref(this.db, `friends/${otherUid}/${this.authUser.uid}`))
+    ]);
+    return true;
+  }
+
+  async sendLobbyInvite(targetUid, roomCode) {
+    this.ensureSignedIn();
+
+    const target = String(targetUid || '').trim();
+    const normalizedRoomCode = normalizeRoomCode(roomCode);
+
+    if (!target || !normalizedRoomCode) {
+      return false;
+    }
+
+    const { ref, push, serverTimestamp } = this.modules;
+    await push(ref(this.db, `invites/${target}`), {
+      fromUid: this.authUser.uid,
+      fromName: this.displayName || this.authUser.displayName || 'Driver',
+      roomCode: normalizedRoomCode,
+      mode: 'multiplayer',
+      status: 'pending',
+      createdAt: serverTimestamp()
+    });
+    return true;
+  }
+
+  async dismissInvite(inviteId) {
+    this.ensureSignedIn();
+
+    const id = String(inviteId || '').trim();
+
+    if (!id) {
+      return false;
+    }
+
+    const { ref, remove } = this.modules;
+    await remove(ref(this.db, `invites/${this.authUser.uid}/${id}`));
+    return true;
+  }
+
+  async recordMatchResult(match = {}) {
+    if (!this.ready || !this.authUser) {
+      return false;
+    }
+
+    const uid = this.authUser.uid;
+    const position = Math.max(1, Math.round(Number(match.position) || 99));
+    const totalPlayers = Math.max(1, Math.round(Number(match.totalPlayers) || 1));
+    const wpm = Math.max(0, Math.round(Number(match.wpm) || 0));
+    const accuracy = Math.max(0, Math.min(100, Math.round(Number(match.accuracy) || 0)));
+    const totalKeys = Math.max(0, Math.round(Number(match.totalKeys) || 0));
+    const { ref, push, get, set, serverTimestamp } = this.modules;
+    const statsRef = ref(this.db, `stats/${uid}`);
+    const currentStats = (await get(statsRef)).val() || {};
+    const totalMatches = Math.max(0, Number(currentStats.totalMatches) || 0) + 1;
+    const totalWins = Math.max(0, Number(currentStats.totalWins) || 0) + (position === 1 ? 1 : 0);
+    const totalPodiums = Math.max(0, Number(currentStats.totalPodiums) || 0) + (position <= 3 ? 1 : 0);
+    const totalWpm = Math.max(0, Number(currentStats.totalWpm) || 0) + wpm;
+    const totalAccuracy = Math.max(0, Number(currentStats.totalAccuracy) || 0) + accuracy;
+    const totalCharacters = Math.max(0, Number(currentStats.totalCharacters) || 0) + totalKeys;
+    const totalFinishPosition = Math.max(0, Number(currentStats.totalFinishPosition) || 0) + position;
+
+    await push(ref(this.db, `matchHistory/${uid}`), {
+      roomCode: normalizeRoomCode(match.roomCode),
+      mode: match.mode || 'multiplayer',
+      position,
+      totalPlayers,
+      opponents: Array.isArray(match.opponents) ? match.opponents.slice(0, 10) : [],
+      wpm,
+      accuracy,
+      totalKeys,
+      mistakes: Math.max(0, Math.round(Number(match.mistakes) || 0)),
+      completed: Boolean(match.completed ?? true),
+      createdAt: serverTimestamp()
+    });
+
+    await set(statsRef, {
+      totalMatches,
+      totalWins,
+      totalLosses: Math.max(0, totalMatches - totalWins),
+      totalPodiums,
+      firstPlaces: Math.max(0, Number(currentStats.firstPlaces) || 0) + (position === 1 ? 1 : 0),
+      secondPlaces: Math.max(0, Number(currentStats.secondPlaces) || 0) + (position === 2 ? 1 : 0),
+      thirdPlaces: Math.max(0, Number(currentStats.thirdPlaces) || 0) + (position === 3 ? 1 : 0),
+      totalRaceCompleted: totalMatches,
+      totalWpm,
+      totalAccuracy,
+      totalCharacters,
+      totalFinishPosition,
+      averageWpm: Math.round(totalWpm / totalMatches),
+      bestWpm: Math.max(Number(currentStats.bestWpm) || 0, wpm),
+      averageAccuracy: Math.round(totalAccuracy / totalMatches),
+      bestAccuracy: Math.max(Number(currentStats.bestAccuracy) || 0, accuracy),
+      winRate: Math.round((totalWins / totalMatches) * 100),
+      averageFinishPosition: Number((totalFinishPosition / totalMatches).toFixed(1)),
+      updatedAt: serverTimestamp()
+    });
+
+    return true;
   }
 
   startGlobalPresence() {

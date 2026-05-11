@@ -5,6 +5,8 @@ const LOBBY_AUDIO_URL = '/audio/Lobby.mp3';
 const RESULTS_AUDIO_URL = '/audio/AfterRace.mp3';
 const ENGINE_VOLUME_IDLE = 0.22;
 const ENGINE_VOLUME_FAST = 0.72;
+const LOBBY_MUSIC_GAIN = 0.32;
+const RESULTS_MUSIC_GAIN = 0.44;
 
 function rampParam(param, value, time, duration = 0.08) {
   try {
@@ -264,7 +266,7 @@ export class EngineSoundController {
         return;
       }
 
-      rampParam(this.lobbyMusicGain.gain, 0.32 * this.bgmVolume, now, 0.35);
+      rampParam(this.lobbyMusicGain.gain, LOBBY_MUSIC_GAIN * this.bgmVolume, now, 0.35);
       return;
     }
 
@@ -342,7 +344,7 @@ export class EngineSoundController {
         return;
       }
 
-      rampParam(this.resultsMusicGain.gain, 0.38 * this.bgmVolume, now, 0.45);
+      rampParam(this.resultsMusicGain.gain, RESULTS_MUSIC_GAIN * this.bgmVolume, now, 0.45);
       return;
     }
 

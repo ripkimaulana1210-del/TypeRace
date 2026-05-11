@@ -3,9 +3,15 @@ export class TypingEngine {
     this.reset();
   }
 
+  static DISPLAY_LINES_PER_PAGE = 2;
+  static DEFAULT_DISPLAY_LINE_MAX_CHARS = 72;
+  static MIN_DISPLAY_LINE_MAX_CHARS = 24;
+  static MAX_DISPLAY_LINE_MAX_CHARS = 180;
+
   setText(text) {
     this.text = text;
     this.segments = this.buildSegments(text);
+    this.displayLines = this.buildDisplayLines(text);
     this.typed = '';
     this.totalKeys = 0;
     this.mistakes = 0;
@@ -15,6 +21,25 @@ export class TypingEngine {
     this.startedAt = null;
     this.lastInputAt = null;
     this.lastCorrectInputAt = null;
+  }
+
+  setDisplayLineMaxChars(value) {
+    const nextValue = Math.max(
+      TypingEngine.MIN_DISPLAY_LINE_MAX_CHARS,
+      Math.min(TypingEngine.MAX_DISPLAY_LINE_MAX_CHARS, Math.round(Number(value) || 0))
+    );
+
+    if (this.displayLineMaxChars === nextValue) {
+      return false;
+    }
+
+    this.displayLineMaxChars = nextValue;
+
+    if (this.text) {
+      this.displayLines = this.buildDisplayLines(this.text);
+    }
+
+    return true;
   }
 
   start(startTime) {
@@ -67,7 +92,7 @@ export class TypingEngine {
       current: segment.current,
       remaining: segment.remaining,
       segmentIndex: segment.index,
-      segmentCount: this.segments.length
+      segmentCount: segment.count || this.segments.length
     };
   }
 
@@ -96,6 +121,8 @@ export class TypingEngine {
   reset() {
     this.text = '';
     this.segments = [];
+    this.displayLines = [];
+    this.displayLineMaxChars = TypingEngine.DEFAULT_DISPLAY_LINE_MAX_CHARS;
     this.typed = '';
     this.totalKeys = 0;
     this.mistakes = 0;
@@ -141,8 +168,44 @@ export class TypingEngine {
     return segments;
   }
 
+  buildDisplayLines(text) {
+    const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+    const lines = [];
+    let start = 0;
+    let current = '';
+
+    words.forEach((word) => {
+      const next = current ? `${current} ${word}` : word;
+
+      if (next.length > this.displayLineMaxChars && current) {
+        lines.push({
+          start,
+          end: start + current.length,
+          text: current
+        });
+        start += current.length + 1;
+        current = word;
+        return;
+      }
+
+      current = next;
+    });
+
+    if (current) {
+      lines.push({
+        start,
+        end: start + current.length,
+        text: current
+      });
+    }
+
+    return lines;
+  }
+
   getActiveSegment() {
-    if (!this.segments.length) {
+    const displayLines = this.displayLines?.length ? this.displayLines : this.segments;
+
+    if (!displayLines.length) {
       return {
         typed: this.typed,
         current: this.text[this.typed.length] || '',
@@ -152,17 +215,47 @@ export class TypingEngine {
     }
 
     const typedLength = this.typed.length;
-    const segmentIndex = this.segments.findIndex((segment) => typedLength <= segment.end);
-    const index = segmentIndex === -1 ? this.segments.length - 1 : segmentIndex;
-    const segment = this.segments[index];
-    const localIndex = Math.max(0, Math.min(segment.text.length, typedLength - segment.start));
-    const isWaitingForSegmentSpace = localIndex >= segment.text.length && this.text[typedLength] === ' ';
+    const lineIndex = displayLines.findIndex((line) => typedLength <= line.end);
+    const index = lineIndex === -1 ? displayLines.length - 1 : lineIndex;
+    const pageLines = displayLines.slice(
+      index,
+      index + TypingEngine.DISPLAY_LINES_PER_PAGE
+    );
+
+    let typed = '';
+    let current = '';
+    let remaining = '';
+
+    pageLines.forEach((line, lineOffset) => {
+      const separator = lineOffset > 0 ? '\n' : '';
+
+      if (typedLength > line.end) {
+        typed += `${separator}${line.text}`;
+        return;
+      }
+
+      if (typedLength < line.start) {
+        remaining += `${separator}${line.text}`;
+        return;
+      }
+
+      const localIndex = Math.max(0, Math.min(line.text.length, typedLength - line.start));
+      const isWaitingForLineSpace = localIndex >= line.text.length && this.text[typedLength] === ' ';
+
+      typed += `${separator}${line.text.slice(0, localIndex)}`;
+      current = isWaitingForLineSpace ? ' ' : line.text[localIndex] || '';
+
+      if (!isWaitingForLineSpace) {
+        remaining += line.text.slice(localIndex + 1);
+      }
+    });
 
     return {
-      typed: segment.text.slice(0, localIndex),
-      current: isWaitingForSegmentSpace ? ' ' : segment.text[localIndex] || '',
-      remaining: segment.text.slice(localIndex + 1),
-      index
+      typed,
+      current,
+      remaining,
+      index,
+      count: displayLines.length
     };
   }
 

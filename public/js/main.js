@@ -43,6 +43,18 @@ class F1TypingBattleApp {
     this.roomMaxPlayers = MAX_ROOM_PLAYERS;
     this.chatMessageIds = new Set();
     this.latestPresenceUsers = [];
+    this.accountData = {
+      profile: null,
+      status: null,
+      stats: null,
+      friends: [],
+      requests: [],
+      invites: [],
+      history: [],
+      statuses: {}
+    };
+    this.friendSearchResults = [];
+    this.activeAccountTab = 'profile';
     this.elements = this.getElements();
   }
 
@@ -62,10 +74,34 @@ class F1TypingBattleApp {
       resultsScreen: document.getElementById('resultsScreen'),
       loadingScreen: document.getElementById('loadingScreen'),
       authModal: document.getElementById('authModal'),
+      accountMenu: document.getElementById('accountMenu'),
+      accountModal: document.getElementById('accountModal'),
+      accountCloseBtn: document.getElementById('accountCloseBtn'),
+      accountTabs: Array.from(document.querySelectorAll('[data-account-tab]')),
+      accountPanels: Array.from(document.querySelectorAll('[data-account-panel]')),
+      accountProfileName: document.getElementById('accountProfileName'),
+      accountProfileMeta: document.getElementById('accountProfileMeta'),
+      accountProfileBio: document.getElementById('accountProfileBio'),
+      accountAvatar: document.getElementById('accountAvatar'),
+      accountStatsGrid: document.getElementById('accountStatsGrid'),
+      accountHistoryStats: document.getElementById('accountHistoryStats'),
+      profileDisplayNameInput: document.getElementById('profileDisplayNameInput'),
+      profileUsernameInput: document.getElementById('profileUsernameInput'),
+      profileAvatarInput: document.getElementById('profileAvatarInput'),
+      profileBioInput: document.getElementById('profileBioInput'),
+      profileSaveBtn: document.getElementById('profileSaveBtn'),
+      friendSearchInput: document.getElementById('friendSearchInput'),
+      friendSearchBtn: document.getElementById('friendSearchBtn'),
+      friendSearchResults: document.getElementById('friendSearchResults'),
+      friendRequestsList: document.getElementById('friendRequestsList'),
+      friendsList: document.getElementById('friendsList'),
+      accountInvitesList: document.getElementById('accountInvitesList'),
+      matchHistoryList: document.getElementById('matchHistoryList'),
+      inviteFriendsPanel: document.getElementById('inviteFriendsPanel'),
+      lobbyInviteList: document.getElementById('lobbyInviteList'),
       authOpenBtn: document.getElementById('authOpenBtn'),
       authCloseBtn: document.getElementById('authCloseBtn'),
       appConnectionLabel: document.getElementById('appConnectionLabel'),
-      playerNameInput: document.getElementById('playerNameInput'),
       authPanel: document.querySelector('.auth-panel'),
       authStateLabel: document.getElementById('authStateLabel'),
       authNameInput: document.getElementById('authNameInput'),
@@ -84,8 +120,6 @@ class F1TypingBattleApp {
       sendChatBtn: document.getElementById('sendChatBtn'),
       voiceToggleBtn: document.getElementById('voiceToggleBtn'),
       modeButtons: Array.from(document.querySelectorAll('.mode-switch .mode-card[data-mode]')),
-      resumeRoomBtn: document.getElementById('resumeRoomBtn'),
-      savedRoomHint: document.getElementById('savedRoomHint'),
       aiSetupPanel: document.getElementById('aiSetupPanel'),
       botDifficultyGroup: document.getElementById('botDifficultyGroup'),
       difficultyButtons: Array.from(document.querySelectorAll('.difficulty-option')),
@@ -270,6 +304,28 @@ class F1TypingBattleApp {
     this.elements.authLogoutBtn?.addEventListener('click', () => this.logoutFromFirebase());
     this.elements.authOpenBtn?.addEventListener('click', () => this.handleAuthButtonClick());
     this.elements.authCloseBtn?.addEventListener('click', () => this.closeAuthModal());
+    this.elements.accountCloseBtn?.addEventListener('click', () => this.closeAccountModal());
+    this.elements.accountMenu?.addEventListener('click', (event) => this.handleAccountMenuAction(event));
+    this.elements.accountModal?.addEventListener('click', (event) => {
+      if (event.target === this.elements.accountModal) {
+        this.closeAccountModal();
+      }
+    });
+    this.elements.accountTabs.forEach((button) => {
+      button.addEventListener('click', () => this.setAccountTab(button.dataset.accountTab || 'profile'));
+    });
+    this.elements.profileSaveBtn?.addEventListener('click', () => this.saveProfile());
+    this.elements.friendSearchBtn?.addEventListener('click', () => this.searchFriends());
+    this.elements.friendSearchInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        this.searchFriends();
+      }
+    });
+    this.elements.friendSearchResults?.addEventListener('click', (event) => this.handleFriendAction(event));
+    this.elements.friendRequestsList?.addEventListener('click', (event) => this.handleFriendAction(event));
+    this.elements.friendsList?.addEventListener('click', (event) => this.handleFriendAction(event));
+    this.elements.accountInvitesList?.addEventListener('click', (event) => this.handleInviteAction(event));
+    this.elements.lobbyInviteList?.addEventListener('click', (event) => this.handleFriendAction(event));
     this.elements.authModal?.addEventListener('click', (event) => {
       if (event.target === this.elements.authModal) {
         this.closeAuthModal();
@@ -279,13 +335,7 @@ class F1TypingBattleApp {
     this.elements.chatToggleBtn?.addEventListener('click', () => this.toggleChatPanel());
     this.elements.chatCloseBtn?.addEventListener('click', () => this.setChatPanelOpen(false));
     this.elements.voiceToggleBtn?.addEventListener('click', () => this.toggleVoiceChat());
-    this.elements.resumeRoomBtn?.addEventListener('click', () => this.resumeLastRoom());
     this.elements.copyRoomCodeBtn?.addEventListener('click', () => this.copyRoomCode());
-    this.elements.playerNameInput?.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        this.openModeSetup(this.selectedMode);
-      }
-    });
     this.elements.authPasswordInput?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         this.loginWithFirebase();
@@ -383,6 +433,23 @@ class F1TypingBattleApp {
       this.safeResumeAudio();
     }, { passive: true });
 
+    document.addEventListener('click', (event) => {
+      if (
+        this.elements.accountMenu
+        && !this.elements.accountMenu.classList.contains('hidden')
+        && !event.target.closest('#accountMenu')
+        && event.target !== this.elements.authOpenBtn
+      ) {
+        this.closeAccountMenu();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (this.currentScreen === 'game' && this.typing?.text) {
+        this.renderTyping();
+      }
+    });
+
     window.addEventListener('trackLoaded', (event) => {
       const detail = event?.detail || {};
       this.isTrackReady = true;
@@ -465,6 +532,7 @@ class F1TypingBattleApp {
     this.firebase.on('authChanged', (payload) => this.handleFirebaseAuth(payload));
     this.firebase.on('messageAdded', (message) => this.renderChatMessage(message));
     this.firebase.on('presenceChanged', (payload) => this.renderPresence(payload.users || []));
+    this.firebase.on('accountDataChanged', (payload) => this.handleAccountDataChanged(payload));
     this.firebase.on('voiceChanged', (payload) => this.updateVoiceState(payload.active));
     this.firebase.on('voiceLevelChanged', (payload) => this.updateLocalVoiceLevel(payload));
     this.firebase.on('roomChanged', () => this.updateCommsVisibility());
@@ -498,10 +566,6 @@ class F1TypingBattleApp {
     if (displayName) {
       this.playerName = displayName.slice(0, 20);
 
-      if (this.elements.playerNameInput && !this.elements.playerNameInput.value.trim()) {
-        this.elements.playerNameInput.value = this.playerName;
-      }
-
       if (this.elements.authNameInput) {
         this.elements.authNameInput.value = displayName;
       }
@@ -526,10 +590,115 @@ class F1TypingBattleApp {
       this.pendingModeAfterLogin = '';
       requestAnimationFrame(() => this.openModeSetup(pendingMode));
     }
+
+    if (!user) {
+      this.accountData = {
+        profile: null,
+        status: null,
+        stats: null,
+        friends: [],
+        requests: [],
+        invites: [],
+        history: [],
+        statuses: {}
+      };
+      this.friendSearchResults = [];
+      this.closeAccountMenu();
+      this.closeAccountModal();
+      this.renderAccount();
+    }
   }
 
   handleAuthButtonClick() {
+    if (this.firebase.getCurrentUser()) {
+      this.toggleAccountMenu();
+      return;
+    }
+
     this.openAuthModal();
+  }
+
+  toggleAccountMenu() {
+    if (!this.elements.accountMenu) {
+      return;
+    }
+
+    this.elements.accountMenu.classList.toggle('hidden');
+  }
+
+  closeAccountMenu() {
+    this.elements.accountMenu?.classList.add('hidden');
+  }
+
+  handleAccountMenuAction(event) {
+    const button = event.target.closest('[data-account-action]');
+
+    if (!button) {
+      return;
+    }
+
+    const action = button.dataset.accountAction;
+    this.closeAccountMenu();
+
+    if (action === 'logout') {
+      this.logoutFromFirebase();
+      return;
+    }
+
+    const tab = action === 'profile'
+      ? 'profile'
+      : action === 'edit'
+        ? 'edit'
+        : action === 'history'
+          ? 'history'
+          : 'friends';
+    this.openAccountModal(tab);
+  }
+
+  openAccountModal(tab = 'profile') {
+    if (!this.requireSignedIn('Sign in to manage your profile.')) {
+      return;
+    }
+
+    this.elements.accountModal?.classList.remove('hidden');
+    this.setAccountTab(tab);
+    this.renderAccount();
+  }
+
+  closeAccountModal() {
+    this.elements.accountModal?.classList.add('hidden');
+  }
+
+  setAccountTab(tab = 'profile') {
+    this.activeAccountTab = ['profile', 'edit', 'friends', 'history'].includes(tab) ? tab : 'profile';
+    this.elements.accountTabs.forEach((button) => {
+      button.classList.toggle('active', button.dataset.accountTab === this.activeAccountTab);
+    });
+    this.elements.accountPanels.forEach((panel) => {
+      panel.classList.toggle('active', panel.dataset.accountPanel === this.activeAccountTab);
+    });
+  }
+
+  handleAccountDataChanged(payload = {}) {
+    this.accountData = {
+      profile: payload.profile || this.accountData.profile,
+      status: payload.status || null,
+      stats: payload.stats || null,
+      friends: payload.friends || [],
+      requests: payload.requests || [],
+      invites: payload.invites || [],
+      history: payload.history || [],
+      statuses: payload.statuses || {}
+    };
+
+    const profileName = this.accountData.profile?.displayName;
+    if (profileName) {
+      this.playerName = profileName.slice(0, 20);
+    }
+
+    this.renderAccount();
+    this.renderLobbyInvites();
+    this.updateFirebaseControls();
   }
 
   openAuthModal(message = '') {
@@ -563,6 +732,11 @@ class F1TypingBattleApp {
     const isReady = Boolean(payload.ready || this.firebase.ready);
     const isConfigured = Boolean(payload.configured ?? isFirebaseConfigured);
     const isLoggedIn = Boolean(user);
+    const accountName = this.accountData.profile?.displayName
+      || user?.displayName
+      || this.firebase.displayName
+      || user?.email
+      || 'User';
     const roomActive = Boolean(this.network.roomCode && isLoggedIn && isReady);
     const statusText = !isConfigured
       ? 'Config missing'
@@ -578,13 +752,13 @@ class F1TypingBattleApp {
       }
 
       this.elements.authStateLabel.textContent = isLoggedIn
-        ? `Signed in as ${user.displayName || this.firebase.displayName || user.email || 'User'}`
+        ? `Signed in as ${accountName}`
         : this.authPromptMessage || (isReady ? 'Signed out. Login to unlock race control.' : statusText);
     }
 
     if (this.elements.authUserLabel) {
       this.elements.authUserLabel.textContent = isLoggedIn
-        ? (user.displayName || this.firebase.displayName || user.email || 'User')
+        ? accountName
         : 'Not signed in';
     }
 
@@ -592,7 +766,7 @@ class F1TypingBattleApp {
 
     if (this.elements.authOpenBtn) {
       this.elements.authOpenBtn.textContent = isLoggedIn
-        ? (user.displayName || this.firebase.displayName || 'Account')
+        ? accountName
         : 'Login';
       this.elements.authOpenBtn.classList.toggle('signed-in', isLoggedIn);
     }
@@ -658,16 +832,307 @@ class F1TypingBattleApp {
       button.title = shouldLock ? 'Sign in to play' : '';
     });
 
-    if (this.elements.resumeRoomBtn) {
-      const hasRoom = Boolean(this.getSavedRoomCode());
-      this.elements.resumeRoomBtn.disabled = !hasRoom || !this.network.socket?.connected || shouldLock;
-      this.elements.resumeRoomBtn.title = shouldLock ? 'Sign in to rejoin this room' : '';
-    }
-
     if (shouldLock && this.currentScreen === 'menu' && !this.hasShownInitialAuthPrompt) {
       this.hasShownInitialAuthPrompt = true;
       this.openAuthModal('Sign in to unlock race control.');
     }
+  }
+
+  renderAccount() {
+    const user = this.firebase.getCurrentUser();
+    const profile = this.accountData.profile || {};
+    const stats = this.accountData.stats || {};
+    const displayName = profile.displayName || user?.displayName || this.firebase.displayName || 'Driver';
+    const username = profile.username ? `@${profile.username}` : user?.email || 'No username yet';
+    const status = this.accountData.status?.state || (user ? 'online' : 'offline');
+    const initials = this.getInitials(displayName);
+
+    if (this.elements.accountProfileName) {
+      this.elements.accountProfileName.textContent = displayName;
+    }
+
+    if (this.elements.accountProfileMeta) {
+      this.elements.accountProfileMeta.innerHTML = `
+        ${this.renderPresenceBadge(status)}
+        <span>${this.escapeHtml(username)} - ${this.escapeHtml(user?.email || 'No email')}</span>
+      `;
+    }
+
+    if (this.elements.accountProfileBio) {
+      this.elements.accountProfileBio.textContent = profile.bio || 'No bio yet.';
+    }
+
+    if (this.elements.accountAvatar) {
+      this.elements.accountAvatar.innerHTML = profile.photoURL
+        ? `<img src="${this.escapeHtml(profile.photoURL)}" alt="">`
+        : this.escapeHtml(initials);
+    }
+
+    if (this.elements.profileDisplayNameInput && !this.elements.accountModal?.classList.contains('hidden')) {
+      this.elements.profileDisplayNameInput.value = displayName;
+      this.elements.profileUsernameInput.value = profile.username || '';
+      this.elements.profileAvatarInput.value = profile.photoURL || '';
+      this.elements.profileBioInput.value = profile.bio || '';
+    }
+
+    const statCards = this.renderStatCards(stats);
+    if (this.elements.accountStatsGrid) {
+      this.elements.accountStatsGrid.innerHTML = statCards;
+    }
+    if (this.elements.accountHistoryStats) {
+      this.elements.accountHistoryStats.innerHTML = statCards;
+    }
+
+    this.renderFriends();
+    this.renderInvites();
+    this.renderHistory();
+  }
+
+  renderStatCards(stats = {}) {
+    const cards = [
+      ['Matches', stats.totalMatches || 0],
+      ['Wins', stats.totalWins || 0],
+      ['Podiums', stats.totalPodiums || 0],
+      ['Win Rate', `${stats.winRate || 0}%`],
+      ['Avg WPM', stats.averageWpm || 0],
+      ['Best WPM', stats.bestWpm || 0],
+      ['Avg ACC', `${stats.averageAccuracy || 0}%`],
+      ['Best ACC', `${stats.bestAccuracy || 0}%`],
+      ['Typed', stats.totalCharacters || 0],
+      ['Avg Finish', stats.averageFinishPosition || '-'],
+      ['P1/P2/P3', `${stats.firstPlaces || 0}/${stats.secondPlaces || 0}/${stats.thirdPlaces || 0}`],
+      ['Completed', stats.totalRaceCompleted || 0]
+    ];
+
+    return cards.map(([label, value]) => `
+      <div class="account-stat-card">
+        <span>${this.escapeHtml(label)}</span>
+        <strong>${this.escapeHtml(value)}</strong>
+      </div>
+    `).join('');
+  }
+
+  renderFriends() {
+    const friends = this.accountData.friends || [];
+    const requests = this.accountData.requests || [];
+
+    if (this.elements.friendSearchResults) {
+      this.elements.friendSearchResults.innerHTML = this.friendSearchResults.length
+        ? this.friendSearchResults.map((user) => this.renderAccountListItem({
+            title: user.displayName || 'Driver',
+            meta: `${user.username ? `@${user.username}` : 'No username'} - ${user.status?.state || 'offline'}`,
+            actions: `<button class="mini-btn primary" data-friend-action="request" data-uid="${this.escapeHtml(user.uid)}">Add</button>`
+          })).join('')
+        : '<div class="account-list-empty">Search for racers by username or nickname.</div>';
+    }
+
+    if (this.elements.friendRequestsList) {
+      this.elements.friendRequestsList.innerHTML = requests.length
+        ? requests.map((request) => this.renderAccountListItem({
+            title: request.fromName || 'Driver',
+            meta: 'Incoming friend request',
+            actions: `
+              <button class="mini-btn primary" data-friend-action="accept" data-uid="${this.escapeHtml(request.fromUid || request.uid)}">Accept</button>
+              <button class="mini-btn" data-friend-action="reject" data-uid="${this.escapeHtml(request.fromUid || request.uid)}">Reject</button>
+            `
+          })).join('')
+        : '<div class="account-list-empty">No pending requests.</div>';
+    }
+
+    if (this.elements.friendsList) {
+      this.elements.friendsList.innerHTML = friends.length
+        ? friends.map((friend) => {
+            const presence = this.getFriendPresence(friend.uid);
+            const online = presence?.state === 'online';
+            const canInvite = online && this.network.roomCode && this.network.mode !== 'ai';
+            return this.renderAccountListItem({
+              title: friend.displayName || 'Driver',
+              meta: friend.username ? `@${friend.username}` : 'Friend',
+              status: online ? 'online' : 'offline',
+              actions: `
+                ${canInvite ? `<button class="mini-btn primary" data-friend-action="invite" data-uid="${this.escapeHtml(friend.uid)}">Invite</button>` : ''}
+                <button class="mini-btn" data-friend-action="remove" data-uid="${this.escapeHtml(friend.uid)}">Remove</button>
+              `
+            });
+          }).join('')
+        : '<div class="account-list-empty">No friends yet.</div>';
+    }
+  }
+
+  renderInvites() {
+    const invites = this.accountData.invites || [];
+
+    if (!this.elements.accountInvitesList) {
+      return;
+    }
+
+    this.elements.accountInvitesList.innerHTML = invites.length
+      ? invites.map((invite) => this.renderAccountListItem({
+          title: `${invite.fromName || 'Driver'} invited you`,
+          meta: `Room ${invite.roomCode || '-'} - ${this.formatFirebaseDate(invite.createdAt)}`,
+          actions: `
+            <button class="mini-btn primary" data-invite-action="join" data-id="${this.escapeHtml(invite.id)}" data-room="${this.escapeHtml(invite.roomCode)}">Join</button>
+            <button class="mini-btn" data-invite-action="dismiss" data-id="${this.escapeHtml(invite.id)}">Dismiss</button>
+          `
+        })).join('')
+      : '<div class="account-list-empty">No lobby invites.</div>';
+  }
+
+  renderHistory() {
+    const history = this.accountData.history || [];
+
+    if (!this.elements.matchHistoryList) {
+      return;
+    }
+
+    this.elements.matchHistoryList.innerHTML = history.length
+      ? history.map((match) => `
+          <div class="history-row">
+            <em>P${this.escapeHtml(match.position || '-')}</em>
+            <div>
+              <strong>${this.escapeHtml(match.roomCode || 'Room')}</strong>
+              <small>${this.escapeHtml(match.mode || 'multiplayer')} - ${this.formatFirebaseDate(match.createdAt)}</small>
+            </div>
+            <span>WPM ${this.escapeHtml(match.wpm || 0)}</span>
+            <span>ACC ${this.escapeHtml(match.accuracy || 0)}%</span>
+            <span>${this.escapeHtml(match.totalPlayers || 1)} drivers</span>
+          </div>
+        `).join('')
+      : '<div class="account-list-empty">No multiplayer history yet.</div>';
+  }
+
+  renderAccountListItem({ title, meta, actions = '', status = '' }) {
+    return `
+      <div class="account-list-item">
+        <div>
+          <strong>${status ? this.renderPresenceBadge(status) : ''}<span>${this.escapeHtml(title)}</span></strong>
+          <small>${this.escapeHtml(meta)}</small>
+        </div>
+        <div class="account-item-actions">${actions}</div>
+      </div>
+    `;
+  }
+
+  renderPresenceBadge(state = 'offline') {
+    const normalizedState = state === 'online' ? 'online' : 'offline';
+    return `
+      <span class="status-badge ${normalizedState}">
+        <span class="status-dot ${normalizedState}"></span>
+        <span>${normalizedState}</span>
+      </span>
+    `;
+  }
+
+  getFriendPresence(uid) {
+    return this.latestPresenceUsers.find((user) => user.uid === uid)
+      || this.accountData.statuses?.[uid]
+      || (this.accountData.status?.uid === uid ? this.accountData.status : null);
+  }
+
+  async saveProfile() {
+    try {
+      const profile = await this.firebase.updateProfileData({
+        displayName: this.elements.profileDisplayNameInput?.value || '',
+        username: this.elements.profileUsernameInput?.value || '',
+        photoURL: this.elements.profileAvatarInput?.value || '',
+        bio: this.elements.profileBioInput?.value || ''
+      });
+      this.playerName = profile.displayName.slice(0, 20);
+      this.updateFirebaseControls();
+      this.renderAccount();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Profile could not be saved.');
+    }
+  }
+
+  async searchFriends() {
+    try {
+      this.friendSearchResults = await this.firebase.searchUsers(this.elements.friendSearchInput?.value || '');
+      this.renderFriends();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Search failed.');
+    }
+  }
+
+  async handleFriendAction(event) {
+    const button = event.target.closest('[data-friend-action]');
+    if (!button) return;
+
+    const action = button.dataset.friendAction;
+    const uid = button.dataset.uid;
+
+    try {
+      if (action === 'request') {
+        await this.firebase.sendFriendRequest(uid);
+        button.textContent = 'Sent';
+        button.disabled = true;
+      } else if (action === 'accept') {
+        await this.firebase.respondFriendRequest(uid, true);
+      } else if (action === 'reject') {
+        await this.firebase.respondFriendRequest(uid, false);
+      } else if (action === 'remove') {
+        await this.firebase.removeFriend(uid);
+      } else if (action === 'invite') {
+        await this.firebase.sendLobbyInvite(uid, this.network.roomCode);
+        button.textContent = 'Invited';
+        button.disabled = true;
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Friend action failed.');
+    }
+  }
+
+  async handleInviteAction(event) {
+    const button = event.target.closest('[data-invite-action]');
+    if (!button) return;
+
+    const action = button.dataset.inviteAction;
+    const inviteId = button.dataset.id;
+    const roomCode = button.dataset.room;
+
+    try {
+      if (action === 'join' && roomCode) {
+        await this.firebase.dismissInvite(inviteId);
+        this.closeAccountModal();
+        this.elements.roomCodeInput.value = roomCode;
+        await this.joinRoom();
+        return;
+      }
+
+      await this.firebase.dismissInvite(inviteId);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Invite action failed.');
+    }
+  }
+
+  renderLobbyInvites() {
+    const panel = this.elements.inviteFriendsPanel;
+    const list = this.elements.lobbyInviteList;
+
+    if (!panel || !list) {
+      return;
+    }
+
+    const canInvite = Boolean(this.network.roomCode && this.network.mode !== 'ai' && this.firebase.getCurrentUser());
+    const onlineFriends = (this.accountData.friends || []).filter((friend) => this.getFriendPresence(friend.uid)?.state === 'online');
+    panel.classList.toggle('hidden', !canInvite);
+
+    if (!canInvite) {
+      list.innerHTML = '';
+      return;
+    }
+
+    list.innerHTML = onlineFriends.length
+      ? onlineFriends.map((friend) => this.renderAccountListItem({
+          title: friend.displayName || 'Driver',
+          meta: friend.username ? `@${friend.username}` : 'Online now',
+          actions: `<button class="mini-btn primary" data-friend-action="invite" data-uid="${this.escapeHtml(friend.uid)}">Invite</button>`
+        })).join('')
+      : '<div class="account-list-empty">No online friends to invite.</div>';
   }
 
   requireSignedIn(message = 'Sign in to continue.') {
@@ -692,15 +1157,11 @@ class F1TypingBattleApp {
     }
 
     this.playerName = name;
-
-    if (this.elements.playerNameInput) {
-      this.elements.playerNameInput.value = name;
-    }
   }
 
   getAuthFormValues() {
     return {
-      displayName: this.elements.authNameInput?.value?.trim() || this.elements.playerNameInput?.value?.trim() || '',
+      displayName: this.elements.authNameInput?.value?.trim() || this.getDriverName(false) || '',
       email: this.elements.authEmailInput?.value?.trim() || '',
       password: this.elements.authPasswordInput?.value || ''
     };
@@ -822,8 +1283,9 @@ class F1TypingBattleApp {
     try {
       const normalizedRoomCode = String(roomCode || '').trim().toUpperCase();
       const isNewFirebaseRoom = this.firebase.currentRoomCode !== normalizedRoomCode;
-      await this.firebase.setDisplayName(this.playerName || this.elements.playerNameInput?.value);
-      await this.firebase.joinRoom(normalizedRoomCode, this.playerName || this.elements.playerNameInput?.value, this.network.socket?.id || '');
+      const driverName = this.getDriverName(false);
+      await this.firebase.setDisplayName(driverName);
+      await this.firebase.joinRoom(normalizedRoomCode, driverName, this.network.socket?.id || '');
 
       if (isNewFirebaseRoom && this.elements.chatMessages) {
         this.chatMessageIds.clear();
@@ -1042,6 +1504,7 @@ class F1TypingBattleApp {
     if (!users.length) {
       this.elements.onlineUsersList.innerHTML = '<span class="presence-empty">No users online</span>';
       this.renderPlayerVoiceIndicators();
+      this.renderLobbyInvites();
       return;
     }
 
@@ -1070,6 +1533,7 @@ class F1TypingBattleApp {
       .join('');
 
     this.renderPlayerVoiceIndicators();
+    this.renderLobbyInvites();
   }
 
   getVoiceStateForPlayer(playerId) {
@@ -1364,6 +1828,10 @@ class F1TypingBattleApp {
 
     if (name === 'game') {
       requestAnimationFrame(() => {
+        if (this.typing?.text) {
+          this.renderTyping();
+        }
+
         if (this.network.state === 'racing' && !this.elements.typingInput.disabled) {
           this.elements.typingInput.focus();
         }
@@ -1540,11 +2008,6 @@ class F1TypingBattleApp {
       }
 
       this.lastRoomCode = String(saved.roomCode || '').trim().toUpperCase();
-      this.playerName = String(saved.playerName || '').trim().slice(0, 20);
-
-      if (this.playerName && !this.elements.playerNameInput.value.trim()) {
-        this.elements.playerNameInput.value = this.playerName;
-      }
     } catch (_error) {
       this.lastRoomCode = '';
     }
@@ -1582,39 +2045,31 @@ class F1TypingBattleApp {
   }
 
   updateSavedRoomUI() {
-    const roomCode = this.getSavedRoomCode();
-    const hasRoom = Boolean(roomCode);
-
-    this.elements.resumeRoomBtn?.classList.toggle('hidden', !hasRoom);
-
-    if (this.elements.resumeRoomBtn) {
-      this.elements.resumeRoomBtn.disabled = !hasRoom || !this.network.socket?.connected || !this.firebase.getCurrentUser();
-      this.elements.resumeRoomBtn.textContent = hasRoom ? `Room ${roomCode}` : 'Last Room';
-    }
-
-    if (this.elements.savedRoomHint) {
-      this.elements.savedRoomHint.classList.toggle('hidden', !hasRoom);
-      this.elements.savedRoomHint.textContent = hasRoom
-        ? `Last room saved: ${roomCode}. Use the button to rejoin.`
-        : '';
-    }
+    // Last-room shortcuts are intentionally not shown on the start screen.
   }
 
-  requireName() {
-    const name = this.elements.playerNameInput.value.trim();
+  getDriverName(shouldAlert = true) {
+    const user = this.firebase.getCurrentUser();
+    const name = String(
+      this.accountData.profile?.displayName
+      || this.firebase.displayName
+      || user?.displayName
+      || user?.email?.split('@')[0]
+      || this.playerName
+      || 'Driver'
+    ).trim().slice(0, 20);
 
-    if (!name) {
-      alert('Enter your driver name first.');
+    if (!name && shouldAlert) {
+      alert('Set your Driver Name from Account > Edit Profile first.');
       return null;
     }
 
-    this.playerName = name;
+    this.playerName = name || 'Driver';
+    return this.playerName;
+  }
 
-    if (this.elements.authNameInput && !this.elements.authNameInput.value.trim()) {
-      this.elements.authNameInput.value = name;
-    }
-
-    return name;
+  requireName() {
+    return this.getDriverName(true);
   }
 
   async createRoom() {
@@ -1692,6 +2147,11 @@ class F1TypingBattleApp {
       return;
     }
 
+    const playerName = this.requireName();
+    if (!playerName) {
+      return;
+    }
+
     const roomCode = this.elements.roomCodeInput.value.trim().toUpperCase();
 
     if (!roomCode) {
@@ -1705,8 +2165,8 @@ class F1TypingBattleApp {
     this.elements.loadingText.textContent = 'Joining room...';
 
     try {
-      await this.network.joinRoom(roomCode, this.playerName);
-      this.rememberRoom(roomCode, this.playerName);
+      await this.network.joinRoom(roomCode, playerName);
+      this.rememberRoom(roomCode, playerName);
     } catch (error) {
       console.error(error);
       alert(error.message || 'Could not join the room.');
@@ -1924,7 +2384,7 @@ class F1TypingBattleApp {
 
     this.network.applyCircuitProfile(payload.circuit);
     this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount) || this.network.lapCount || 1)));
-    this.rememberRoom(payload.roomCode, this.playerName || this.elements.playerNameInput.value);
+    this.rememberRoom(payload.roomCode, this.getDriverName(false));
     this.joinFirebaseRoom(payload.roomCode);
 
     if (payload.state === 'waiting' || this.currentScreen === 'loading') {
@@ -2009,6 +2469,7 @@ class F1TypingBattleApp {
     }
 
     this.updateRoomActions();
+    this.renderLobbyInvites();
   }
 
   handleRacePaused(_payload) {
@@ -2166,6 +2627,7 @@ class F1TypingBattleApp {
 
   async handleRaceFinished(payload) {
     this.latestResults = payload.results;
+    this.recordLocalMatchHistory(payload.results || []);
     this.elements.gameMenuModal?.classList.add('hidden');
     this.isGameMenuOpen = false;
     this.wasPausedByMenu = false;
@@ -2184,6 +2646,36 @@ class F1TypingBattleApp {
       await this.playResultsMusic();
       this.updateRoomActions();
     }, FINISH_REPLAY_DURATION_MS);
+  }
+
+  recordLocalMatchHistory(results = []) {
+    if (!this.firebase.ready || !this.firebase.getCurrentUser() || !Array.isArray(results) || !results.length) {
+      return;
+    }
+
+    const localPlayerId = this.network.socket?.id;
+    const localResult = results.find((player) => player.id === localPlayerId);
+
+    if (!localResult || localResult.isGhost) {
+      return;
+    }
+
+    this.firebase.recordMatchResult({
+      roomCode: this.network.roomCode || this.getSavedRoomCode(),
+      mode: this.network.mode || 'multiplayer',
+      position: localResult.position,
+      totalPlayers: results.filter((player) => !player.isGhost).length || results.length,
+      opponents: results
+        .filter((player) => player.id !== localPlayerId)
+        .map((player) => player.name || 'Driver'),
+      wpm: localResult.wpm,
+      accuracy: localResult.accuracy,
+      totalKeys: localResult.totalKeys,
+      mistakes: localResult.mistakes,
+      completed: Number(localResult.progress) >= 100
+    }).catch((error) => {
+      console.warn('Match history save failed:', error);
+    });
   }
 
   handleTyping(event) {
@@ -2348,11 +2840,10 @@ class F1TypingBattleApp {
   }
 
   renderTyping() {
+    this.updateTypingLineLength();
     const display = this.typing.getDisplay();
 
-    this.elements.textToType.innerHTML = `
-      <span class="typed">${this.escapeHtml(display.typed)}</span><span class="current">${this.escapeHtml(display.current)}</span><span class="remaining">${this.escapeHtml(display.remaining)}</span>
-    `;
+    this.elements.textToType.innerHTML = `<span class="typed">${this.escapeHtml(display.typed)}</span><span class="current">${this.escapeHtml(display.current)}</span><span class="remaining">${this.escapeHtml(display.remaining)}</span>`;
 
     const stats = this.typing.getStats();
     const lapInfo = this.getLapInfoForProgress(stats.progress);
@@ -2368,6 +2859,30 @@ class F1TypingBattleApp {
     this.elements.textToType.dataset.segment = lapInfo.totalLaps > 1
       ? `${display.segmentIndex + 1}/${display.segmentCount || 1} - Lap ${lapInfo.completedLaps}/${lapInfo.totalLaps}`
       : `${display.segmentIndex + 1}/${display.segmentCount || 1} - Lap ${lapInfo.completedLaps}/${lapInfo.totalLaps}`;
+  }
+
+  updateTypingLineLength() {
+    const textElement = this.elements.textToType;
+
+    if (!textElement || !this.typing?.setDisplayLineMaxChars) {
+      return;
+    }
+
+    const elementWidth = textElement.clientWidth;
+
+    if (!elementWidth || elementWidth < 180) {
+      return;
+    }
+
+    const styles = window.getComputedStyle(textElement);
+    const fontSize = parseFloat(styles.fontSize) || 13;
+    const paddingLeft = parseFloat(styles.paddingLeft) || 0;
+    const paddingRight = parseFloat(styles.paddingRight) || 0;
+    const availableTextWidth = Math.max(0, elementWidth - paddingLeft - paddingRight);
+    const approximateMonoCharWidth = Math.max(6, fontSize * 0.6);
+    const maxChars = Math.floor(availableTextWidth / approximateMonoCharWidth);
+
+    this.typing.setDisplayLineMaxChars(maxChars);
   }
 
   getLapInfoForProgress(progressPercent = 0) {
@@ -2596,6 +3111,21 @@ class F1TypingBattleApp {
   formatDuration(timeMs = 0) {
     const seconds = Math.max(0, Number(timeMs) || 0) / 1000;
     return `${seconds.toFixed(seconds >= 10 ? 1 : 2)}s`;
+  }
+
+  formatFirebaseDate(value) {
+    const timestamp = Number(value);
+
+    if (!Number.isFinite(timestamp) || timestamp <= 0) {
+      return 'just now';
+    }
+
+    return new Date(timestamp).toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   escapeHtml(text) {
