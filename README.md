@@ -10,7 +10,7 @@ A real-time multiplayer typing race game where Formula 1 cars compete based on t
 - **Dynamic Speed Control**: Car speed increases with fast & accurate typing, decreases with mistakes
 - **Live Statistics**: Track WPM (Words Per Minute), Accuracy, and Race Progress
 - **Podium Results**: See final rankings with player statistics
-- **Firebase Account + Chat**: Google login, realtime room chat, and online/offline presence
+- **Firebase Account + Chat**: Email/password or Google login, realtime room chat, and online/offline presence
 - **Voice Open Mic**: Optional WebRTC voice channel with Firebase Realtime Database signaling
 
 ## Prerequisites
@@ -42,19 +42,13 @@ npm run dev
 
 ## Firebase Setup
 
-Firebase is optional until configured. Fill `public/js/firebase-config.js`, enable Google Authentication, create a Realtime Database, and apply the rules in `docs/FIREBASE_SETUP.md`.
+Firebase is optional until configured. Fill `public/js/firebase-config.js`, enable Email/Password and Google Authentication, create a Realtime Database, and apply the rules in `docs/FIREBASE_SETUP.md`.
 
 ## Deployment
 
-For a full single-host deployment, use Railway and run `npm start`.
+Deploy the full app to Railway and run `npm start`. The same Express server serves the frontend, Socket.IO backend, audio, and 3D assets.
 
-For split deployment:
-- Backend: deploy `server.js` to Railway.
-- Frontend: deploy `public/` to Vercel.
-- Set Vercel env `TYPERACE_SOCKET_URL` to the backend URL.
-- Set backend env `CLIENT_ORIGIN` to the Vercel frontend URL.
-
-See `docs/SPLIT_DEPLOYMENT.md` for the full checklist.
+See `docs/RAILWAY_DEPLOYMENT.md` for the full checklist.
 
 ## How to Play
 

@@ -481,6 +481,7 @@ body::after {
 .chat-messages,
 .chat-form,
 .auth-panel-head,
+.auth-grid,
 .auth-actions {
   position: relative;
   z-index: 1;

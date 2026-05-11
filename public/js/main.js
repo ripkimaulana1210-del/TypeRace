@@ -58,7 +58,12 @@ class F1TypingBattleApp {
       playerNameInput: document.getElementById('playerNameInput'),
       authPanel: document.querySelector('.auth-panel'),
       authStateLabel: document.getElementById('authStateLabel'),
+      authNameInput: document.getElementById('authNameInput'),
+      authEmailInput: document.getElementById('authEmailInput'),
+      authPasswordInput: document.getElementById('authPasswordInput'),
+      authEmailLoginBtn: document.getElementById('authEmailLoginBtn'),
       authLoginBtn: document.getElementById('authLoginBtn'),
+      authRegisterBtn: document.getElementById('authRegisterBtn'),
       authLogoutBtn: document.getElementById('authLogoutBtn'),
       firebaseStatusText: document.getElementById('firebaseStatusText'),
       authUserLabel: document.getElementById('authUserLabel'),
@@ -249,6 +254,8 @@ class F1TypingBattleApp {
 
   bindUI() {
     this.syncAudioSettingsUI();
+    this.elements.authEmailLoginBtn?.addEventListener('click', () => this.loginWithFirebase());
+    this.elements.authRegisterBtn?.addEventListener('click', () => this.registerWithFirebase());
     this.elements.authLoginBtn?.addEventListener('click', () => this.loginWithGoogleFirebase());
     this.elements.authLogoutBtn?.addEventListener('click', () => this.logoutFromFirebase());
     this.elements.authOpenBtn?.addEventListener('click', () => this.handleAuthButtonClick());
@@ -265,6 +272,11 @@ class F1TypingBattleApp {
     this.elements.playerNameInput?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         this.openModeSetup(this.selectedMode);
+      }
+    });
+    this.elements.authPasswordInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        this.loginWithFirebase();
       }
     });
     this.elements.createRoomBtn?.addEventListener('click', () => this.createRoom());
@@ -472,6 +484,9 @@ class F1TypingBattleApp {
         this.elements.playerNameInput.value = this.playerName;
       }
 
+      if (this.elements.authNameInput) {
+        this.elements.authNameInput.value = displayName;
+      }
     }
 
     this.updateFirebaseControls({
@@ -502,7 +517,10 @@ class F1TypingBattleApp {
         return;
       }
 
-      this.elements.authLoginBtn?.focus();
+      const target = this.elements.authEmailInput?.value
+        ? this.elements.authPasswordInput
+        : this.elements.authEmailInput;
+      target?.focus();
     });
   }
 
@@ -556,6 +574,12 @@ class F1TypingBattleApp {
       }
     }
 
+    [this.elements.authEmailLoginBtn, this.elements.authRegisterBtn].forEach((button) => {
+      if (button) {
+        button.disabled = !isConfigured || !isReady || isLoggedIn;
+      }
+    });
+
     this.elements.authLogoutBtn?.classList.toggle('hidden', !isLoggedIn);
     if (this.elements.authLogoutBtn) {
       this.elements.authLogoutBtn.disabled = !isReady || !isLoggedIn;
@@ -596,6 +620,46 @@ class F1TypingBattleApp {
 
     if (this.elements.playerNameInput) {
       this.elements.playerNameInput.value = name;
+    }
+  }
+
+  getAuthFormValues() {
+    return {
+      displayName: this.elements.authNameInput?.value?.trim() || this.elements.playerNameInput?.value?.trim() || '',
+      email: this.elements.authEmailInput?.value?.trim() || '',
+      password: this.elements.authPasswordInput?.value || ''
+    };
+  }
+
+  async loginWithFirebase() {
+    try {
+      const values = this.getAuthFormValues();
+      const user = await this.firebase.login(values);
+      this.applySignedInName({
+        displayName: values.displayName || user.displayName,
+        email: user.email
+      });
+
+      this.closeAuthModal();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Login email gagal.');
+    }
+  }
+
+  async registerWithFirebase() {
+    try {
+      const values = this.getAuthFormValues();
+      const user = await this.firebase.register(values);
+      this.applySignedInName({
+        displayName: values.displayName || user.displayName,
+        email: user.email
+      });
+
+      this.closeAuthModal();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Registrasi email gagal.');
     }
   }
 
@@ -1292,6 +1356,10 @@ class F1TypingBattleApp {
     }
 
     this.playerName = name;
+
+    if (this.elements.authNameInput && !this.elements.authNameInput.value.trim()) {
+      this.elements.authNameInput.value = name;
+    }
 
     return name;
   }

@@ -613,6 +613,7 @@ body[data-screen="results"] .screen.active {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.auth-panel.signed-in .auth-grid,
 .auth-panel.signed-in .auth-actions {
   display: none;
 }
@@ -652,10 +653,30 @@ body[data-screen="results"] .screen.active {
   font-size: 0.72rem;
 }
 
+.auth-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 7px;
+}
+
+.auth-grid .input-field {
+  min-height: 40px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+
+.auth-grid .input-field[type="password"] {
+  grid-column: 1 / -1;
+}
+
 .auth-actions {
   display: grid;
   grid-template-columns: 1fr;
   gap: 7px;
+}
+
+.email-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .auth-actions .btn {
@@ -2422,6 +2443,7 @@ body[data-screen="results"] .race-comms-panel {
     font-size: 0.82rem;
   }
 
+  .auth-grid .input-field,
   .driver-panel .input-field {
     min-height: 38px;
     padding-block: 8px;
@@ -2593,6 +2615,7 @@ body[data-screen="results"] .race-comms-panel {
   .setup-action-grid,
   .difficulty-grid,
   .compact-lap-grid,
+  .auth-grid,
   .auth-actions {
     grid-template-columns: 1fr;
   }

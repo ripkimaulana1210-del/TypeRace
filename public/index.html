@@ -7,13 +7,12 @@
   <title>F1 Typing Battle 3D</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/f1-theme.css">
-  <script src="js/runtime-config.js"></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <script type="importmap">
     {
       "imports": {
-        "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.164.1/examples/jsm/"
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
       }
     }
   </script>
@@ -71,6 +70,15 @@
             <strong id="authStateLabel">Login untuk chat dan voice</strong>
           </div>
           <button id="authLogoutBtn" class="btn btn-secondary hidden" type="button">Logout</button>
+        </div>
+        <div class="auth-grid">
+          <input id="authNameInput" class="input-field" type="text" maxlength="32" placeholder="Nama akun">
+          <input id="authEmailInput" class="input-field" type="email" autocomplete="email" placeholder="Email">
+          <input id="authPasswordInput" class="input-field" type="password" autocomplete="current-password" placeholder="Password">
+        </div>
+        <div class="auth-actions email-actions">
+          <button id="authEmailLoginBtn" class="btn btn-primary" type="button">Login Email</button>
+          <button id="authRegisterBtn" class="btn btn-secondary" type="button">Registrasi</button>
         </div>
         <div class="auth-actions">
           <button id="authLoginBtn" class="btn btn-google" type="button">

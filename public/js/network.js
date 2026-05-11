@@ -18,13 +18,6 @@ function normalizeLapCount(value = DEFAULT_LAP_COUNT) {
   return Math.round(clampNumber(lapCount, MIN_LAP_COUNT, MAX_LAP_COUNT));
 }
 
-function getConfiguredSocketUrl() {
-  const config = window.TypeRaceConfig || {};
-  const socketUrl = String(config.socketUrl || '').trim();
-
-  return socketUrl || undefined;
-}
-
 export class NetworkClient {
   constructor() {
     this.socket = null;
@@ -103,12 +96,11 @@ export class NetworkClient {
   connect() {
     return new Promise((resolve, reject) => {
       if (!window.io) {
-        reject(new Error('Klien Socket.IO gagal dimuat. Cek koneksi CDN Socket.IO.'));
+        reject(new Error('Klien Socket.IO gagal dimuat. Pastikan aplikasi dibuka melalui server Node.'));
         return;
       }
 
-      const socketUrl = getConfiguredSocketUrl();
-      this.socket = socketUrl ? io(socketUrl) : io();
+      this.socket = io();
 
       this.socket.once('connect', () => {
         if (this.circuitProfile) {
@@ -118,14 +110,7 @@ export class NetworkClient {
         resolve();
       });
 
-      this.socket.once('connect_error', (error) => {
-        const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-        const message = !socketUrl && !isLocalHost
-          ? 'Backend Socket.IO belum disetel. Isi TYPERACE_SOCKET_URL di Vercel.'
-          : error.message || 'Tidak bisa terhubung ke server race.';
-
-        reject(new Error(message));
-      });
+      this.socket.once('connect_error', (error) => reject(error));
 
       [
         'roomUpdated',
