@@ -11,6 +11,339 @@ const BROADCAST_HUD_QUERY_PARAM = 'broadcastHud';
 const FINISH_REPLAY_DURATION_MS = 2600;
 const DEFAULT_BOT_DIFFICULTY = 'medium';
 const MAX_ROOM_PLAYERS = 8;
+const FLOATING_CHAT_POSITION_KEY = 'typerace_floating_chat_bubble_position_safe_v5';
+const FLOATING_FRIENDS_POSITION_KEY = 'typerace_floating_friends_bubble_position_safe_v5';
+const LEGACY_FLOATING_POSITION_KEYS = [
+  'typerace_floating_chat_bubble_position_left_v2',
+  'typerace_floating_friends_bubble_position_left_v2',
+  'typerace_floating_chat_bubble_position_safe_v3',
+  'typerace_floating_friends_bubble_position_safe_v3',
+  'typerace_floating_chat_bubble_position_safe_v4',
+  'typerace_floating_friends_bubble_position_safe_v4'
+];
+
+if (typeof window !== 'undefined') {
+  try {
+    LEGACY_FLOATING_POSITION_KEYS.forEach((key) => window.localStorage?.removeItem(key));
+  } catch (_error) {
+    // Blocked storage should never prevent the UI from loading.
+  }
+}
+
+class DraggableFloatingPanel {
+  constructor({
+    element,
+    handle,
+    storageKey,
+    defaultPosition = { right: 24, bottom: 24 },
+    viewportPadding = 12,
+    getProtectedRects = () => []
+  }) {
+    this.element = element;
+    this.handle = handle || element;
+    this.storageKey = storageKey;
+    this.defaultPosition = defaultPosition;
+    this.viewportPadding = viewportPadding;
+    this.getProtectedRects = getProtectedRects;
+    this.position = { x: 0, y: 0 };
+    this.dragState = null;
+    this.suppressClickUntil = 0;
+    this.resizeFrame = null;
+
+    this.onPointerDown = this.onPointerDown.bind(this);
+    this.onPointerMove = this.onPointerMove.bind(this);
+    this.onPointerUp = this.onPointerUp.bind(this);
+    this.onClickCapture = this.onClickCapture.bind(this);
+    this.onResize = this.onResize.bind(this);
+
+    this.init();
+  }
+
+  init() {
+    if (!this.element || !this.handle) {
+      return;
+    }
+
+    this.handle.addEventListener('pointerdown', this.onPointerDown);
+    this.handle.addEventListener('click', this.onClickCapture, true);
+    window.addEventListener('resize', this.onResize);
+
+    requestAnimationFrame(() => {
+      const storedPosition = this.readStoredPosition();
+      const position = storedPosition || this.getDefaultPosition();
+      this.setPosition(position.x, position.y, { save: false });
+      this.clampToViewport({ save: Boolean(storedPosition), avoidProtected: true });
+    });
+  }
+
+  destroy() {
+    if (!this.element || !this.handle) {
+      return;
+    }
+
+    this.handle.removeEventListener('pointerdown', this.onPointerDown);
+    this.handle.removeEventListener('click', this.onClickCapture, true);
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('pointermove', this.onPointerMove);
+    window.removeEventListener('pointerup', this.onPointerUp);
+    window.removeEventListener('pointercancel', this.onPointerUp);
+
+    if (this.resizeFrame) {
+      cancelAnimationFrame(this.resizeFrame);
+      this.resizeFrame = null;
+    }
+  }
+
+  onPointerDown(event) {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    const rect = this.element.getBoundingClientRect();
+    this.dragState = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: rect.left,
+      startY: rect.top,
+      dragged: false
+    };
+
+    this.element.classList.add('is-dragging');
+    this.handle.setPointerCapture?.(event.pointerId);
+    window.addEventListener('pointermove', this.onPointerMove);
+    window.addEventListener('pointerup', this.onPointerUp);
+    window.addEventListener('pointercancel', this.onPointerUp);
+  }
+
+  onPointerMove(event) {
+    if (!this.dragState || event.pointerId !== this.dragState.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - this.dragState.startClientX;
+    const deltaY = event.clientY - this.dragState.startClientY;
+
+    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      this.dragState.dragged = true;
+    }
+
+    if (this.dragState.dragged) {
+      event.preventDefault();
+    }
+
+    this.setPosition(this.dragState.startX + deltaX, this.dragState.startY + deltaY, { save: false });
+  }
+
+  onPointerUp(event) {
+    if (!this.dragState || event.pointerId !== this.dragState.pointerId) {
+      return;
+    }
+
+    if (this.dragState.dragged) {
+      this.suppressClickUntil = Date.now() + 350;
+    }
+
+    this.handle.releasePointerCapture?.(event.pointerId);
+    this.element.classList.remove('is-dragging');
+    this.clampToViewport({ save: true, avoidProtected: true });
+    this.dragState = null;
+
+    window.removeEventListener('pointermove', this.onPointerMove);
+    window.removeEventListener('pointerup', this.onPointerUp);
+    window.removeEventListener('pointercancel', this.onPointerUp);
+  }
+
+  onClickCapture(event) {
+    if (Date.now() <= this.suppressClickUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.suppressClickUntil = 0;
+    }
+  }
+
+  onResize() {
+    if (this.resizeFrame) {
+      cancelAnimationFrame(this.resizeFrame);
+    }
+
+    this.resizeFrame = requestAnimationFrame(() => {
+      this.resizeFrame = null;
+      this.clampToViewport({ save: true, avoidProtected: true });
+    });
+  }
+
+  refresh() {
+    this.clampToViewport({ save: true, avoidProtected: true });
+  }
+
+  getDefaultPosition() {
+    const rect = this.element.getBoundingClientRect();
+    const width = Math.max(rect.width, this.element.offsetWidth, this.defaultPosition.width || 0);
+    const height = Math.max(rect.height, this.element.offsetHeight, this.defaultPosition.height || 0);
+    const left = Number(this.defaultPosition.left);
+    const top = Number(this.defaultPosition.top);
+
+    return {
+      x: Number.isFinite(left)
+        ? left
+        : window.innerWidth - width - this.defaultPosition.right,
+      y: Number.isFinite(top)
+        ? top
+        : window.innerHeight - height - this.defaultPosition.bottom
+    };
+  }
+
+  setPosition(x, y, { save = true, avoidProtected = false } = {}) {
+    const nextPosition = this.clampPosition(x, y, { avoidProtected });
+    this.position = nextPosition;
+    this.element.style.left = `${nextPosition.x}px`;
+    this.element.style.top = `${nextPosition.y}px`;
+    this.element.style.right = 'auto';
+    this.element.style.bottom = 'auto';
+    this.updatePanelPlacement(nextPosition);
+
+    if (save) {
+      this.writeStoredPosition(nextPosition);
+    }
+  }
+
+  clampToViewport({ save = true, avoidProtected = false } = {}) {
+    this.setPosition(this.position.x, this.position.y, { save, avoidProtected });
+  }
+
+  getSafeTop() {
+    const topbar = document.querySelector('.app-topbar');
+    const rect = topbar?.getBoundingClientRect();
+    return Math.max(76, Math.ceil(rect?.bottom || 0) + 12);
+  }
+
+  clampPosition(x, y, { avoidProtected = false } = {}) {
+    const rect = this.element.getBoundingClientRect();
+    const width = Math.max(rect.width, this.element.offsetWidth, this.defaultPosition.width || 1);
+    const height = Math.max(rect.height, this.element.offsetHeight, this.defaultPosition.height || 1);
+
+    const safeTop = this.getSafeTop();
+    const safeLeft = this.viewportPadding;
+    const safeRight = this.viewportPadding;
+    const safeBottom = this.viewportPadding;
+
+    const maxX = Math.max(safeLeft, window.innerWidth - width - safeRight);
+    const maxY = Math.max(safeTop, window.innerHeight - height - safeBottom);
+
+    const position = {
+      x: Math.min(Math.max(safeLeft, Number(x) || safeLeft), maxX),
+      y: Math.min(Math.max(safeTop, Number(y) || safeTop), maxY)
+    };
+
+    if (!avoidProtected) {
+      return position;
+    }
+
+    return this.avoidProtectedRects(position, { width, height, maxX, maxY });
+  }
+
+  avoidProtectedRects(position, dimensions) {
+    const gap = 12;
+    const safeTop = this.getSafeTop();
+    const protectedRects = this.getProtectedRects()
+      .filter((rect) => rect && rect.width > 0 && rect.height > 0);
+
+    let nextPosition = { ...position };
+
+    protectedRects.forEach((protectedRect) => {
+      const currentRect = {
+        left: nextPosition.x,
+        top: nextPosition.y,
+        right: nextPosition.x + dimensions.width,
+        bottom: nextPosition.y + dimensions.height
+      };
+      const overlaps = currentRect.left < protectedRect.right
+        && currentRect.right > protectedRect.left
+        && currentRect.top < protectedRect.bottom
+        && currentRect.bottom > protectedRect.top;
+
+      if (!overlaps) {
+        return;
+      }
+
+      const aboveY = protectedRect.top - dimensions.height - gap;
+      const leftX = protectedRect.left - dimensions.width - gap;
+
+      if (aboveY >= safeTop) {
+        nextPosition.y = aboveY;
+      } else if (leftX >= this.viewportPadding) {
+        nextPosition.x = leftX;
+      } else {
+        nextPosition.y = safeTop;
+      }
+
+      nextPosition.x = Math.min(Math.max(this.viewportPadding, nextPosition.x), dimensions.maxX);
+      nextPosition.y = Math.min(Math.max(safeTop, nextPosition.y), dimensions.maxY);
+    });
+
+    return nextPosition;
+  }
+
+  updatePanelPlacement(position) {
+    const rect = this.element.getBoundingClientRect();
+    const width = Math.max(rect.width, this.element.offsetWidth, this.defaultPosition.width || 1);
+    const height = Math.max(rect.height, this.element.offsetHeight, this.defaultPosition.height || 1);
+    const panelWidth = Math.min(342, Math.max(240, window.innerWidth - 112));
+    const panelHeight = Math.min(390, Math.max(240, window.innerHeight - 118));
+    const safeTop = this.getSafeTop();
+    const spaceRight = window.innerWidth - (position.x + width) - this.viewportPadding;
+    const spaceLeft = position.x - this.viewportPadding;
+    const shouldOpenRight = spaceRight >= panelWidth || spaceRight > spaceLeft;
+    const shouldOpenBelow = position.y + height - panelHeight < safeTop;
+
+    this.element.classList.toggle('is-panel-to-right', shouldOpenRight);
+    this.element.classList.toggle('is-panel-below', shouldOpenBelow);
+  }
+
+  readStoredPosition() {
+    try {
+      const rawValue = window.localStorage?.getItem(this.storageKey);
+      if (!rawValue) {
+        return null;
+      }
+
+      const parsed = JSON.parse(rawValue);
+      const x = Number(parsed?.x);
+      const y = Number(parsed?.y);
+
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+      }
+
+      const rect = this.element.getBoundingClientRect();
+      const width = Math.max(rect.width, this.element.offsetWidth, this.defaultPosition.width || 1);
+      const height = Math.max(rect.height, this.element.offsetHeight, this.defaultPosition.height || 1);
+      const safeTop = this.getSafeTop();
+      const isOutside =
+        x < this.viewportPadding ||
+        y < safeTop ||
+        x > window.innerWidth - width - this.viewportPadding ||
+        y > window.innerHeight - height - this.viewportPadding;
+
+      if (isOutside) {
+        return null;
+      }
+
+      return { x, y };
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  writeStoredPosition(position) {
+    try {
+      window.localStorage?.setItem(this.storageKey, JSON.stringify(position));
+    } catch (_error) {
+      // Private browsing or blocked storage should not break the lobby UI.
+    }
+  }
+}
 
 class F1TypingBattleApp {
   constructor() {
@@ -56,12 +389,18 @@ class F1TypingBattleApp {
     };
     this.friendSearchResults = [];
     this.activeAccountTab = 'profile';
+    this.isProfileEditDirty = false;
     this.elements = this.getElements();
+    this.floatingChatPanel = null;
+    this.floatingFriendsPanel = null;
   }
 
   getElements() {
     return {
       menuScreen: document.getElementById('menuScreen'),
+      globalCommsRoot: document.getElementById('globalCommsRoot'),
+      floatingChatDock: document.getElementById('floatingChatDock'),
+      floatingFriendsDock: document.getElementById('floatingFriendsDock'),
       raceCommsPanel: document.getElementById('raceCommsPanel'),
       chatToggleBtn: document.getElementById('chatToggleBtn'),
       chatUnreadBadge: document.getElementById('chatUnreadBadge'),
@@ -86,9 +425,15 @@ class F1TypingBattleApp {
       accountAvatar: document.getElementById('accountAvatar'),
       accountStatsGrid: document.getElementById('accountStatsGrid'),
       accountHistoryStats: document.getElementById('accountHistoryStats'),
+      navbarProfileWrap: document.getElementById('navbarProfileWrap'),
+      navbarProfileAvatar: document.getElementById('navbarProfileAvatar'),
+      navbarProfileName: document.getElementById('navbarProfileName'),
+      authLoginNavBtn: document.getElementById('authLoginNavBtn'),
       profileDisplayNameInput: document.getElementById('profileDisplayNameInput'),
       profileUsernameInput: document.getElementById('profileUsernameInput'),
       profileAvatarInput: document.getElementById('profileAvatarInput'),
+      profileAvatarPreview: document.getElementById('profileAvatarPreview'),
+      profilePreviewName: document.getElementById('profilePreviewName'),
       profileBioInput: document.getElementById('profileBioInput'),
       profileSaveBtn: document.getElementById('profileSaveBtn'),
       friendSearchInput: document.getElementById('friendSearchInput'),
@@ -214,6 +559,7 @@ class F1TypingBattleApp {
     this.elements.loadingText.textContent = 'Connecting to race control...';
     this.restoreSavedSession();
     this.bindUI();
+    this.initFloatingCommsDocks();
     this.bindNetwork();
     this.bindFirebase();
     this.initFirebase();
@@ -257,6 +603,28 @@ class F1TypingBattleApp {
       this.elements.raceStatusLabel.textContent = 'Mode Typing';
       this.updateRoomActions();
       console.warn('3D scene disabled:', error);
+    }
+  }
+
+  initFloatingCommsDocks() {
+    if (this.elements.floatingChatDock && !this.floatingChatPanel) {
+      this.floatingChatPanel = new DraggableFloatingPanel({
+        element: this.elements.floatingChatDock,
+        handle: this.elements.chatToggleBtn,
+        storageKey: FLOATING_CHAT_POSITION_KEY,
+        defaultPosition: { right: 24, bottom: 154, width: 76, height: 58 },
+        viewportPadding: 16
+      });
+    }
+
+    if (this.elements.floatingFriendsDock && !this.floatingFriendsPanel) {
+      this.floatingFriendsPanel = new DraggableFloatingPanel({
+        element: this.elements.floatingFriendsDock,
+        handle: this.elements.inviteFriendsToggleBtn,
+        storageKey: FLOATING_FRIENDS_POSITION_KEY,
+        defaultPosition: { right: 24, bottom: 88, width: 86, height: 58 },
+        viewportPadding: 16
+      });
     }
   }
 
@@ -305,6 +673,7 @@ class F1TypingBattleApp {
     this.elements.authLoginBtn?.addEventListener('click', () => this.loginWithGoogleFirebase());
     this.elements.authLogoutBtn?.addEventListener('click', () => this.logoutFromFirebase());
     this.elements.authOpenBtn?.addEventListener('click', () => this.handleAuthButtonClick());
+    this.elements.authLoginNavBtn?.addEventListener('click', () => this.openAuthModal());
     this.elements.authCloseBtn?.addEventListener('click', () => this.closeAuthModal());
     this.elements.accountCloseBtn?.addEventListener('click', () => this.closeAccountModal());
     this.elements.accountMenu?.addEventListener('click', (event) => this.handleAccountMenuAction(event));
@@ -315,6 +684,24 @@ class F1TypingBattleApp {
     });
     this.elements.accountTabs.forEach((button) => {
       button.addEventListener('click', () => this.setAccountTab(button.dataset.accountTab || 'profile'));
+    });
+    this.elements.profileAvatarInput?.addEventListener('input', () => {
+      this.isProfileEditDirty = true;
+      this.renderProfileEditPreview();
+    });
+    this.elements.profileDisplayNameInput?.addEventListener('input', () => {
+      this.isProfileEditDirty = true;
+      this.renderProfileEditPreview();
+    });
+    this.elements.profileUsernameInput?.addEventListener('input', () => {
+      this.isProfileEditDirty = true;
+      this.elements.profileUsernameInput.value = String(this.elements.profileUsernameInput.value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '')
+        .slice(0, 24);
+    });
+    this.elements.profileBioInput?.addEventListener('input', () => {
+      this.isProfileEditDirty = true;
     });
     this.elements.profileSaveBtn?.addEventListener('click', () => this.saveProfile());
     this.elements.friendSearchBtn?.addEventListener('click', () => this.searchFriends());
@@ -441,7 +828,7 @@ class F1TypingBattleApp {
         this.elements.accountMenu
         && !this.elements.accountMenu.classList.contains('hidden')
         && !event.target.closest('#accountMenu')
-        && event.target !== this.elements.authOpenBtn
+        && !event.target.closest('#authOpenBtn')
       ) {
         this.closeAccountMenu();
       }
@@ -579,6 +966,7 @@ class F1TypingBattleApp {
       ready: this.firebase.ready,
       message: user ? 'Firebase online.' : 'Sign in for chat and voice.'
     });
+    this.renderNavbarProfile();
 
     if (user && this.network.roomCode) {
       this.joinFirebaseRoom(this.network.roomCode);
@@ -609,6 +997,7 @@ class F1TypingBattleApp {
       this.closeAccountMenu();
       this.closeAccountModal();
       this.renderAccount();
+      this.renderNavbarProfile();
     }
   }
 
@@ -663,6 +1052,7 @@ class F1TypingBattleApp {
       return;
     }
 
+    this.isProfileEditDirty = false;
     this.elements.accountModal?.classList.remove('hidden');
     this.setAccountTab(tab);
     this.renderAccount();
@@ -700,6 +1090,7 @@ class F1TypingBattleApp {
     }
 
     this.renderAccount();
+    this.renderNavbarProfile();
     this.renderLobbyInvites();
     this.updateFirebaseControls();
   }
@@ -767,12 +1158,8 @@ class F1TypingBattleApp {
 
     this.elements.authPanel?.classList.toggle('signed-in', isLoggedIn);
 
-    if (this.elements.authOpenBtn) {
-      this.elements.authOpenBtn.textContent = isLoggedIn
-        ? accountName
-        : 'Login';
-      this.elements.authOpenBtn.classList.toggle('signed-in', isLoggedIn);
-    }
+    this.elements.authOpenBtn?.classList.toggle('signed-in', isLoggedIn);
+    this.renderNavbarProfile();
 
     if (this.elements.authLoginBtn) {
       this.elements.authLoginBtn.disabled = this.isAuthRequestActive || !isConfigured || !isReady || isLoggedIn;
@@ -841,6 +1228,133 @@ class F1TypingBattleApp {
     }
   }
 
+  isSafeImageUrl(url = '') {
+    const trimmed = String(url || '').trim();
+
+    if (!trimmed) {
+      return false;
+    }
+
+    try {
+      const parsed = new URL(trimmed);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  getSafeImageUrl(url = '') {
+    const trimmed = String(url || '').trim();
+    return this.isSafeImageUrl(trimmed) ? trimmed : '';
+  }
+
+  renderAvatarContent({ photoURL = '', name = '', fallback = '' } = {}) {
+    const safePhotoURL = this.getSafeImageUrl(photoURL);
+    const initials = this.escapeHtml(fallback || this.getInitials(name));
+    const imageMarkup = safePhotoURL
+      ? `<img src="${this.escapeHtml(safePhotoURL)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('avatar-failed'); this.remove();">`
+      : '';
+
+    return `${imageMarkup}<span>${initials}</span>`;
+  }
+
+  renderAvatar({ photoURL, name, className = 'account-avatar', fallback = '' } = {}) {
+    const safePhotoURL = this.getSafeImageUrl(photoURL);
+    const stateClass = safePhotoURL ? 'has-image' : 'avatar-fallback';
+    const safeClassName = String(className || 'account-avatar')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((token) => this.escapeHtml(token))
+      .join(' ');
+
+    return `
+      <div class="${safeClassName} ${stateClass}" data-avatar-root>
+        ${this.renderAvatarContent({ photoURL: safePhotoURL, name, fallback })}
+      </div>
+    `;
+  }
+
+  renderAvatarInto(element, { photoURL, name, className = 'account-avatar', fallback = '' } = {}) {
+    if (!element) {
+      return;
+    }
+
+    const safePhotoURL = this.getSafeImageUrl(photoURL);
+    element.className = `${className} ${safePhotoURL ? 'has-image' : 'avatar-fallback'}`;
+    element.dataset.avatarRoot = 'true';
+    element.innerHTML = this.renderAvatarContent({ photoURL: safePhotoURL, name, fallback });
+  }
+
+  getProfilePhotoURL(profile = this.accountData.profile || {}, user = this.firebase.getCurrentUser()) {
+    if (profile && Object.prototype.hasOwnProperty.call(profile, 'photoURL')) {
+      return String(profile.photoURL || '').trim();
+    }
+
+    return String(user?.photoURL || '').trim();
+  }
+
+  renderNavbarProfile() {
+    const user = this.firebase.getCurrentUser();
+    const profile = this.accountData.profile || {};
+    const isSignedIn = Boolean(user);
+
+    this.elements.navbarProfileWrap?.classList.toggle('hidden', !isSignedIn);
+    this.elements.authLoginNavBtn?.classList.toggle('hidden', isSignedIn);
+
+    if (!isSignedIn) {
+      if (this.elements.authLoginNavBtn) {
+        this.elements.authLoginNavBtn.textContent = 'Login';
+      }
+      return;
+    }
+
+    const displayName = String(
+      profile.displayName
+      || this.firebase.displayName
+      || user?.displayName
+      || user?.email?.split('@')[0]
+      || 'Driver'
+    ).trim() || 'Driver';
+    const photoURL = this.getProfilePhotoURL(profile, user);
+
+    if (this.elements.navbarProfileName) {
+      this.elements.navbarProfileName.textContent = displayName;
+    }
+
+    this.renderAvatarInto(this.elements.navbarProfileAvatar, {
+      photoURL,
+      name: displayName,
+      className: 'navbar-profile-avatar'
+    });
+  }
+
+  renderProfileEditPreview() {
+    const profile = this.accountData.profile || {};
+    const user = this.firebase.getCurrentUser();
+    const displayName = this.elements.profileDisplayNameInput?.value
+      || profile.displayName
+      || user?.displayName
+      || this.firebase.displayName
+      || 'Driver';
+    const photoURL = this.elements.profileAvatarInput
+      ? String(this.elements.profileAvatarInput.value || '').trim()
+      : this.getProfilePhotoURL(profile, user);
+
+    if (this.elements.profilePreviewName) {
+      this.elements.profilePreviewName.textContent = displayName;
+    }
+
+    this.renderAvatarInto(this.elements.profileAvatarPreview, {
+      photoURL,
+      name: displayName,
+      className: 'account-avatar profile-avatar-preview'
+    });
+  }
+
+  renderProfileAvatarPreview() {
+    this.renderProfileEditPreview();
+  }
+
   renderAccount() {
     const user = this.firebase.getCurrentUser();
     const profile = this.accountData.profile || {};
@@ -866,17 +1380,28 @@ class F1TypingBattleApp {
     }
 
     if (this.elements.accountAvatar) {
-      this.elements.accountAvatar.innerHTML = profile.photoURL
-        ? `<img src="${this.escapeHtml(profile.photoURL)}" alt="">`
-        : this.escapeHtml(initials);
+      this.renderAvatarInto(this.elements.accountAvatar, {
+        photoURL: this.getProfilePhotoURL(profile, user),
+        name: displayName,
+        className: 'account-avatar',
+        fallback: initials
+      });
     }
 
-    if (this.elements.profileDisplayNameInput && !this.elements.accountModal?.classList.contains('hidden')) {
+    if (
+      this.elements.profileDisplayNameInput
+      && !this.elements.accountModal?.classList.contains('hidden')
+      && !this.isProfileEditDirty
+    ) {
+      const currentPhotoURL = this.getProfilePhotoURL(profile, user);
       this.elements.profileDisplayNameInput.value = displayName;
       this.elements.profileUsernameInput.value = profile.username || '';
-      this.elements.profileAvatarInput.value = profile.photoURL || '';
+      this.elements.profileAvatarInput.value = currentPhotoURL;
       this.elements.profileBioInput.value = profile.bio || '';
+      this.renderProfileEditPreview();
     }
+
+    this.renderNavbarProfile();
 
     const statCards = this.renderStatCards(stats);
     if (this.elements.accountStatsGrid) {
@@ -924,6 +1449,7 @@ class F1TypingBattleApp {
         ? this.friendSearchResults.map((user) => this.renderAccountListItem({
             title: user.displayName || 'Driver',
             meta: `${user.username ? `@${user.username}` : 'No username'} - ${user.status?.state || 'offline'}`,
+            photoURL: user.photoURL || '',
             actions: `<button class="mini-btn primary" data-friend-action="request" data-uid="${this.escapeHtml(user.uid)}">Add</button>`
           })).join('')
         : '<div class="account-list-empty">Search for racers by username or nickname.</div>';
@@ -934,6 +1460,7 @@ class F1TypingBattleApp {
         ? requests.map((request) => this.renderAccountListItem({
             title: request.fromName || 'Driver',
             meta: 'Incoming friend request',
+            photoURL: request.fromPhotoURL || request.photoURL || '',
             actions: `
               <button class="mini-btn primary" data-friend-action="accept" data-uid="${this.escapeHtml(request.fromUid || request.uid)}">Accept</button>
               <button class="mini-btn" data-friend-action="reject" data-uid="${this.escapeHtml(request.fromUid || request.uid)}">Reject</button>
@@ -952,6 +1479,7 @@ class F1TypingBattleApp {
               title: friend.displayName || 'Driver',
               meta: friend.username ? `@${friend.username}` : 'Friend',
               status: online ? 'online' : 'offline',
+              photoURL: friend.photoURL || presence?.photoURL || '',
               actions: `
                 ${canInvite ? `<button class="mini-btn primary" data-friend-action="invite" data-uid="${this.escapeHtml(friend.uid)}">Invite</button>` : ''}
                 <button class="mini-btn" data-friend-action="remove" data-uid="${this.escapeHtml(friend.uid)}">Remove</button>
@@ -973,6 +1501,7 @@ class F1TypingBattleApp {
       ? invites.map((invite) => this.renderAccountListItem({
           title: `${invite.fromName || 'Driver'} invited you`,
           meta: `Room ${invite.roomCode || '-'} - ${this.formatFirebaseDate(invite.createdAt)}`,
+          photoURL: invite.fromPhotoURL || '',
           actions: `
             <button class="mini-btn primary" data-invite-action="join" data-id="${this.escapeHtml(invite.id)}" data-room="${this.escapeHtml(invite.roomCode)}">Join</button>
             <button class="mini-btn" data-invite-action="dismiss" data-id="${this.escapeHtml(invite.id)}">Dismiss</button>
@@ -1004,9 +1533,14 @@ class F1TypingBattleApp {
       : '<div class="account-list-empty">No multiplayer history yet.</div>';
   }
 
-  renderAccountListItem({ title, meta, actions = '', status = '' }) {
+  renderAccountListItem({ title, meta, actions = '', status = '', photoURL = '' }) {
     return `
       <div class="account-list-item">
+        ${this.renderAvatar({
+          photoURL,
+          name: title,
+          className: 'account-list-avatar'
+        })}
         <div>
           <strong>${status ? this.renderPresenceBadge(status) : ''}<span>${this.escapeHtml(title)}</span></strong>
           <small>${this.escapeHtml(meta)}</small>
@@ -1032,18 +1566,108 @@ class F1TypingBattleApp {
       || (this.accountData.status?.uid === uid ? this.accountData.status : null);
   }
 
+  getPresenceByPlayer(player = {}) {
+    if (!player) {
+      return null;
+    }
+
+    const playerUid = String(player.uid || '').trim();
+    const playerId = String(player.id || '').trim();
+    const playerName = String(player.name || '').trim().toLowerCase();
+
+    return this.latestPresenceUsers.find((presence) => (
+      (playerUid && String(presence.uid || '') === playerUid)
+      || (playerId && String(presence.playerId || '') === playerId)
+      || (playerName && String(presence.displayName || '').trim().toLowerCase() === playerName)
+    )) || null;
+  }
+
+  getPlayerDisplayName(player = {}) {
+    if (player.id && player.id === this.network.socket?.id && this.accountData.profile?.displayName) {
+      return this.accountData.profile.displayName;
+    }
+
+    const presence = this.getPresenceByPlayer(player);
+    return presence?.displayName || player.name || 'Driver';
+  }
+
+  getPlayerPhotoURL(player = {}) {
+    if (this.getSafeImageUrl(player.photoURL)) {
+      return String(player.photoURL);
+    }
+
+    if (player.id && player.id === this.network.socket?.id) {
+      return this.getProfilePhotoURL(this.accountData.profile || {}, this.firebase.authUser);
+    }
+
+    const presence = this.getPresenceByPlayer(player);
+    if (this.getSafeImageUrl(presence?.photoURL)) {
+      return String(presence.photoURL);
+    }
+
+    const playerName = String(player.name || presence?.displayName || '').trim().toLowerCase();
+    const friend = (this.accountData.friends || []).find((candidate) => (
+      String(candidate.uid || '') === String(presence?.uid || '')
+      || String(candidate.displayName || '').trim().toLowerCase() === playerName
+    ));
+
+    return friend?.photoURL || '';
+  }
+
   async saveProfile() {
+    const saveButton = this.elements.profileSaveBtn;
+    const originalLabel = saveButton?.textContent || 'Save Profile';
+
     try {
+      const photoURL = String(this.elements.profileAvatarInput?.value || '').trim();
+      if (photoURL && !this.isSafeImageUrl(photoURL)) {
+        throw new Error('Avatar URL must start with http:// or https://.');
+      }
+
+      if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving Profile...';
+      }
+
       const profile = await this.firebase.updateProfileData({
         displayName: this.elements.profileDisplayNameInput?.value || '',
         username: this.elements.profileUsernameInput?.value || '',
-        photoURL: this.elements.profileAvatarInput?.value || '',
+        photoURL,
         bio: this.elements.profileBioInput?.value || ''
       });
-      this.playerName = profile.displayName.slice(0, 20);
+
+      this.accountData.profile = {
+        ...(this.accountData.profile || {}),
+        ...profile
+      };
+      if (profile.displayName) {
+        this.playerName = profile.displayName.slice(0, 20);
+      }
+      this.isProfileEditDirty = false;
+      this.renderNavbarProfile();
       this.updateFirebaseControls();
       this.renderAccount();
+      if (this.currentScreen === 'lobby' && ['waiting', 'finished'].includes(this.network.state)) {
+        this.handleRoomUpdated({
+          roomCode: this.network.roomCode,
+          players: this.network.players,
+          hostId: this.network.hostId,
+          state: this.network.state,
+          mode: this.network.mode,
+          lapCount: this.network.lapCount,
+          maxPlayers: this.roomMaxPlayers
+        });
+      }
+
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = originalLabel;
+      }
     } catch (error) {
+      if (this.elements.profileSaveBtn) {
+        this.elements.profileSaveBtn.disabled = false;
+        this.elements.profileSaveBtn.textContent = originalLabel;
+      }
       console.error(error);
       alert(error.message || 'Profile could not be saved.');
     }
@@ -1127,10 +1751,12 @@ class F1TypingBattleApp {
       const bOnline = this.getFriendPresence(b.uid)?.state === 'online';
       return Number(bOnline) - Number(aOnline);
     });
-    panel.classList.toggle('hidden', !canInvite);
+    panel.classList.toggle('hidden', !canInvite || !this.isFriendsPanelOpen);
     panel.classList.toggle('collapsed', !this.isFriendsPanelOpen);
+    toggle?.classList.toggle('hidden', !canInvite);
     toggle?.setAttribute('aria-expanded', String(canInvite && this.isFriendsPanelOpen));
     document.body.classList.toggle('friends-open', canInvite && this.isFriendsPanelOpen);
+    this.refreshFloatingCommsDock();
 
     if (!canInvite) {
       this.isFriendsPanelOpen = false;
@@ -1140,11 +1766,13 @@ class F1TypingBattleApp {
 
     list.innerHTML = friends.length
       ? friends.map((friend) => {
-          const online = this.getFriendPresence(friend.uid)?.state === 'online';
+          const presence = this.getFriendPresence(friend.uid);
+          const online = presence?.state === 'online';
           return this.renderAccountListItem({
             title: friend.displayName || 'Driver',
             meta: friend.username ? `@${friend.username}` : online ? 'Online now' : 'Offline',
             status: online ? 'online' : 'offline',
+            photoURL: friend.photoURL || presence?.photoURL || '',
             actions: online
               ? `<button class="mini-btn primary" data-friend-action="invite" data-uid="${this.escapeHtml(friend.uid)}">Invite</button>`
               : '<button class="mini-btn" type="button" disabled>Offline</button>'
@@ -1434,6 +2062,7 @@ class F1TypingBattleApp {
     this.elements.raceCommsPanel?.classList.toggle('hidden', !shouldOpenPanel);
     document.body.classList.toggle('chat-open', shouldOpenPanel);
     this.updateChatUnreadBadge();
+    this.refreshFloatingCommsDock();
   }
 
   updateVoiceState(active) {
@@ -1544,6 +2173,11 @@ class F1TypingBattleApp {
         return `
           <div class="presence-user ${state} ${micOn ? 'mic-on' : 'mic-off'} ${speaking ? 'speaking' : ''}" style="--voice-level: ${voiceLevel}%">
             <span class="presence-dot"></span>
+            ${this.renderAvatar({
+              photoURL: user.photoURL || '',
+              name: user.displayName || 'User',
+              className: 'presence-avatar'
+            })}
             <strong>${this.escapeHtml(user.displayName || 'User')}</strong>
             <span class="presence-mic-status" title="${this.escapeHtml(micTitle)}" aria-label="${this.escapeHtml(micTitle)}">
               <span class="presence-mic-icon"></span>
@@ -1827,6 +2461,13 @@ class F1TypingBattleApp {
     this.leaveLobby();
   }
 
+  refreshFloatingCommsDock() {
+    requestAnimationFrame(() => {
+      this.floatingChatPanel?.refresh();
+      this.floatingFriendsPanel?.refresh();
+    });
+  }
+
   showScreen(name) {
     ['menu', 'multiplayerSetup', 'aiSetup', 'lobby', 'game', 'results', 'loading'].forEach((screenName) => {
       const element = this.elements[`${screenName}Screen`];
@@ -1840,6 +2481,7 @@ class F1TypingBattleApp {
 
     this.currentScreen = name;
     document.body.dataset.screen = name;
+    this.refreshFloatingCommsDock();
     this.elements.gameMenuBtn?.classList.toggle('hidden', name !== 'game');
     this.updateAuthGateControls({
       isLoggedIn: Boolean(this.firebase.getCurrentUser()),
@@ -2439,6 +3081,8 @@ class F1TypingBattleApp {
     this.network.players.forEach((player, index) => {
       const card = document.createElement('div');
       const voice = this.getVoiceStateForPlayer(player.id);
+      const displayName = this.getPlayerDisplayName(player);
+      const photoURL = this.getPlayerPhotoURL(player);
       card.className = `player-card ${voice.micOn ? 'mic-on' : 'mic-off'} ${voice.speaking ? 'speaking' : ''}`;
       card.dataset.playerId = player.id;
       card.style.setProperty('--voice-level', `${voice.voiceLevel}%`);
@@ -2452,9 +3096,14 @@ class F1TypingBattleApp {
 
       card.innerHTML = `
         <span class="grid-slot">P${index + 1}</span>
+        ${this.renderAvatar({
+          photoURL,
+          name: displayName,
+          className: 'driver-card-avatar'
+        })}
         <div class="player-info">
           <div class="player-name-line">
-            <strong>${this.escapeHtml(player.name)}</strong>
+            <strong>${this.escapeHtml(displayName)}</strong>
             <span class="player-role">${driverType}</span>
           </div>
           <div class="player-meta">
@@ -2852,7 +3501,7 @@ class F1TypingBattleApp {
 
     const winner = Array.isArray(results) ? results[0] : null;
     this.elements.finishReplayOverlay.querySelector('strong').textContent = winner
-      ? `${winner.name} wins`
+      ? `${this.getPlayerDisplayName(winner)} wins`
       : 'Finish Replay';
     this.elements.finishReplayOverlay.classList.remove('hidden');
     this.elements.raceStatusLabel.textContent = 'FINISH';
@@ -2954,7 +3603,7 @@ class F1TypingBattleApp {
 
     if (this.elements.winnerDisplay) {
       this.elements.winnerDisplay.textContent = winner
-        ? `${winner.name} wins`
+        ? `${this.getPlayerDisplayName(winner)} wins`
         : 'Podium ready';
     }
 
@@ -3026,12 +3675,13 @@ class F1TypingBattleApp {
         : '-';
       const typoText = `${player.mistakes ?? 0}/${player.totalKeys ?? 0}`;
       const role = this.getResultRole(player);
+      const displayName = this.getPlayerDisplayName(player);
 
       card.innerHTML = `
         <span class="classification-position">${player.position}</span>
         ${this.renderResultAvatar(player, 'result-driver-avatar')}
         <div class="classification-driver">
-          <strong>${this.escapeHtml(player.name)}</strong>
+          <strong>${this.escapeHtml(displayName)}</strong>
           <span>${this.escapeHtml(role)} - Progress ${player.progress}% - Streak ${player.longestStreak ?? 0}</span>
         </div>
         <div class="classification-metrics">
@@ -3085,22 +3735,23 @@ class F1TypingBattleApp {
           `;
         }
 
-        const initials = this.getInitials(player.name);
+        const displayName = this.getPlayerDisplayName(player);
+        const initials = this.getInitials(displayName);
         const meta = this.getResultRole(player);
         const score = `${player.wpm ?? 0} WPM`;
         const typoText = `${player.mistakes ?? 0}/${player.totalKeys ?? 0}`;
 
         return `
-          <div class="podium-card podium-${position} ${player.isGhost ? 'ghost-result' : ''}">
-            <div class="podium-number">${position}</div>
-            ${this.renderResultAvatar(player, 'podium-driver-portrait', initials)}
+            <div class="podium-card podium-${position} ${player.isGhost ? 'ghost-result' : ''}">
+              <div class="podium-number">${position}</div>
+            ${this.renderResultAvatar(player, `podium-driver-portrait ${position === 1 ? 'winner-avatar' : ''}`, initials)}
             <div class="podium-stats">
               <span>${this.escapeHtml(meta)}</span>
               <strong>${this.escapeHtml(score)}</strong>
               <em>${this.escapeHtml(typoText)} TYPO</em>
             </div>
             <div class="podium-driver-bar">
-              <strong>${this.escapeHtml(player.name)}</strong>
+              <strong>${this.escapeHtml(displayName)}</strong>
               <span>${player.accuracy ?? 100}% ACC</span>
             </div>
           </div>
@@ -3124,32 +3775,22 @@ class F1TypingBattleApp {
   }
 
   getResultPhotoURL(player = {}) {
-    if (player.photoURL) {
-      return String(player.photoURL);
-    }
-
-    if (player.id && player.id === this.network.socket?.id) {
-      return this.accountData.profile?.photoURL || this.firebase.authUser?.photoURL || '';
-    }
-
-    const friend = (this.accountData.friends || []).find((candidate) => (
-      String(candidate.displayName || '').trim().toLowerCase() === String(player.name || '').trim().toLowerCase()
-    ));
-
-    return friend?.photoURL || '';
+    return this.getPlayerPhotoURL(player);
   }
 
   renderResultAvatar(player = {}, className = 'result-driver-avatar', fallbackInitials = '') {
     const roleClass = player.isGhost ? 'bot-avatar' : 'player-avatar';
     const photoURL = this.getResultPhotoURL(player);
-    const initials = fallbackInitials || this.getInitials(player.name);
+    const displayName = this.getPlayerDisplayName(player);
+    const initials = fallbackInitials || this.getInitials(displayName);
 
-    if (photoURL && !player.isGhost) {
-      return `
-        <div class="${className} ${roleClass}">
-          <img src="${this.escapeHtml(photoURL)}" alt="">
-        </div>
-      `;
+    if (!player.isGhost) {
+      return this.renderAvatar({
+        photoURL,
+        name: displayName,
+        className: `${className} ${roleClass}`,
+        fallback: initials
+      });
     }
 
     return `

@@ -10,6 +10,7 @@ const SPEAKING_KEEPALIVE_INTERVAL_MS = 1800;
 const SPEAKING_METER_INTERVAL_MS = 160;
 const MAX_BIO_LENGTH = 120;
 const MAX_HISTORY_ITEMS = 24;
+const MAX_PHOTO_URL_LENGTH = 500;
 
 function normalizeRoomCode(roomCode = '') {
   return String(roomCode || '').trim().toUpperCase();
@@ -34,6 +35,46 @@ function cleanUsername(name = '') {
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, '')
     .slice(0, 24);
+}
+
+function cleanPhotoURL(url = '', { throwOnInvalid = true } = {}) {
+  const trimmed = String(url || '').trim();
+
+  if (!trimmed) {
+    return '';
+  }
+
+  if (trimmed.length > MAX_PHOTO_URL_LENGTH) {
+    if (throwOnInvalid) {
+      throw new Error('Avatar URL must be 500 characters or fewer.');
+    }
+
+    return '';
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (['http:', 'https:'].includes(parsed.protocol)) {
+      return trimmed;
+    }
+  } catch (_error) {
+    // Fall through to the validation error below.
+  }
+
+  if (throwOnInvalid) {
+    throw new Error('Avatar must be a PNG/JPG/WEBP/GIF file or an http:// / https:// image URL.');
+  }
+
+  return '';
+}
+
+function isWebPhotoURL(url = '') {
+  try {
+    const parsed = new URL(String(url || '').trim());
+    return ['http:', 'https:'].includes(parsed.protocol);
+  } catch (_error) {
+    return false;
+  }
 }
 
 function snapshotList(snapshot) {
@@ -71,6 +112,7 @@ export class FirebaseRaceService {
     this.lastSpeakingState = false;
     this.lastVoiceLevel = 0;
     this.lastSpeakingWriteAt = 0;
+    this.currentProfile = null;
     this.modules = {};
   }
 
@@ -280,26 +322,36 @@ export class FirebaseRaceService {
     const fallbackUsername = cleanUsername(user.email?.split('@')[0] || displayName || 'driver');
     const existingProfile = (await get(ref(this.db, `users/${user.uid}/profile`))).val() || {};
     const username = cleanUsername(existingProfile.username || fallbackUsername);
-
-    await update(ref(this.db, `users/${user.uid}/profile`), {
+    const photoSource = Object.prototype.hasOwnProperty.call(existingProfile, 'photoURL')
+      ? existingProfile.photoURL
+      : user.photoURL || '';
+    const photoURL = cleanPhotoURL(photoSource, { throwOnInvalid: false });
+    const nextProfile = {
       uid: user.uid,
       displayName: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver'),
       username,
       usernameLower: username,
       email: user.email || '',
-      photoURL: existingProfile.photoURL || user.photoURL || '',
-      bio: existingProfile.bio || '',
+      photoURL,
+      bio: cleanBio(existingProfile.bio || ''),
       updatedAt: serverTimestamp()
-    });
+    };
+
+    await update(ref(this.db, `users/${user.uid}/profile`), nextProfile);
 
     await update(ref(this.db, `userDirectory/${user.uid}`), {
       uid: user.uid,
-      displayName: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver'),
+      displayName: nextProfile.displayName,
       username,
       usernameLower: username,
-      photoURL: existingProfile.photoURL || user.photoURL || '',
+      photoURL,
       updatedAt: serverTimestamp()
     });
+
+    this.currentProfile = {
+      ...nextProfile,
+      updatedAt: Date.now()
+    };
   }
 
   async setDisplayName(name) {
@@ -350,7 +402,11 @@ export class FirebaseRaceService {
       this.accountUnsubscribers.push(unsubscribe);
     };
 
-    bindValue(`users/${uid}/profile`, 'profile');
+    bindValue(`users/${uid}/profile`, 'profile', (snapshot) => {
+      const profile = snapshot.val() || null;
+      this.currentProfile = profile;
+      return profile;
+    });
     bindValue(`users/${uid}/status`, 'status');
     bindValue(`stats/${uid}`, 'stats');
     bindValue(`friends/${uid}`, 'friends', snapshotList);
@@ -384,17 +440,11 @@ export class FirebaseRaceService {
     const displayName = cleanDisplayName(profile.displayName, this.displayName || 'Driver');
     const username = cleanUsername(profile.username || displayName);
     const bio = cleanBio(profile.bio || '');
-    const photoURL = String(profile.photoURL || '').trim().slice(0, 500);
+    const photoURL = cleanPhotoURL(profile.photoURL || '');
     const { ref, update, serverTimestamp } = this.modules;
 
     this.displayName = displayName;
-
-    await this.modules.updateProfile(this.authUser, {
-      displayName,
-      photoURL: photoURL || null
-    });
-
-    await update(ref(this.db, `users/${this.authUser.uid}/profile`), {
+    const profilePayload = {
       uid: this.authUser.uid,
       displayName,
       username,
@@ -403,7 +453,14 @@ export class FirebaseRaceService {
       photoURL,
       bio,
       updatedAt: serverTimestamp()
+    };
+
+    await this.modules.updateProfile(this.authUser, {
+      displayName,
+      photoURL: isWebPhotoURL(photoURL) ? photoURL : null
     });
+
+    await update(ref(this.db, `users/${this.authUser.uid}/profile`), profilePayload);
 
     await update(ref(this.db, `userDirectory/${this.authUser.uid}`), {
       uid: this.authUser.uid,
@@ -414,9 +471,14 @@ export class FirebaseRaceService {
       updatedAt: serverTimestamp()
     });
 
+    this.currentProfile = {
+      ...profilePayload,
+      updatedAt: Date.now()
+    };
+
     await this.refreshPresenceName(displayName);
     this.emitLocal('authChanged', { user: this.authUser, displayName });
-    return { displayName, username, bio, photoURL };
+    return { uid: this.authUser.uid, displayName, username, usernameLower: username, bio, photoURL };
   }
 
   async searchUsers(term = '') {
@@ -463,7 +525,7 @@ export class FirebaseRaceService {
       uid: this.authUser.uid,
       fromUid: this.authUser.uid,
       fromName: this.displayName || this.authUser.displayName || 'Driver',
-      fromPhotoURL: this.authUser.photoURL || '',
+      fromPhotoURL: this.getCurrentPhotoURL(),
       createdAt: serverTimestamp()
     });
     await update(ref(this.db, `friendRequestsSent/${this.authUser.uid}/${target}`), {
@@ -539,6 +601,7 @@ export class FirebaseRaceService {
     await push(ref(this.db, `invites/${target}`), {
       fromUid: this.authUser.uid,
       fromName: this.displayName || this.authUser.displayName || 'Driver',
+      fromPhotoURL: this.getCurrentPhotoURL(),
       roomCode: normalizedRoomCode,
       mode: 'multiplayer',
       status: 'pending',
@@ -659,6 +722,10 @@ export class FirebaseRaceService {
     this.presenceUnsubscribers = [];
   }
 
+  getCurrentPhotoURL() {
+    return cleanPhotoURL(this.currentProfile?.photoURL || this.authUser?.photoURL || '', { throwOnInvalid: false });
+  }
+
   async setGlobalPresence(state = 'online') {
     if (!this.ready || !this.authUser) {
       return;
@@ -668,6 +735,7 @@ export class FirebaseRaceService {
     await set(ref(this.db, `users/${this.authUser.uid}/status`), {
       state,
       displayName: this.displayName,
+      photoURL: this.getCurrentPhotoURL(),
       roomCode: state === 'online' ? this.currentRoomCode || null : null,
       lastChanged: serverTimestamp()
     });
@@ -679,14 +747,17 @@ export class FirebaseRaceService {
     }
 
     const { ref, update, serverTimestamp } = this.modules;
+    const photoURL = this.getCurrentPhotoURL();
     await update(ref(this.db, `users/${this.authUser.uid}/status`), {
       displayName,
+      photoURL,
       lastChanged: serverTimestamp()
     });
 
     if (this.currentRoomCode) {
       await update(ref(this.db, `rooms/${this.currentRoomCode}/presence/${this.authUser.uid}`), {
         displayName,
+        photoURL,
         updatedAt: serverTimestamp()
       });
     }
@@ -710,6 +781,7 @@ export class FirebaseRaceService {
     this.currentRoomCode = normalizedRoomCode;
     this.playerId = String(playerId || '');
     this.displayName = cleanDisplayName(displayName, this.displayName || 'Driver');
+    const photoURL = this.getCurrentPhotoURL();
 
     const { ref, set, update, onDisconnect, serverTimestamp } = this.modules;
     const roomPresenceRef = ref(this.db, `rooms/${normalizedRoomCode}/presence/${this.authUser.uid}`);
@@ -718,6 +790,7 @@ export class FirebaseRaceService {
       uid: this.authUser.uid,
       playerId: this.playerId,
       displayName: this.displayName,
+      photoURL,
       state: 'online',
       mic: this.voiceActive,
       speaking: false,
@@ -732,6 +805,7 @@ export class FirebaseRaceService {
     await update(ref(this.db, `users/${this.authUser.uid}/status`), {
       state: 'online',
       displayName: this.displayName,
+      photoURL,
       roomCode: normalizedRoomCode,
       lastChanged: serverTimestamp()
     });
