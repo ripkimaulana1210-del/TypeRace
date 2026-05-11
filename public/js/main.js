@@ -33,6 +33,7 @@ class F1TypingBattleApp {
     this.radioHideTimer = null;
     this.finishReplayTimer = null;
     this.isTrackReady = false;
+    this.isAuthRequestActive = false;
     this.chatMessageIds = new Set();
     this.latestPresenceUsers = [];
     this.elements = this.getElements();
@@ -545,11 +546,13 @@ class F1TypingBattleApp {
     }
 
     if (this.elements.authLoginBtn) {
-      this.elements.authLoginBtn.disabled = !isConfigured || !isReady || isLoggedIn;
+      this.elements.authLoginBtn.disabled = this.isAuthRequestActive || !isConfigured || !isReady || isLoggedIn;
       const label = this.elements.authLoginBtn.querySelector('span:last-child');
 
       if (label) {
-        label.textContent = isLoggedIn ? 'Google terhubung' : 'Login dengan Google';
+        label.textContent = this.isAuthRequestActive
+          ? 'Membuka Google...'
+          : isLoggedIn ? 'Google terhubung' : 'Login dengan Google';
       }
     }
 
@@ -596,15 +599,58 @@ class F1TypingBattleApp {
     }
   }
 
+  isGooglePopupCancelError(error) {
+    const code = String(error?.code || '');
+    const message = String(error?.message || '');
+
+    return [
+      'auth/cancelled-popup-request',
+      'auth/popup-closed-by-user',
+      'auth/user-cancelled'
+    ].includes(code) || /cancelled-popup-request|popup-closed-by-user/i.test(message);
+  }
+
   async loginWithGoogleFirebase() {
+    if (this.isAuthRequestActive) {
+      return;
+    }
+
+    this.isAuthRequestActive = true;
+    this.updateFirebaseControls({
+      configured: isFirebaseConfigured,
+      ready: this.firebase.ready,
+      message: 'Membuka login Google...'
+    });
+
     try {
       const user = await this.firebase.loginWithGoogle();
       this.applySignedInName(user);
 
       this.closeAuthModal();
     } catch (error) {
+      if (this.firebase.getCurrentUser()) {
+        this.closeAuthModal();
+        return;
+      }
+
+      if (this.isGooglePopupCancelError(error)) {
+        console.warn('Login Google dibatalkan:', error);
+        this.updateFirebaseControls({
+          configured: isFirebaseConfigured,
+          ready: this.firebase.ready,
+          message: 'Login Google dibatalkan.'
+        });
+        return;
+      }
+
       console.error(error);
-      alert(error.message || 'Login Google gagal.');
+      const message = error?.code === 'auth/popup-blocked'
+        ? 'Popup Google diblokir browser. Izinkan popup untuk situs ini lalu coba lagi.'
+        : error.message || 'Login Google gagal.';
+      alert(message);
+    } finally {
+      this.isAuthRequestActive = false;
+      this.updateFirebaseControls();
     }
   }
 
