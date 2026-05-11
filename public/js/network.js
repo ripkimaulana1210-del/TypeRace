@@ -34,11 +34,11 @@ export class NetworkClient {
 
   ensureSocketReady() {
     if (!window.io) {
-      throw new Error('Klien Socket.IO gagal dimuat. Buka aplikasi dari server yang sedang berjalan.');
+      throw new Error('Socket.IO client failed to load. Open the app from the running server.');
     }
 
     if (!this.socket || !this.socket.connected) {
-      throw new Error('Belum terhubung ke server.');
+      throw new Error('Not connected to the server yet.');
     }
   }
 
@@ -96,7 +96,7 @@ export class NetworkClient {
   connect() {
     return new Promise((resolve, reject) => {
       if (!window.io) {
-        reject(new Error('Klien Socket.IO gagal dimuat. Pastikan aplikasi dibuka melalui server Node.'));
+        reject(new Error('Socket.IO client failed to load. Make sure the app is opened through the Node server.'));
         return;
       }
 
@@ -131,7 +131,7 @@ export class NetworkClient {
     return this.emitWithAck(
       'createRoom',
       [playerName, this.getRaceProfile(), this.getRoomOptions(options)],
-      'Ruang tidak bisa dibuat. Server tidak merespons.'
+      'Room could not be created. Server is not responding.'
     ).then((response) => {
       this.roomCode = response.roomCode;
       this.mode = response.mode || options.mode || DEFAULT_GAME_MODE;
@@ -151,7 +151,7 @@ export class NetworkClient {
     return this.emitWithAck(
       'joinRoom',
       [roomCode, playerName, this.getRaceProfile()],
-      'Tidak bisa masuk ke ruang. Server tidak merespons.'
+      'Could not join the room. Server is not responding.'
     ).then((response) => {
       this.roomCode = response.roomCode;
       this.mode = response.mode || DEFAULT_GAME_MODE;

@@ -10,6 +10,7 @@ const ROUTE_DEBUG_QUERY_PARAM = 'debugRoute';
 const BROADCAST_HUD_QUERY_PARAM = 'broadcastHud';
 const FINISH_REPLAY_DURATION_MS = 2600;
 const DEFAULT_BOT_DIFFICULTY = 'medium';
+const MAX_ROOM_PLAYERS = 8;
 
 class F1TypingBattleApp {
   constructor() {
@@ -34,6 +35,12 @@ class F1TypingBattleApp {
     this.finishReplayTimer = null;
     this.isTrackReady = false;
     this.isAuthRequestActive = false;
+    this.isChatPanelOpen = false;
+    this.hasShownInitialAuthPrompt = false;
+    this.pendingModeAfterLogin = '';
+    this.authPromptMessage = '';
+    this.unreadChatCount = 0;
+    this.roomMaxPlayers = MAX_ROOM_PLAYERS;
     this.chatMessageIds = new Set();
     this.latestPresenceUsers = [];
     this.elements = this.getElements();
@@ -43,6 +50,9 @@ class F1TypingBattleApp {
     return {
       menuScreen: document.getElementById('menuScreen'),
       raceCommsPanel: document.getElementById('raceCommsPanel'),
+      chatToggleBtn: document.getElementById('chatToggleBtn'),
+      chatUnreadBadge: document.getElementById('chatUnreadBadge'),
+      chatCloseBtn: document.getElementById('chatCloseBtn'),
       gameMenuModal: document.getElementById('gameMenuModal'),
       multiplayerSetupScreen: document.getElementById('multiplayerSetupScreen'),
       aiSetupScreen: document.getElementById('aiSetupScreen'),
@@ -165,7 +175,7 @@ class F1TypingBattleApp {
   async init() {
     this.showScreen('loading');
     document.body.classList.toggle('broadcast-hud', this.isBroadcastHudEnabled());
-    this.elements.loadingText.textContent = 'Menghubungkan ke pusat balapan...';
+    this.elements.loadingText.textContent = 'Connecting to race control...';
     this.restoreSavedSession();
     this.bindUI();
     this.bindNetwork();
@@ -182,7 +192,7 @@ class F1TypingBattleApp {
       this.updateSavedRoomUI();
       this.showScreen('menu');
     } catch (error) {
-      this.elements.loadingText.textContent = 'Koneksi gagal. Muat ulang untuk mencoba lagi.';
+      this.elements.loadingText.textContent = 'Connection failed. Reload to try again.';
       if (this.elements.appConnectionLabel) {
         this.elements.appConnectionLabel.textContent = 'Server offline';
         this.elements.appConnectionLabel.classList.remove('online');
@@ -210,7 +220,7 @@ class F1TypingBattleApp {
       }
       this.elements.raceStatusLabel.textContent = 'Mode Typing';
       this.updateRoomActions();
-      console.warn('Scene 3D dinonaktifkan:', error);
+      console.warn('3D scene disabled:', error);
     }
   }
 
@@ -236,7 +246,7 @@ class F1TypingBattleApp {
       this.applyAudioSettings();
       this.syncScreenAudio();
     } catch (error) {
-      console.warn('Audio belum bisa diaktifkan:', error);
+      console.warn('Audio could not be enabled yet:', error);
     }
   }
 
@@ -244,7 +254,7 @@ class F1TypingBattleApp {
     try {
       await this.game?.setResultsMusicActive(true);
     } catch (error) {
-      console.warn('Musik after race belum bisa diputar:', error);
+      console.warn('After-race music could not be played:', error);
     }
   }
 
@@ -266,6 +276,8 @@ class F1TypingBattleApp {
       }
     });
     this.elements.chatForm?.addEventListener('submit', (event) => this.sendChatMessage(event));
+    this.elements.chatToggleBtn?.addEventListener('click', () => this.toggleChatPanel());
+    this.elements.chatCloseBtn?.addEventListener('click', () => this.setChatPanelOpen(false));
     this.elements.voiceToggleBtn?.addEventListener('click', () => this.toggleVoiceChat());
     this.elements.resumeRoomBtn?.addEventListener('click', () => this.resumeLastRoom());
     this.elements.copyRoomCodeBtn?.addEventListener('click', () => this.copyRoomCode());
@@ -385,8 +397,8 @@ class F1TypingBattleApp {
           const loadingLabel = this.elements.trackLoadingOverlay.querySelector('p');
           if (loadingLabel) {
             loadingLabel.textContent = detail.pending
-              ? 'Menggunakan lintasan cadangan. Model utama masih dimuat.'
-              : 'Gagal memuat sirkuit. Menggunakan lintasan cadangan.';
+              ? 'Using fallback track. Main model is still loading.'
+              : 'Circuit failed to load. Using fallback track.';
           }
           this.elements.trackLoadingOverlay.classList.add('hidden');
         }
@@ -395,6 +407,11 @@ class F1TypingBattleApp {
   }
 
   openModeSetup(mode = 'multiplayer') {
+    if (!this.requireSignedIn('Sign in to choose a race mode.')) {
+      this.pendingModeAfterLogin = mode === 'ai' ? 'ai' : 'multiplayer';
+      return;
+    }
+
     const playerName = this.requireName();
     if (!playerName) {
       return;
@@ -449,6 +466,7 @@ class F1TypingBattleApp {
     this.firebase.on('messageAdded', (message) => this.renderChatMessage(message));
     this.firebase.on('presenceChanged', (payload) => this.renderPresence(payload.users || []));
     this.firebase.on('voiceChanged', (payload) => this.updateVoiceState(payload.active));
+    this.firebase.on('voiceLevelChanged', (payload) => this.updateLocalVoiceLevel(payload));
     this.firebase.on('roomChanged', () => this.updateCommsVisibility());
   }
 
@@ -456,7 +474,7 @@ class F1TypingBattleApp {
     this.updateFirebaseControls({
       configured: isFirebaseConfigured,
       ready: false,
-      message: isFirebaseConfigured ? 'Menghubungkan Firebase...' : 'Firebase belum dikonfigurasi.'
+      message: isFirebaseConfigured ? 'Connecting Firebase...' : 'Firebase is not configured.'
     });
 
     this.firebase.init().catch((error) => {
@@ -464,7 +482,7 @@ class F1TypingBattleApp {
       this.updateFirebaseControls({
         configured: isFirebaseConfigured,
         ready: false,
-        message: 'Firebase gagal dimuat.'
+        message: 'Firebase failed to load.'
       });
     });
   }
@@ -492,24 +510,36 @@ class F1TypingBattleApp {
     this.updateFirebaseControls({
       configured: isFirebaseConfigured,
       ready: this.firebase.ready,
-      message: user ? 'Firebase online.' : 'Login untuk chat dan voice.'
+      message: user ? 'Firebase online.' : 'Sign in for chat and voice.'
     });
 
     if (user && this.network.roomCode) {
       this.joinFirebaseRoom(this.network.roomCode);
     }
+
+    if (user && this.currentScreen === 'menu' && !this.isAuthRequestActive && !this.pendingModeAfterLogin) {
+      this.closeAuthModal();
+    }
+
+    if (user && this.pendingModeAfterLogin && this.currentScreen === 'menu') {
+      const pendingMode = this.pendingModeAfterLogin;
+      this.pendingModeAfterLogin = '';
+      requestAnimationFrame(() => this.openModeSetup(pendingMode));
+    }
   }
 
   handleAuthButtonClick() {
-    if (this.firebase.getCurrentUser()) {
-      this.openAuthModal();
-      return;
-    }
-
-    this.loginWithGoogleFirebase();
+    this.openAuthModal();
   }
 
-  openAuthModal() {
+  openAuthModal(message = '') {
+    if (message) {
+      this.authPromptMessage = message;
+      if (this.elements.authStateLabel && !this.firebase.getCurrentUser()) {
+        this.elements.authStateLabel.textContent = message;
+      }
+    }
+
     this.elements.authModal?.classList.remove('hidden');
     requestAnimationFrame(() => {
       if (this.firebase.getCurrentUser()) {
@@ -535,30 +565,34 @@ class F1TypingBattleApp {
     const isLoggedIn = Boolean(user);
     const roomActive = Boolean(this.network.roomCode && isLoggedIn && isReady);
     const statusText = !isConfigured
-      ? 'Config belum diisi'
-      : payload.message || (isReady ? 'Firebase siap' : 'Firebase memuat');
+      ? 'Config missing'
+      : payload.message || (isReady ? 'Firebase ready' : 'Firebase loading');
 
     if (this.elements.firebaseStatusText) {
       this.elements.firebaseStatusText.textContent = statusText;
     }
 
     if (this.elements.authStateLabel) {
+      if (isLoggedIn) {
+        this.authPromptMessage = '';
+      }
+
       this.elements.authStateLabel.textContent = isLoggedIn
-        ? `Login sebagai ${user.displayName || this.firebase.displayName || user.email || 'Pengguna'}`
-        : statusText;
+        ? `Signed in as ${user.displayName || this.firebase.displayName || user.email || 'User'}`
+        : this.authPromptMessage || (isReady ? 'Signed out. Login to unlock race control.' : statusText);
     }
 
     if (this.elements.authUserLabel) {
       this.elements.authUserLabel.textContent = isLoggedIn
-        ? (user.displayName || this.firebase.displayName || user.email || 'Pengguna')
-        : 'Belum login';
+        ? (user.displayName || this.firebase.displayName || user.email || 'User')
+        : 'Not signed in';
     }
 
     this.elements.authPanel?.classList.toggle('signed-in', isLoggedIn);
 
     if (this.elements.authOpenBtn) {
       this.elements.authOpenBtn.textContent = isLoggedIn
-        ? (user.displayName || this.firebase.displayName || 'Akun')
+        ? (user.displayName || this.firebase.displayName || 'Account')
         : 'Login';
       this.elements.authOpenBtn.classList.toggle('signed-in', isLoggedIn);
     }
@@ -569,8 +603,8 @@ class F1TypingBattleApp {
 
       if (label) {
         label.textContent = this.isAuthRequestActive
-          ? 'Membuka Google...'
-          : isLoggedIn ? 'Google terhubung' : 'Login dengan Google';
+          ? 'Opening Google...'
+          : isLoggedIn ? 'Google connected' : 'Login with Google';
       }
     }
 
@@ -592,21 +626,62 @@ class F1TypingBattleApp {
     if (this.elements.chatInput) {
       this.elements.chatInput.disabled = !roomActive;
       this.elements.chatInput.placeholder = roomActive
-        ? 'Ketik pesan'
-        : isLoggedIn ? 'Masuk room dulu' : 'Login untuk chat';
+        ? 'Type a message'
+        : isLoggedIn ? 'Join a room first' : 'Sign in to chat';
     }
 
     if (this.elements.chatMessages) {
       this.elements.chatMessages.dataset.emptyLabel = roomActive
-        ? 'Belum ada pesan di room ini.'
-        : isLoggedIn ? 'Masuk room untuk memakai chat.' : 'Login Firebase untuk chat dan voice.';
+        ? 'No messages in this room yet.'
+        : isLoggedIn ? 'Join a room to use chat.' : 'Sign in with Firebase for chat and voice.';
     }
 
     if (this.elements.voiceToggleBtn) {
       this.elements.voiceToggleBtn.disabled = !roomActive;
     }
 
+    this.updateAuthGateControls({
+      isLoggedIn,
+      isConfigured,
+      isReady
+    });
     this.updateCommsVisibility();
+  }
+
+  updateAuthGateControls({ isLoggedIn = false, isConfigured = isFirebaseConfigured, isReady = this.firebase.ready } = {}) {
+    const shouldLock = isConfigured && isReady && !isLoggedIn;
+    document.body.classList.toggle('auth-locked', shouldLock);
+
+    this.elements.modeButtons.forEach((button) => {
+      button.classList.toggle('locked', shouldLock);
+      button.setAttribute('aria-disabled', String(shouldLock));
+      button.title = shouldLock ? 'Sign in to play' : '';
+    });
+
+    if (this.elements.resumeRoomBtn) {
+      const hasRoom = Boolean(this.getSavedRoomCode());
+      this.elements.resumeRoomBtn.disabled = !hasRoom || !this.network.socket?.connected || shouldLock;
+      this.elements.resumeRoomBtn.title = shouldLock ? 'Sign in to rejoin this room' : '';
+    }
+
+    if (shouldLock && this.currentScreen === 'menu' && !this.hasShownInitialAuthPrompt) {
+      this.hasShownInitialAuthPrompt = true;
+      this.openAuthModal('Sign in to unlock race control.');
+    }
+  }
+
+  requireSignedIn(message = 'Sign in to continue.') {
+    if (!isFirebaseConfigured) {
+      alert('Firebase config is required before playing.');
+      return false;
+    }
+
+    if (!this.firebase.ready || !this.firebase.getCurrentUser()) {
+      this.openAuthModal(message);
+      return false;
+    }
+
+    return true;
   }
 
   applySignedInName(user) {
@@ -643,7 +718,7 @@ class F1TypingBattleApp {
       this.closeAuthModal();
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Login email gagal.');
+      alert(error.message || 'Email login failed.');
     }
   }
 
@@ -659,7 +734,7 @@ class F1TypingBattleApp {
       this.closeAuthModal();
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Registrasi email gagal.');
+      alert(error.message || 'Registration failed.');
     }
   }
 
@@ -683,7 +758,7 @@ class F1TypingBattleApp {
     this.updateFirebaseControls({
       configured: isFirebaseConfigured,
       ready: this.firebase.ready,
-      message: 'Membuka login Google...'
+      message: 'Opening Google sign-in...'
     });
 
     try {
@@ -698,19 +773,19 @@ class F1TypingBattleApp {
       }
 
       if (this.isGooglePopupCancelError(error)) {
-        console.warn('Login Google dibatalkan:', error);
+        console.warn('Google sign-in canceled:', error);
         this.updateFirebaseControls({
           configured: isFirebaseConfigured,
           ready: this.firebase.ready,
-          message: 'Login Google dibatalkan.'
+          message: 'Google sign-in canceled.'
         });
         return;
       }
 
       console.error(error);
       const message = error?.code === 'auth/popup-blocked'
-        ? 'Popup Google diblokir browser. Izinkan popup untuk situs ini lalu coba lagi.'
-        : error.message || 'Login Google gagal.';
+        ? 'Google popup was blocked. Allow popups for this site, then try again.'
+        : error.message || 'Google login failed.';
       alert(message);
     } finally {
       this.isAuthRequestActive = false;
@@ -722,6 +797,7 @@ class F1TypingBattleApp {
     try {
       await this.firebase.logout();
       this.chatMessageIds.clear();
+      this.resetChatDrawer();
       if (this.elements.chatMessages) {
         this.elements.chatMessages.innerHTML = '';
       }
@@ -729,11 +805,11 @@ class F1TypingBattleApp {
       this.updateFirebaseControls({
         configured: isFirebaseConfigured,
         ready: this.firebase.ready,
-        message: 'Logout berhasil.'
+        message: 'Signed out.'
       });
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Logout Firebase gagal.');
+      alert(error.message || 'Firebase logout failed.');
     }
   }
 
@@ -751,6 +827,7 @@ class F1TypingBattleApp {
 
       if (isNewFirebaseRoom && this.elements.chatMessages) {
         this.chatMessageIds.clear();
+        this.resetChatDrawer();
         this.elements.chatMessages.innerHTML = '';
       }
 
@@ -760,7 +837,7 @@ class F1TypingBattleApp {
       this.updateFirebaseControls({
         configured: isFirebaseConfigured,
         ready: this.firebase.ready,
-        message: 'Firebase room gagal sync.'
+        message: 'Firebase room sync failed.'
       });
     }
   }
@@ -773,6 +850,7 @@ class F1TypingBattleApp {
     }
 
     this.chatMessageIds.clear();
+    this.resetChatDrawer();
     if (this.elements.chatMessages) {
       this.elements.chatMessages.innerHTML = '';
     }
@@ -793,7 +871,7 @@ class F1TypingBattleApp {
       }
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Pesan gagal dikirim.');
+      alert(error.message || 'Message could not be sent.');
     }
   }
 
@@ -802,19 +880,75 @@ class F1TypingBattleApp {
       await this.firebase.toggleVoice();
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Voice chat gagal dinyalakan.');
+      alert(error.message || 'Voice chat could not be enabled.');
       this.updateVoiceState(false);
     }
   }
 
-  updateCommsVisibility() {
-    const shouldShow = Boolean(
+  isCommsAvailable() {
+    return Boolean(
       this.elements.raceCommsPanel
       && this.network.roomCode
       && ['lobby', 'results'].includes(this.currentScreen)
     );
+  }
 
-    this.elements.raceCommsPanel?.classList.toggle('hidden', !shouldShow);
+  resetChatDrawer() {
+    this.isChatPanelOpen = false;
+    this.unreadChatCount = 0;
+    this.updateCommsVisibility();
+  }
+
+  setChatPanelOpen(isOpen) {
+    const canShow = this.isCommsAvailable();
+    this.isChatPanelOpen = Boolean(isOpen && canShow);
+
+    if (this.isChatPanelOpen) {
+      this.unreadChatCount = 0;
+    }
+
+    this.updateCommsVisibility();
+
+    if (this.isChatPanelOpen) {
+      requestAnimationFrame(() => {
+        if (this.elements.chatMessages) {
+          this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+        }
+      });
+    }
+  }
+
+  toggleChatPanel() {
+    this.setChatPanelOpen(!this.isChatPanelOpen);
+  }
+
+  updateChatUnreadBadge() {
+    const unreadCount = Math.min(this.unreadChatCount, 99);
+
+    if (!this.elements.chatUnreadBadge) {
+      return;
+    }
+
+    this.elements.chatUnreadBadge.textContent = this.unreadChatCount > 99 ? '99+' : String(unreadCount);
+    this.elements.chatUnreadBadge.classList.toggle('hidden', unreadCount <= 0);
+  }
+
+  updateCommsVisibility() {
+    const canShow = this.isCommsAvailable();
+
+    if (!canShow) {
+      this.isChatPanelOpen = false;
+      this.unreadChatCount = 0;
+    }
+
+    const shouldOpenPanel = canShow && this.isChatPanelOpen;
+
+    this.elements.chatToggleBtn?.classList.toggle('hidden', !canShow);
+    this.elements.chatToggleBtn?.classList.toggle('has-unread', this.unreadChatCount > 0);
+    this.elements.chatToggleBtn?.setAttribute('aria-expanded', String(shouldOpenPanel));
+    this.elements.raceCommsPanel?.classList.toggle('hidden', !shouldOpenPanel);
+    document.body.classList.toggle('chat-open', shouldOpenPanel);
+    this.updateChatUnreadBadge();
   }
 
   updateVoiceState(active) {
@@ -823,8 +957,38 @@ class F1TypingBattleApp {
     }
 
     this.elements.voiceToggleBtn.classList.toggle('active', Boolean(active));
+    this.elements.voiceToggleBtn.classList.toggle('speaking', false);
+    this.elements.voiceToggleBtn.style.removeProperty('--voice-level');
     this.elements.voiceToggleBtn.textContent = active ? 'LIVE' : 'MIC';
-    this.elements.voiceToggleBtn.title = active ? 'Matikan open mic' : 'Nyalakan open mic';
+    this.elements.voiceToggleBtn.title = active ? 'Turn off open mic' : 'Turn on open mic';
+  }
+
+  updateLocalVoiceLevel(payload = {}) {
+    if (!this.elements.voiceToggleBtn) {
+      return;
+    }
+
+    const active = Boolean(payload.active);
+    const speaking = active && Boolean(payload.speaking);
+    const voiceLevel = Math.max(0, Math.min(100, Math.round(Number(payload.voiceLevel) || 0)));
+
+    this.elements.voiceToggleBtn.classList.toggle('speaking', speaking);
+    this.elements.voiceToggleBtn.style.setProperty('--voice-level', `${voiceLevel}%`);
+    this.elements.voiceToggleBtn.title = active
+      ? speaking ? 'Open mic on - speaking' : 'Open mic on'
+      : 'Turn on open mic';
+
+    const currentUid = this.firebase.getCurrentUser()?.uid;
+    const currentPresence = currentUid
+      ? this.latestPresenceUsers.find((user) => user.uid === currentUid)
+      : null;
+
+    if (currentPresence) {
+      currentPresence.mic = active;
+      currentPresence.speaking = speaking;
+      currentPresence.voiceLevel = voiceLevel;
+      this.renderPlayerVoiceIndicators();
+    }
   }
 
   renderChatMessage(message) {
@@ -848,7 +1012,7 @@ class F1TypingBattleApp {
     row.className = `chat-message ${isOwn ? 'own' : ''}`;
     row.innerHTML = `
       <div class="chat-message-meta">
-        <strong>${this.escapeHtml(message.name || 'Pembalap')}</strong>
+      <strong>${this.escapeHtml(message.name || 'Driver')}</strong>
         <span>${this.escapeHtml(timeText)}</span>
       </div>
       <p>${this.escapeHtml(message.text || '')}</p>
@@ -861,6 +1025,11 @@ class F1TypingBattleApp {
     }
 
     this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+
+    if (!isOwn && this.isCommsAvailable() && !this.isChatPanelOpen) {
+      this.unreadChatCount += 1;
+      this.updateChatUnreadBadge();
+    }
   }
 
   renderPresence(users = []) {
@@ -871,24 +1040,103 @@ class F1TypingBattleApp {
     }
 
     if (!users.length) {
-      this.elements.onlineUsersList.innerHTML = '<span class="presence-empty">Belum ada user online</span>';
+      this.elements.onlineUsersList.innerHTML = '<span class="presence-empty">No users online</span>';
+      this.renderPlayerVoiceIndicators();
       return;
     }
 
     this.elements.onlineUsersList.innerHTML = users
       .map((user) => {
         const state = user.state === 'offline' ? 'offline' : 'online';
-        const mic = user.mic ? '<span class="mic-pill">MIC</span>' : '';
+        const micOn = Boolean(user.mic);
+        const speaking = micOn && Boolean(user.speaking);
+        const voiceLevel = Math.max(0, Math.min(100, Math.round(Number(user.voiceLevel) || 0)));
+        const micTitle = micOn
+          ? speaking ? 'Mic on - speaking' : 'Mic on'
+          : 'Mic off';
 
         return `
-          <div class="presence-user ${state}">
+          <div class="presence-user ${state} ${micOn ? 'mic-on' : 'mic-off'} ${speaking ? 'speaking' : ''}" style="--voice-level: ${voiceLevel}%">
             <span class="presence-dot"></span>
-            <strong>${this.escapeHtml(user.displayName || 'Pengguna')}</strong>
-            ${mic}
+            <strong>${this.escapeHtml(user.displayName || 'User')}</strong>
+            <span class="presence-mic-status" title="${this.escapeHtml(micTitle)}" aria-label="${this.escapeHtml(micTitle)}">
+              <span class="presence-mic-icon"></span>
+            </span>
+            <span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="speaking-label">Speaking</span>
           </div>
         `;
       })
       .join('');
+
+    this.renderPlayerVoiceIndicators();
+  }
+
+  getVoiceStateForPlayer(playerId) {
+    const playerKey = String(playerId || '');
+    const user = this.latestPresenceUsers.find((presenceUser) => String(presenceUser.playerId || '') === playerKey);
+    const micOn = Boolean(user?.mic);
+    const speaking = micOn && Boolean(user?.speaking);
+    const voiceLevel = Math.max(0, Math.min(100, Math.round(Number(user?.voiceLevel) || 0)));
+    const label = micOn
+      ? speaking ? 'Speaking' : 'Mic on'
+      : 'Mic off';
+
+    return {
+      micOn,
+      speaking,
+      voiceLevel,
+      label,
+      title: label
+    };
+  }
+
+  renderDriverVoiceMarkup(playerId) {
+    const voice = this.getVoiceStateForPlayer(playerId);
+    const stateClass = voice.micOn ? 'mic-on' : 'mic-off';
+    const speakingClass = voice.speaking ? 'speaking' : '';
+
+    return `
+      <div class="driver-voice-row ${stateClass} ${speakingClass}" data-driver-voice style="--voice-level: ${voice.voiceLevel}%">
+        <span class="presence-mic-status driver-voice-status" title="${this.escapeHtml(voice.title)}" aria-label="${this.escapeHtml(voice.title)}">
+          <span class="presence-mic-icon"></span>
+        </span>
+        <span class="driver-voice-label">${this.escapeHtml(voice.label)}</span>
+        <span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+    `;
+  }
+
+  renderPlayerVoiceIndicators() {
+    if (!this.elements.playersList) {
+      return;
+    }
+
+    this.elements.playersList.querySelectorAll('.player-card[data-player-id]').forEach((card) => {
+      const voice = this.getVoiceStateForPlayer(card.dataset.playerId);
+      const voiceRow = card.querySelector('[data-driver-voice]');
+      const voiceLabel = card.querySelector('.driver-voice-label');
+      const voiceStatus = card.querySelector('.driver-voice-status');
+
+      card.classList.toggle('mic-on', voice.micOn);
+      card.classList.toggle('mic-off', !voice.micOn);
+      card.classList.toggle('speaking', voice.speaking);
+      card.style.setProperty('--voice-level', `${voice.voiceLevel}%`);
+
+      voiceRow?.classList.toggle('mic-on', voice.micOn);
+      voiceRow?.classList.toggle('mic-off', !voice.micOn);
+      voiceRow?.classList.toggle('speaking', voice.speaking);
+      voiceRow?.style.setProperty('--voice-level', `${voice.voiceLevel}%`);
+
+      if (voiceLabel) {
+        voiceLabel.textContent = voice.label;
+      }
+
+      if (voiceStatus) {
+        voiceStatus.title = voice.title;
+        voiceStatus.setAttribute('aria-label', voice.title);
+      }
+    });
   }
 
   loadAudioSettings() {
@@ -1002,11 +1250,11 @@ class F1TypingBattleApp {
     }
 
     if (this.elements.gameMenuTitle) {
-      this.elements.gameMenuTitle.textContent = 'Setting Suara';
+      this.elements.gameMenuTitle.textContent = 'Audio Settings';
     }
 
     if (this.elements.closeMenuBtn) {
-      this.elements.closeMenuBtn.textContent = 'Simpan';
+      this.elements.closeMenuBtn.textContent = 'Save';
     }
 
     this.elements.gameMenuModal?.classList.remove('hidden');
@@ -1047,11 +1295,11 @@ class F1TypingBattleApp {
     }
 
     if (this.elements.gameMenuTitle) {
-      this.elements.gameMenuTitle.textContent = 'Menu Balapan';
+      this.elements.gameMenuTitle.textContent = 'Race Menu';
     }
 
     if (this.elements.closeMenuBtn) {
-      this.elements.closeMenuBtn.textContent = 'Simpan & Resume';
+      this.elements.closeMenuBtn.textContent = 'Save & Resume';
     }
 
     this.elements.gameMenuModal?.classList.remove('hidden');
@@ -1106,6 +1354,11 @@ class F1TypingBattleApp {
     this.currentScreen = name;
     document.body.dataset.screen = name;
     this.elements.gameMenuBtn?.classList.toggle('hidden', name !== 'game');
+    this.updateAuthGateControls({
+      isLoggedIn: Boolean(this.firebase.getCurrentUser()),
+      isConfigured: isFirebaseConfigured,
+      isReady: this.firebase.ready
+    });
     this.updateCommsVisibility();
     this.syncScreenAudio();
 
@@ -1335,14 +1588,14 @@ class F1TypingBattleApp {
     this.elements.resumeRoomBtn?.classList.toggle('hidden', !hasRoom);
 
     if (this.elements.resumeRoomBtn) {
-      this.elements.resumeRoomBtn.disabled = !hasRoom || !this.network.socket?.connected;
-      this.elements.resumeRoomBtn.textContent = hasRoom ? `Room ${roomCode}` : 'Room Terakhir';
+      this.elements.resumeRoomBtn.disabled = !hasRoom || !this.network.socket?.connected || !this.firebase.getCurrentUser();
+      this.elements.resumeRoomBtn.textContent = hasRoom ? `Room ${roomCode}` : 'Last Room';
     }
 
     if (this.elements.savedRoomHint) {
       this.elements.savedRoomHint.classList.toggle('hidden', !hasRoom);
       this.elements.savedRoomHint.textContent = hasRoom
-        ? `Room terakhir tersimpan: ${roomCode}. Pakai tombol itu untuk masuk ulang.`
+        ? `Last room saved: ${roomCode}. Use the button to rejoin.`
         : '';
     }
   }
@@ -1351,7 +1604,7 @@ class F1TypingBattleApp {
     const name = this.elements.playerNameInput.value.trim();
 
     if (!name) {
-      alert('Masukkan nama pembalap dulu.');
+      alert('Enter your driver name first.');
       return null;
     }
 
@@ -1365,6 +1618,10 @@ class F1TypingBattleApp {
   }
 
   async createRoom() {
+    if (!this.requireSignedIn('Sign in to create a room.')) {
+      return;
+    }
+
     const playerName = this.requireName();
     if (!playerName) {
       return;
@@ -1372,19 +1629,23 @@ class F1TypingBattleApp {
 
     await this.safeResumeAudio();
     this.showScreen('loading');
-    this.elements.loadingText.textContent = 'Membuat ruang...';
+    this.elements.loadingText.textContent = 'Creating room...';
 
     try {
       const response = await this.network.createRoom(playerName, { mode: 'multiplayer' });
       this.rememberRoom(response.roomCode, playerName);
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Ruang tidak bisa dibuat.');
+      alert(error.message || 'Room could not be created.');
       this.showScreen('menu');
     }
   }
 
   async createVsAiRace() {
+    if (!this.requireSignedIn('Sign in to start a VS AI race.')) {
+      return;
+    }
+
     const playerName = this.requireName();
     if (!playerName) {
       return;
@@ -1395,7 +1656,7 @@ class F1TypingBattleApp {
 
     await this.safeResumeAudio();
     this.showScreen('loading');
-    this.elements.loadingText.textContent = 'Menyiapkan duel VS AI...';
+    this.elements.loadingText.textContent = 'Preparing VS AI race...';
 
     try {
       const response = await this.network.createVsAiRoom(playerName, this.selectedBotDifficulty);
@@ -1403,12 +1664,16 @@ class F1TypingBattleApp {
       this.network.setLapCount(lapCount);
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Duel VS AI tidak bisa dibuat.');
+      alert(error.message || 'VS AI race could not be created.');
       this.showScreen('menu');
     }
   }
 
   openJoinModal() {
+    if (!this.requireSignedIn('Sign in to join a room.')) {
+      return;
+    }
+
     const playerName = this.requireName();
     if (!playerName) {
       return;
@@ -1423,29 +1688,37 @@ class F1TypingBattleApp {
   }
 
   async joinRoom() {
+    if (!this.requireSignedIn('Sign in to join a room.')) {
+      return;
+    }
+
     const roomCode = this.elements.roomCodeInput.value.trim().toUpperCase();
 
     if (!roomCode) {
-      alert('Masukkan kode ruang.');
+      alert('Enter a room code.');
       return;
     }
 
     await this.safeResumeAudio();
     this.closeJoinModal();
     this.showScreen('loading');
-    this.elements.loadingText.textContent = 'Masuk ke ruang...';
+    this.elements.loadingText.textContent = 'Joining room...';
 
     try {
       await this.network.joinRoom(roomCode, this.playerName);
       this.rememberRoom(roomCode, this.playerName);
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Tidak bisa masuk ke ruang.');
+      alert(error.message || 'Could not join the room.');
       this.showScreen('menu');
     }
   }
 
   async resumeLastRoom() {
+    if (!this.requireSignedIn('Sign in to rejoin your last room.')) {
+      return;
+    }
+
     const roomCode = this.getSavedRoomCode();
     const playerName = this.requireName();
 
@@ -1456,14 +1729,14 @@ class F1TypingBattleApp {
     await this.safeResumeAudio();
     this.closeJoinModal();
     this.showScreen('loading');
-    this.elements.loadingText.textContent = `Menyambung room ${roomCode}...`;
+    this.elements.loadingText.textContent = `Rejoining room ${roomCode}...`;
 
     try {
       await this.network.joinRoom(roomCode, playerName);
       this.rememberRoom(roomCode, playerName);
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Room terakhir tidak bisa dibuka.');
+      alert(error.message || 'Last room could not be opened.');
       this.updateSavedRoomUI();
       this.showScreen('menu');
     }
@@ -1487,7 +1760,7 @@ class F1TypingBattleApp {
         }, 1400);
       }
     } catch (_error) {
-      window.prompt('Salin kode room:', roomCode);
+      window.prompt('Copy room code:', roomCode);
     }
   }
 
@@ -1541,25 +1814,28 @@ class F1TypingBattleApp {
     this.elements.inputFeedback.textContent = '';
     this.elements.inputFeedback.className = 'input-feedback';
     this.setTypingInputActive(false);
-    this.elements.raceStatusLabel.textContent = 'Grid Siap';
+    this.elements.raceStatusLabel.textContent = 'Grid Ready';
     this.updateSavedRoomUI();
     this.showScreen('menu');
   }
 
   updateRoomActions() {
     const playerCount = this.network.players?.length || 0;
+    const humanPlayerCount = (this.network.players || []).filter((player) => !player.isGhost).length;
     const isHost = this.network.hostId === this.network.socket?.id;
     const canStart = isHost && playerCount >= 1 && this.network.state === 'waiting' && this.isTrackReady;
     const canPlayAgain = isHost && playerCount >= 1 && this.network.state === 'finished';
     const hasRoom = Boolean(this.network.roomCode);
     const canEditLapCount = isHost && (this.network.state === 'waiting' || this.network.state === 'finished');
     const isVsAi = this.network.mode === 'ai';
+    const roomCapacity = isVsAi ? Math.max(playerCount, 1) : this.roomMaxPlayers;
+    const occupancyCount = isVsAi ? playerCount : humanPlayerCount;
 
     this.elements.startRaceBtn.textContent = !this.isTrackReady && this.network.state === 'waiting'
-      ? 'Menyiapkan Sirkuit'
+      ? 'Preparing Track'
       : this.network.state === 'finished'
-        ? 'Main Lagi'
-        : 'Mulai Balapan';
+        ? 'Race Again'
+        : 'Start Race';
 
     this.elements.startRaceBtn.disabled = !(canStart || canPlayAgain);
 
@@ -1573,20 +1849,25 @@ class F1TypingBattleApp {
     });
 
     if (this.elements.lobbyDriverCount) {
-      this.elements.lobbyDriverCount.textContent = String(playerCount);
+      this.elements.lobbyDriverCount.textContent = isVsAi
+        ? String(playerCount)
+        : `${occupancyCount}/${roomCapacity}`;
+      this.elements.lobbyDriverCount.classList.toggle('full', !isVsAi && occupancyCount >= roomCapacity);
     }
 
     if (this.elements.lobbyHintText) {
       if (!isHost) {
-        this.elements.lobbyHintText.textContent = 'Kamu sudah masuk grid. Tunggu host menekan start.';
+        this.elements.lobbyHintText.textContent = isVsAi
+          ? 'You are on the grid. Wait for the host to start.'
+          : `You are on the grid ${occupancyCount}/${roomCapacity}. Wait for the host to start.`;
       } else if (!this.isTrackReady) {
-        this.elements.lobbyHintText.textContent = 'Sirkuit sedang dimuat. Tombol start aktif setelah siap.';
+        this.elements.lobbyHintText.textContent = 'Track is loading. Start unlocks when it is ready.';
       } else if (this.network.state === 'finished') {
-        this.elements.lobbyHintText.textContent = 'Race selesai. Host bisa memulai ulang dari sini.';
+        this.elements.lobbyHintText.textContent = 'Race finished. The host can restart from here.';
       } else if (isVsAi) {
-        this.elements.lobbyHintText.textContent = 'Bot sudah siap. Tekan start untuk countdown.';
+        this.elements.lobbyHintText.textContent = 'Bots are ready. Press start for countdown.';
       } else {
-        this.elements.lobbyHintText.textContent = 'Bagikan kode room, atur lap, lalu tekan start saat grid siap.';
+        this.elements.lobbyHintText.textContent = `Share the room code. Grid ${occupancyCount}/${roomCapacity}; start when the track is ready.`;
       }
     }
 
@@ -1596,10 +1877,10 @@ class F1TypingBattleApp {
     }
 
     if (this.network.state === 'finished') {
-      this.elements.playAgainBtn.textContent = isHost ? 'Main Lagi' : 'Kembali ke Room';
+      this.elements.playAgainBtn.textContent = isHost ? 'Race Again' : 'Back to Room';
       this.elements.playAgainBtn.disabled = isHost ? !canPlayAgain : !hasRoom;
     } else {
-      this.elements.playAgainBtn.textContent = 'Kembali ke Room';
+      this.elements.playAgainBtn.textContent = 'Back to Room';
       this.elements.playAgainBtn.disabled = !hasRoom;
     }
   }
@@ -1633,6 +1914,9 @@ class F1TypingBattleApp {
     this.network.state = payload.state;
     this.network.mode = payload.mode || this.network.mode || 'multiplayer';
     this.network.botDifficulty = payload.botDifficulty || this.network.botDifficulty || DEFAULT_BOT_DIFFICULTY;
+    this.roomMaxPlayers = Number.isFinite(Number(payload.maxPlayers))
+      ? Math.max(1, Math.round(Number(payload.maxPlayers)))
+      : (this.network.mode === 'ai' ? Math.max((payload.players || []).length, 1) : MAX_ROOM_PLAYERS);
 
     if (Number.isFinite(Number(payload.lapCount))) {
       this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount))));
@@ -1659,8 +1943,8 @@ class F1TypingBattleApp {
     if (this.elements.lobbyRoomMeta) {
       const isHost = this.network.hostId === this.network.socket?.id;
       this.elements.lobbyRoomMeta.textContent = isVsAi
-        ? 'Solo challenge siap. Chat tetap aktif jika kamu login.'
-        : `${isHost ? 'Kamu host.' : 'Kamu pembalap.'} Kode room: ${payload.roomCode}.`;
+        ? 'Solo challenge ready. Chat stays active when you sign in.'
+        : `${isHost ? 'You are the host.' : 'You are a driver.'} Room code: ${payload.roomCode}.`;
     }
 
     this.elements.raceOptionsPanel?.classList.toggle('hidden', isVsAi);
@@ -1670,13 +1954,16 @@ class F1TypingBattleApp {
 
     this.network.players.forEach((player, index) => {
       const card = document.createElement('div');
-      card.className = 'player-card';
+      const voice = this.getVoiceStateForPlayer(player.id);
+      card.className = `player-card ${voice.micOn ? 'mic-on' : 'mic-off'} ${voice.speaking ? 'speaking' : ''}`;
+      card.dataset.playerId = player.id;
+      card.style.setProperty('--voice-level', `${voice.voiceLevel}%`);
       const isYou = player.id === this.network.socket.id;
       const isHost = player.id === this.network.hostId;
-      const driverType = player.isGhost ? 'AI Bot' : isYou ? 'Kamu' : 'Pembalap';
+      const driverType = player.isGhost ? 'AI Bot' : isYou ? 'You' : 'Driver';
       const badges = [
         isHost ? '<span class="badge">Host</span>' : '',
-        isYou ? '<span class="badge">Kamu</span>' : ''
+        isYou ? '<span class="badge">You</span>' : ''
       ].join('');
 
       card.innerHTML = `
@@ -1687,15 +1974,39 @@ class F1TypingBattleApp {
             <span class="player-role">${driverType}</span>
           </div>
           <div class="player-meta">
-            <span>KPM ${player.wpm ?? 0}</span>
-            <span>Akurasi ${player.accuracy ?? 100}%</span>
+            <span>WPM ${player.wpm ?? 0}</span>
+            <span>Accuracy ${player.accuracy ?? 100}%</span>
           </div>
+          ${this.renderDriverVoiceMarkup(player.id)}
         </div>
         <div class="player-badges">${badges}</div>
       `;
 
       this.elements.playersList.appendChild(card);
     });
+
+    if (!isVsAi) {
+      const filledSlots = this.network.players.filter((player) => !player.isGhost).length;
+
+      for (let slotIndex = filledSlots; slotIndex < this.roomMaxPlayers; slotIndex += 1) {
+        const card = document.createElement('div');
+        card.className = 'player-card empty-slot';
+        card.innerHTML = `
+          <span class="grid-slot">P${slotIndex + 1}</span>
+          <div class="player-info">
+            <div class="player-name-line">
+              <strong>Open slot</strong>
+              <span class="player-role">Ready</span>
+            </div>
+            <div class="player-meta">
+              <span>Waiting for driver</span>
+            </div>
+          </div>
+        `;
+
+        this.elements.playersList.appendChild(card);
+      }
+    }
 
     this.updateRoomActions();
   }
@@ -1708,7 +2019,7 @@ class F1TypingBattleApp {
     this.network.state = 'paused';
     this.game?.setRacePaused?.(true);
     this.setTypingInputActive(false);
-    this.elements.raceStatusLabel.textContent = 'Race Dijeda';
+    this.elements.raceStatusLabel.textContent = 'Race Paused';
   }
 
   handleRaceResumed(payload) {
@@ -1718,7 +2029,7 @@ class F1TypingBattleApp {
 
     this.network.state = payload?.state || 'racing';
     this.game?.setRacePaused?.(false);
-    this.elements.raceStatusLabel.textContent = 'Balapan Berjalan';
+    this.elements.raceStatusLabel.textContent = 'Race Running';
 
     if (this.currentScreen === 'game' && !this.isGameMenuOpen) {
       this.setTypingInputActive(true);
@@ -1736,10 +2047,10 @@ class F1TypingBattleApp {
   }
 
   formatState(state) {
-    if (state === 'waiting') return 'Menunggu pembalap';
-    if (state === 'countdown') return 'Bersiap di grid';
-    if (state === 'racing') return 'Balapan berjalan';
-    if (state === 'finished') return 'Balapan selesai';
+    if (state === 'waiting') return 'Waiting for drivers';
+    if (state === 'countdown') return 'Ready on grid';
+    if (state === 'racing') return 'Race running';
+    if (state === 'finished') return 'Race finished';
     return state;
   }
 
@@ -1762,7 +2073,7 @@ class F1TypingBattleApp {
     this.network.lapCount = Math.max(1, Math.min(5, Math.round(Number(payload.lapCount) || this.network.lapCount || 1)));
     this.updateLapSelect();
     this.renderTyping();
-    this.elements.raceStatusLabel.textContent = 'Bersiap di Grid';
+    this.elements.raceStatusLabel.textContent = 'Ready on Grid';
     this.setTypingInputActive(false);
     this.elements.countdownOverlay.textContent = '3';
     this.elements.countdownOverlay.classList.remove('hidden');
@@ -1793,7 +2104,7 @@ class F1TypingBattleApp {
     this.typing.start(payload.startTime);
     this.lastRaceEventId = null;
     this.elements.countdownOverlay.classList.add('hidden');
-    this.elements.raceStatusLabel.textContent = 'Balapan Berjalan';
+    this.elements.raceStatusLabel.textContent = 'Race Running';
     this.setTypingInputActive(true);
     this.game?.startRace(payload.startTime);
     await this.game?.resumeAudio();
@@ -1828,10 +2139,10 @@ class F1TypingBattleApp {
 
     this.lastRaceEventId = event.id;
     this.game?.playRaceEvent?.(event.type);
-    this.showEngineerRadio(event.message || 'Event balapan aktif.', event.type);
+    this.showEngineerRadio(event.message || 'Race event active.', event.type);
 
     if (this.elements.inputFeedback) {
-      this.elements.inputFeedback.textContent = event.message || 'Event balapan aktif.';
+      this.elements.inputFeedback.textContent = event.message || 'Race event active.';
       this.elements.inputFeedback.className = event.type === 'grip_loss'
         ? 'input-feedback error'
         : 'input-feedback correct';
@@ -1904,15 +2215,15 @@ class F1TypingBattleApp {
       const stats = this.typing.getStats();
 
       if (stats.streak > 0 && stats.streak % 18 === 0) {
-        this.elements.inputFeedback.textContent = 'Streak bersih. DRS siap memberi dorongan.';
+        this.elements.inputFeedback.textContent = 'Clean streak. DRS is ready to boost.';
         this.game?.playRaceEvent?.('drs');
         this.showEngineerRadio('DRS enabled. Keep the rhythm clean.', 'drs');
       } else if (result.keyIntervalMs <= FAST_INPUT_WINDOW_MS) {
-        this.elements.inputFeedback.textContent = 'Input tepat dan cepat. Kecepatan naik.';
+        this.elements.inputFeedback.textContent = 'Clean and fast input. Speed is rising.';
       } else if (result.keyIntervalMs > SLOW_INPUT_WINDOW_MS) {
-        this.elements.inputFeedback.textContent = 'Input tepat, tapi ritme lambat. Kecepatan turun.';
+        this.elements.inputFeedback.textContent = 'Correct input, but the rhythm is slow. Speed drops.';
       } else {
-        this.elements.inputFeedback.textContent = 'Input tepat. Kecepatan terjaga.';
+        this.elements.inputFeedback.textContent = 'Correct input. Speed holds steady.';
       }
 
       this.elements.inputFeedback.className = 'input-feedback correct';
@@ -1922,14 +2233,14 @@ class F1TypingBattleApp {
       }
     } else {
       this.game?.playMistakeInput();
-      this.elements.inputFeedback.textContent = 'Salah ketik. Momentum mobil berkurang.';
+      this.elements.inputFeedback.textContent = 'Typing mistake. Car momentum drops.';
       this.elements.inputFeedback.className = 'input-feedback error';
       this.showEngineerRadio('Grip loss. Reset the rhythm and keep it tidy.', 'grip_loss');
     }
 
     if (result.finished) {
       this.game?.playFinish();
-      this.elements.inputFeedback.textContent = 'Putaran selesai. Pertahankan jalur.';
+      this.elements.inputFeedback.textContent = 'Lap complete. Hold the racing line.';
       this.elements.inputFeedback.className = 'input-feedback correct';
       this.showEngineerRadio('Checkered flag. Bring it home.', 'finish');
     }
@@ -1965,7 +2276,7 @@ class F1TypingBattleApp {
         return `
           <div class="timing-row ${player.id === localPlayerId ? 'local' : ''} ${player.isGhost ? 'ghost' : ''}">
             <span class="timing-pos">P${player.position || '-'}</span>
-            <strong>${this.escapeHtml(player.name || 'Pembalap')}</strong>
+            <strong>${this.escapeHtml(player.name || 'Driver')}</strong>
             <small>${gap}</small>
             <em>${this.escapeHtml(status)}</em>
           </div>
@@ -2098,14 +2409,14 @@ class F1TypingBattleApp {
 
     if (this.elements.roomContextDisplay) {
       this.elements.roomContextDisplay.textContent = roomCode
-        ? `Room ${roomCode} tetap aktif.`
+        ? `Room ${roomCode} stays active.`
         : '';
     }
 
     if (this.elements.winnerDisplay) {
       this.elements.winnerDisplay.textContent = winner
         ? `${winner.name} wins`
-        : 'Podium siap';
+        : 'Podium ready';
     }
 
     this.renderResultsPage();
@@ -2155,10 +2466,10 @@ class F1TypingBattleApp {
         card.innerHTML = `
           <div>
             <strong>P${startIndex + slotIndex + 1} - Empty Slot</strong>
-            <div class="result-meta">Belum ada pembalap di posisi ini</div>
+            <div class="result-meta">No driver in this position yet</div>
           </div>
-          <div class="result-meta">KPM -</div>
-          <div class="result-meta">Akurasi -</div>
+          <div class="result-meta">WPM -</div>
+          <div class="result-meta">Accuracy -</div>
           <div class="result-meta">Typo -</div>
           <div class="result-meta">Grip -</div>
           <div class="result-meta">Best -</div>
@@ -2175,11 +2486,11 @@ class F1TypingBattleApp {
 
       card.innerHTML = `
         <div>
-          <strong>P${player.position} - ${this.escapeHtml(player.name)}${player.isGhost ? ' · Ghost' : ''}</strong>
-          <div class="result-meta">Progres ${player.progress}% · Streak ${player.longestStreak ?? 0}</div>
+          <strong>P${player.position} - ${this.escapeHtml(player.name)}${player.isGhost ? ' - Ghost' : ''}</strong>
+          <div class="result-meta">Progress ${player.progress}% - Streak ${player.longestStreak ?? 0}</div>
         </div>
-        <div class="result-meta">KPM ${player.wpm}</div>
-        <div class="result-meta">Akurasi ${player.accuracy}%</div>
+        <div class="result-meta">WPM ${player.wpm}</div>
+        <div class="result-meta">Accuracy ${player.accuracy}%</div>
         <div class="result-meta">Typo ${typoText}</div>
         <div class="result-meta">Grip ${player.grip ?? 100}%</div>
         <div class="result-meta">Best ${this.escapeHtml(bestSector)}</div>
@@ -2230,7 +2541,7 @@ class F1TypingBattleApp {
 
         const initials = this.getInitials(player.name);
         const meta = player.isGhost ? 'AI' : 'Driver';
-        const score = `${player.wpm ?? 0} KPM`;
+        const score = `${player.wpm ?? 0} WPM`;
 
         return `
           <div class="podium-card podium-${position} ${player.isGhost ? 'ghost-result' : ''}">

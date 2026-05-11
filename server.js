@@ -26,6 +26,7 @@ const STEADY_INPUT_WINDOW_MS = 750;
 const SLOW_INPUT_WINDOW_MS = 1100;
 
 const MIN_PLAYERS = 1;
+const MAX_PLAYERS = 8;
 
 const MOMENTUM_BASE = 1;
 const MOMENTUM_MIN = 0.72;
@@ -491,7 +492,7 @@ function createPlayer(socketId, roomCode, name) {
   return {
     id: socketId,
     roomCode,
-    name: String(name || 'Pembalap').trim().slice(0, 20) || 'Pembalap',
+    name: String(name || 'Driver').trim().slice(0, 20) || 'Driver',
     isGhost: false,
     speed: 0,
     minSpeed: MIN_CRUISE_SPEED,
@@ -724,7 +725,7 @@ function createGhostPlayer(room, index = 1) {
   ghost.raceEvent = {
     id: 1,
     type: 'ghost',
-    message: `${difficulty.label} bot masuk sebagai lawan latihan`,
+    message: `${difficulty.label} bot joined as practice opponent`,
     at: Date.now(),
     expiresAt: Date.now() + RACE_EVENT_TTL_MS
   };
@@ -793,6 +794,8 @@ function ensureGhostOpponent(room) {
 }
 
 function broadcastRoom(room) {
+  const roomPlayers = getRoomPlayers(room);
+
   io.to(room.code).emit('roomUpdated', {
     roomCode: room.code,
     mode: room.mode,
@@ -801,7 +804,8 @@ function broadcastRoom(room) {
     hostId: room.hostId,
     circuit: room.circuitProfile,
     lapCount: room.lapCount,
-    players: getRoomPlayers(room).map(sanitizePlayerForLobby)
+    maxPlayers: room.mode === 'ai' ? roomPlayers.length : MAX_PLAYERS,
+    players: roomPlayers.map(sanitizePlayerForLobby)
   });
 }
 
@@ -1257,17 +1261,22 @@ io.on('connection', (socket) => {
     const room = getRoom(normalizedCode);
 
     if (!room) {
-      callback({ success: false, message: 'Ruang tidak ditemukan.' });
+      callback({ success: false, message: 'Room not found.' });
       return;
     }
 
     if (room.state !== 'waiting') {
-      callback({ success: false, message: 'Balapan sudah berjalan.' });
+      callback({ success: false, message: 'Race is already running.' });
       return;
     }
 
     if (room.mode === 'ai') {
-      callback({ success: false, message: 'Room VS AI tidak bisa dimasuki pemain lain.' });
+      callback({ success: false, message: 'VS AI rooms cannot be joined by other players.' });
+      return;
+    }
+
+    if (getHumanRoomPlayers(room).length >= MAX_PLAYERS) {
+      callback({ success: false, message: `Room is full. Maximum ${MAX_PLAYERS} drivers.` });
       return;
     }
 
@@ -1494,7 +1503,7 @@ io.on('connection', (socket) => {
         && now - (player.lastDrsEventAt || 0) > DRS_EVENT_COOLDOWN_MS
       ) {
         player.lastDrsEventAt = now;
-        setRaceEvent(player, 'drs', 'DRS aktif: streak bersih memberi dorongan', now);
+        setRaceEvent(player, 'drs', 'DRS active: clean streak gives a boost', now);
       } else if (player.finalPushActive && !player._finalPushAnnounced) {
         player._finalPushAnnounced = true;
         setRaceEvent(player, 'final_push', 'Final push: jaga ritme sampai garis finis', now);
@@ -1539,7 +1548,7 @@ io.on('connection', (socket) => {
       player.progress = 100;
       player.progressExact = 100;
       player.speed = 0;
-      setRaceEvent(player, 'finish', 'Finis bersih: kalimat selesai', now);
+      setRaceEvent(player, 'finish', 'Clean finish: sentence complete', now);
     }
 
     broadcastPositions(room);

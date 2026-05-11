@@ -1,154 +1,311 @@
-# F1 Typing Battle 🏎️
+# TypeRace 3D
 
-A real-time multiplayer typing race game where Formula 1 cars compete based on typing speed and accuracy.
+TypeRace 3D adalah game typing race realtime bertema Formula 1. Pemain login, masuk lobby, membuat atau join room, lalu balapan dengan mengetik teks secepat dan seakurat mungkin. Mobil bergerak berdasarkan performa typing, dan room mendukung chat, status online, serta voice open mic.
 
-## Features
+## Fitur Utama
 
-- **Real-time Multiplayer**: Up to 6 players can race simultaneously
-- **Room System**: Create rooms and invite friends with 6-character codes
-- **F1 Racing Visuals**: Canvas-based animated F1 cars on a track
-- **Dynamic Speed Control**: Car speed increases with fast & accurate typing, decreases with mistakes
-- **Live Statistics**: Track WPM (Words Per Minute), Accuracy, and Race Progress
-- **Podium Results**: See final rankings with player statistics
-- **Firebase Account + Chat**: Email/password or Google login, realtime room chat, and online/offline presence
-- **Voice Open Mic**: Optional WebRTC voice channel with Firebase Realtime Database signaling
+- Login pengguna dengan Firebase Authentication: Email/Password dan Google.
+- Multiplayer realtime memakai Socket.IO.
+- Room code 6 karakter untuk invite teman.
+- Kapasitas room multiplayer maksimal 8 driver.
+- Lobby dengan status grid, lap setting, status mic, dan indikator speaking.
+- Mode VS AI dengan pilihan difficulty bot.
+- Chat realtime per room memakai Firebase Realtime Database.
+- Presence online/offline, mic on/off, dan indikator user sedang berbicara.
+- Voice open mic memakai WebRTC dengan Firebase sebagai signaling.
+- Visual balapan 3D memakai Three.js.
+- Deploy full app di Railway: frontend dan backend jalan dari satu server Express.
 
-## Prerequisites
+## Tech Stack
 
-- Node.js (v14 or higher)
+- Node.js
+- Express
+- Socket.IO
+- Three.js
+- Firebase Authentication
+- Firebase Realtime Database
+- WebRTC
+- HTML, CSS, JavaScript
+
+## Prasyarat
+
+Pastikan sudah terpasang:
+
+- Node.js 18 atau lebih baru
 - npm
+- Akun Firebase
+- Akun Railway untuk deployment
 
-## Installation
+## Setup Lokal
 
-1. Clone or extract the project directory
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+1. Clone repository:
 
-## Running the Server
+```bash
+git clone https://github.com/ripkimaulana1210-del/TypeRace.git
+cd TypeRace
+```
 
-Start the game server:
+2. Install dependency:
+
+```bash
+npm install
+```
+
+3. Jalankan server:
+
 ```bash
 npm start
 ```
 
-The server will run on `http://localhost:3000`
+4. Buka aplikasi:
 
-For development with auto-reload:
+```txt
+http://localhost:3000
+```
+
+Untuk development dengan auto reload:
+
 ```bash
 npm run dev
 ```
 
-## Firebase Setup
+## Setup Firebase
 
-Firebase is optional until configured. Fill `public/js/firebase-config.js`, enable Email/Password and Google Authentication, create a Realtime Database, and apply the rules in `docs/FIREBASE_SETUP.md`.
+Aplikasi membutuhkan Firebase agar login, chat, presence, dan voice berjalan.
 
-## Deployment
+1. Buka Firebase Console.
+2. Buat project Firebase.
+3. Aktifkan Authentication.
+4. Aktifkan provider:
+   - Email/Password
+   - Google
+5. Buat Realtime Database.
+6. Salin config Web App Firebase ke:
 
-Deploy the full app to Railway and run `npm start`. The same Express server serves the frontend, Socket.IO backend, audio, and 3D assets.
-
-See `docs/RAILWAY_DEPLOYMENT.md` for the full checklist.
-
-## How to Play
-
-1. **Open the Game**: Navigate to `http://localhost:3000` in your web browser
-
-2. **Create or Join a Room**:
-   - Enter your player name
-   - Click "CREATE ROOM" to start a new game and get a room code
-   - Click "JOIN ROOM" to enter an existing room using the code
-
-3. **Wait in Lobby**:
-   - Players gather in the lobby
-   - The room host can click "START RACE" when ready (minimum 2 players)
-
-4. **Race**:
-   - A 3-second countdown begins
-   - Type the displayed text as fast and accurately as possible
-   - Your F1 car accelerates with correct typing and decelerates with mistakes
-   - See your car's position, speed, WPM, and accuracy in real-time
-
-5. **Race Results**:
-   - When the first player finishes, the race ends
-   - View the final podium with rankings and statistics
-
-## Game Mechanics
-
-| Action | Effect |
-|--------|--------|
-| Correct character | +5 speed (max 320 km/h) |
-| Incorrect character | -15 speed, +1 mistake |
-| Idle (not typing) | Speed gradually maintained |
-| Typing accuracy | Affects final score |
-
-## File Structure
-
-```
-f1-typing-battle/
-├── server.js                    # Node.js + Socket.IO server
-├── package.json                 # Dependencies
-└── public/
-    ├── index.html              # Main HTML
-    ├── css/
-    │   └── style.css          # Dark F1 theme styling
-    └── js/
-        ├── network.js         # Socket.IO client
-        ├── typing.js          # Typing engine & WPM calc
-        ├── game.js            # Canvas F1 visuals
-        └── main.js            # UI flow & state management
+```txt
+public/js/firebase-config.js
 ```
 
-## Game Modes
+Contoh format file:
 
-- **Practice**: Play with friends in custom rooms
-- **Multiplayer**: Up to 6 players per room
-- **Ranked**: Plan for future implementation
+```js
+export const firebaseConfig = {
+  apiKey: '...',
+  authDomain: 'project-id.firebaseapp.com',
+  databaseURL: 'https://project-id-default-rtdb.firebaseio.com',
+  projectId: 'project-id',
+  storageBucket: 'project-id.appspot.com',
+  messagingSenderId: '...',
+  appId: '...'
+};
+```
 
-## Technical Stack
+7. Tambahkan authorized domain:
 
-- **Frontend**: HTML5, CSS3, Canvas API, JavaScript
-- **Backend**: Node.js, Express, Socket.IO
-- **Real-time Communication**: WebSocket via Socket.IO
-- **Firebase**: Authentication + Realtime Database for chat, presence, and voice signaling
+```txt
+Firebase Console > Authentication > Settings > Authorized domains
+```
 
-## Tips to Win
+Untuk local development tambahkan:
 
-1. Type accurately - mistakes significantly slow your car
-2. Maintain a consistent typing rhythm
-3. Focus on accuracy over speed
-4. Watch the progress indicator to know how far you are in the text
-5. Stay calm under pressure!
+```txt
+localhost
+```
+
+Untuk Railway tambahkan domain deploy, contoh:
+
+```txt
+typerace-production-8921.up.railway.app
+```
+
+8. Terapkan Realtime Database rules dari:
+
+```txt
+docs/FIREBASE_SETUP.md
+```
+
+## Cara Pakai Aplikasi
+
+1. Buka website.
+2. Login terlebih dahulu dengan Email/Password atau Google.
+3. Isi driver name.
+4. Pilih mode:
+   - Multiplayer
+   - VS AI
+5. Untuk Multiplayer:
+   - Host memilih Create Room.
+   - Player lain memilih Join Room dan memasukkan room code.
+6. Di lobby:
+   - Host mengatur lap.
+   - Player dapat memakai chat dan mic.
+   - Grid menampilkan jumlah player seperti `2/8`.
+7. Host menekan Start Race saat siap.
+8. Ketik teks yang tampil di race screen.
+9. Lihat hasil race di podium/results screen.
+
+Catatan: aplikasi sekarang dikunci agar flow race hanya bisa digunakan setelah login.
+
+## Voice dan Mic Status
+
+Voice open mic berjalan lewat WebRTC. Firebase Realtime Database dipakai untuk signaling dan presence.
+
+Status yang tampil:
+
+- Mic off
+- Mic on
+- Speaking
+- Voice level indicator
+
+Indikator mic muncul di:
+
+- panel chat/online users
+- kartu driver di lobby grid
+
+Browser biasanya hanya mengizinkan akses microphone di HTTPS atau `localhost`.
+
+## Struktur Project
+
+```txt
+TypeRace/
+|-- server.js
+|-- package.json
+|-- railway.json
+|-- public/
+|   |-- index.html
+|   |-- css/
+|   |   |-- style.css
+|   |   `-- f1-theme.css
+|   |-- js/
+|   |   |-- main.js
+|   |   |-- network.js
+|   |   |-- firebase-config.js
+|   |   |-- firebase-service.js
+|   |   |-- game3d.js
+|   |   |-- typing.js
+|   |   |-- sound.js
+|   |   |-- car.js
+|   |   |-- camera.js
+|   |   `-- track.js
+|   |-- audio/
+|   `-- models/
+|-- docs/
+|   |-- FIREBASE_SETUP.md
+|   `-- RAILWAY_DEPLOYMENT.md
+`-- scripts/
+    `-- smoke-test.js
+```
+
+## Script npm
+
+```bash
+npm start
+```
+
+Menjalankan server production/local di port `3000`.
+
+```bash
+npm run dev
+```
+
+Menjalankan server dengan `nodemon`.
+
+```bash
+npm test
+```
+
+Menjalankan smoke test untuk memastikan server dan flow room dasar masih berjalan.
+
+## Environment
+
+File contoh:
+
+```txt
+.env.example
+```
+
+Isi saat ini:
+
+```txt
+CLIENT_ORIGIN=http://localhost:3000
+```
+
+Railway biasanya otomatis memberi `PORT`, jadi tidak perlu hardcode port.
+
+## Deploy ke Railway
+
+Project ini disiapkan untuk full deploy di Railway. Satu service Railway menjalankan:
+
+- frontend dari folder `public/`
+- backend Express
+- Socket.IO race server
+- endpoint healthcheck `/health`
+
+Langkah singkat:
+
+1. Push repo ke GitHub.
+2. Railway > New Project > Deploy from GitHub repo.
+3. Pilih repository TypeRace.
+4. Pastikan start command:
+
+```txt
+npm start
+```
+
+5. Pastikan healthcheck path:
+
+```txt
+/health
+```
+
+6. Generate public domain di Railway.
+7. Tambahkan domain Railway ke Firebase Authorized domains.
+
+Panduan detail ada di:
+
+```txt
+docs/RAILWAY_DEPLOYMENT.md
+```
 
 ## Troubleshooting
 
-**Can't connect to server?**
-- Ensure the server is running with `npm start`
-- Check that port 3000 is not in use
-- Try refreshing the page
+### Website tidak bisa dibuka
 
-**Game feels laggy?**
-- Check your internet connection
-- Close other applications using bandwidth
-- Try reloading the page
+- Pastikan `npm start` sedang berjalan.
+- Pastikan port `3000` tidak dipakai aplikasi lain.
+- Cek `http://localhost:3000/health`.
 
-**Typing input not registering?**
-- Click on the typing input area to ensure it's focused
-- Try clearing your browser cache
+### Login Google error
 
-## Future Features
+- Pastikan Google provider aktif di Firebase Authentication.
+- Pastikan domain sudah masuk Authorized domains.
+- Jika popup diblokir, izinkan popup untuk domain aplikasi.
 
-- Leaderboard system
-- Different difficulty levels
-- Custom text submissions
-- Voice chat hardening for larger rooms
-- Mobile-friendly UI improvements
-- AI opponents
+### Chat atau presence tidak jalan
 
-## License
+- Pastikan user sudah login.
+- Pastikan Realtime Database sudah dibuat.
+- Pastikan rules di `docs/FIREBASE_SETUP.md` sudah dipasang.
 
-MIT License
+### Mic tidak bisa aktif
 
-## Contributing
+- Pastikan browser mendapat izin microphone.
+- Gunakan HTTPS saat deploy.
+- Untuk lokal, gunakan `localhost`, bukan IP mentah.
 
-Feel free to fork and contribute improvements!
+### Player tidak bisa join room
+
+- Pastikan room masih dalam state waiting.
+- Pastikan room code benar.
+- Room multiplayer maksimal 8 driver.
+- Room VS AI tidak bisa dimasuki player lain.
+
+## Catatan Pengembangan
+
+- Jangan deploy frontend dan backend terpisah untuk versi ini. Gunakan full Railway deploy.
+- Firebase API key untuk web app memang berada di frontend, tetapi tetap batasi Authorized domains dan database rules.
+- Voice memakai WebRTC mesh, jadi beban voice terutama ada di browser pemain, bukan server Node.
+- Jika server mulai berat, pertimbangkan menurunkan tick rate race server atau membatasi jumlah room aktif.
+
+## Lisensi
+
+MIT

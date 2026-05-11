@@ -4,12 +4,16 @@ const FIREBASE_SDK_VERSION = '10.12.4';
 const MAX_CHAT_LENGTH = 500;
 const MAX_CHAT_MESSAGES = 80;
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+const SPEAKING_LEVEL_THRESHOLD = 9;
+const SPEAKING_WRITE_INTERVAL_MS = 520;
+const SPEAKING_KEEPALIVE_INTERVAL_MS = 1800;
+const SPEAKING_METER_INTERVAL_MS = 160;
 
 function normalizeRoomCode(roomCode = '') {
   return String(roomCode || '').trim().toUpperCase();
 }
 
-function cleanDisplayName(name = '', fallback = 'Pembalap') {
+function cleanDisplayName(name = '', fallback = 'Driver') {
   const cleaned = String(name || '').trim().slice(0, 32);
   return cleaned || fallback;
 }
@@ -45,6 +49,13 @@ export class FirebaseRaceService {
     this.queuedCandidates = new Map();
     this.localStream = null;
     this.voiceActive = false;
+    this.voiceAudioContext = null;
+    this.voiceAnalyser = null;
+    this.voiceSource = null;
+    this.voiceMeterTimer = null;
+    this.lastSpeakingState = false;
+    this.lastVoiceLevel = 0;
+    this.lastSpeakingWriteAt = 0;
     this.modules = {};
   }
 
@@ -72,7 +83,7 @@ export class FirebaseRaceService {
 
   async init() {
     if (!this.configured) {
-      this.emitStatus('Firebase belum dikonfigurasi.');
+      this.emitStatus('Firebase is not configured.');
       return { enabled: false };
     }
 
@@ -102,11 +113,11 @@ export class FirebaseRaceService {
         this.handleAuthStateChanged(user);
       });
 
-      this.emitStatus('Firebase siap.');
+      this.emitStatus('Firebase ready.');
       return { enabled: true };
     } catch (error) {
       this.ready = false;
-      this.emitStatus('Firebase gagal dimuat. Cek koneksi dan config.', { error });
+      this.emitStatus('Firebase failed to load. Check connection and config.', { error });
       console.error('Firebase init failed:', error);
       return { enabled: false, error };
     }
@@ -114,7 +125,7 @@ export class FirebaseRaceService {
 
   ensureReady() {
     if (!this.ready || !this.auth || !this.db) {
-      throw new Error('Firebase belum siap. Isi config Firebase lalu refresh.');
+      throw new Error('Firebase is not ready. Fill in the Firebase config, then refresh.');
     }
   }
 
@@ -122,7 +133,7 @@ export class FirebaseRaceService {
     this.ensureReady();
 
     if (!this.authUser) {
-      throw new Error('Login dulu untuk memakai chat dan voice.');
+      throw new Error('Sign in first to use chat and voice.');
     }
   }
 
@@ -135,7 +146,7 @@ export class FirebaseRaceService {
       String(password || '')
     );
 
-    const name = cleanDisplayName(displayName, credential.user.email?.split('@')[0] || 'Pembalap');
+    const name = cleanDisplayName(displayName, credential.user.email?.split('@')[0] || 'Driver');
     await this.modules.updateProfile(credential.user, { displayName: name });
     this.authUser = credential.user;
     this.displayName = name;
@@ -189,7 +200,7 @@ export class FirebaseRaceService {
     const credential = await this.modules.signInWithPopup(this.auth, provider);
     const name = cleanDisplayName(
       credential.user.displayName,
-      credential.user.email?.split('@')[0] || 'Pembalap'
+      credential.user.email?.split('@')[0] || 'Driver'
     );
 
     this.authUser = credential.user;
@@ -221,7 +232,7 @@ export class FirebaseRaceService {
       return;
     }
 
-    this.displayName = cleanDisplayName(user.displayName, user.email?.split('@')[0] || 'Pembalap');
+    this.displayName = cleanDisplayName(user.displayName, user.email?.split('@')[0] || 'Driver');
 
     try {
       await this.upsertUserProfile(user, this.displayName);
@@ -251,7 +262,7 @@ export class FirebaseRaceService {
     const { ref, set, serverTimestamp } = this.modules;
     await set(ref(this.db, `users/${user.uid}/profile`), {
       uid: user.uid,
-      displayName: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Pembalap'),
+      displayName: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver'),
       updatedAt: serverTimestamp()
     });
   }
@@ -261,7 +272,7 @@ export class FirebaseRaceService {
       return;
     }
 
-    const nextName = cleanDisplayName(name, this.displayName || 'Pembalap');
+    const nextName = cleanDisplayName(name, this.displayName || 'Driver');
     this.displayName = nextName;
 
     if (this.authUser.displayName !== nextName) {
@@ -359,7 +370,7 @@ export class FirebaseRaceService {
 
     this.currentRoomCode = normalizedRoomCode;
     this.playerId = String(playerId || '');
-    this.displayName = cleanDisplayName(displayName, this.displayName || 'Pembalap');
+    this.displayName = cleanDisplayName(displayName, this.displayName || 'Driver');
 
     const { ref, set, update, onDisconnect, serverTimestamp } = this.modules;
     const roomPresenceRef = ref(this.db, `rooms/${normalizedRoomCode}/presence/${this.authUser.uid}`);
@@ -370,6 +381,8 @@ export class FirebaseRaceService {
       displayName: this.displayName,
       state: 'online',
       mic: this.voiceActive,
+      speaking: false,
+      voiceLevel: 0,
       joinedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -473,7 +486,7 @@ export class FirebaseRaceService {
     }
 
     if (!this.currentRoomCode) {
-      throw new Error('Masuk room dulu untuk chat.');
+      throw new Error('Join a room first to use chat.');
     }
 
     const { ref, push, serverTimestamp } = this.modules;
@@ -495,11 +508,11 @@ export class FirebaseRaceService {
     this.ensureSignedIn();
 
     if (!this.currentRoomCode) {
-      throw new Error('Masuk room dulu untuk open mic.');
+      throw new Error('Join a room first to use open mic.');
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Browser tidak mendukung akses mikrofon.');
+      throw new Error('This browser does not support microphone access.');
     }
 
     if (this.voiceActive) {
@@ -534,9 +547,12 @@ export class FirebaseRaceService {
 
       await update(ref(this.db, `rooms/${this.currentRoomCode}/presence/${this.authUser.uid}`), {
         mic: true,
+        speaking: false,
+        voiceLevel: 0,
         updatedAt: serverTimestamp()
       });
 
+      this.startSpeakingMeter();
       this.subscribeVoiceSignals();
       this.subscribeVoicePeers();
     } catch (error) {
@@ -557,6 +573,7 @@ export class FirebaseRaceService {
     Array.from(this.peerConnections.keys()).forEach((remoteUid) => this.closePeer(remoteUid));
     this.peerConnections.clear();
     this.queuedCandidates.clear();
+    this.stopSpeakingMeter();
 
     if (this.localStream) {
       this.localStream.getTracks().forEach((track) => track.stop());
@@ -574,6 +591,8 @@ export class FirebaseRaceService {
     try {
       await update(ref(this.db, `rooms/${roomCode}/presence/${uid}`), {
         mic: false,
+        speaking: false,
+        voiceLevel: 0,
         updatedAt: serverTimestamp()
       });
       await remove(ref(this.db, `rooms/${roomCode}/voice/peers/${uid}`));
@@ -581,6 +600,113 @@ export class FirebaseRaceService {
     } catch (error) {
       console.warn('Firebase stop voice failed:', error);
     }
+  }
+
+  startSpeakingMeter() {
+    this.stopSpeakingMeter({ emit: false });
+
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextConstructor || !this.localStream) {
+      return;
+    }
+
+    try {
+      this.voiceAudioContext = new AudioContextConstructor();
+      this.voiceAnalyser = this.voiceAudioContext.createAnalyser();
+      this.voiceAnalyser.fftSize = 512;
+      this.voiceSource = this.voiceAudioContext.createMediaStreamSource(this.localStream);
+      this.voiceSource.connect(this.voiceAnalyser);
+      this.voiceAudioContext.resume?.().catch(() => {});
+
+      const samples = new Uint8Array(this.voiceAnalyser.fftSize);
+      this.voiceMeterTimer = window.setInterval(() => {
+        if (!this.voiceActive || !this.voiceAnalyser) {
+          return;
+        }
+
+        this.voiceAnalyser.getByteTimeDomainData(samples);
+
+        let sum = 0;
+        for (let index = 0; index < samples.length; index += 1) {
+          const centered = (samples[index] - 128) / 128;
+          sum += centered * centered;
+        }
+
+        const rms = Math.sqrt(sum / samples.length);
+        const voiceLevel = Math.min(100, Math.round(rms * 180));
+        const speaking = voiceLevel >= SPEAKING_LEVEL_THRESHOLD;
+
+        this.emitLocal('voiceLevelChanged', {
+          active: true,
+          speaking,
+          voiceLevel
+        });
+
+        this.publishSpeakingState(speaking, voiceLevel);
+      }, SPEAKING_METER_INTERVAL_MS);
+    } catch (error) {
+      console.warn('Voice level meter failed:', error);
+      this.stopSpeakingMeter();
+    }
+  }
+
+  stopSpeakingMeter({ emit = true } = {}) {
+    if (this.voiceMeterTimer) {
+      window.clearInterval(this.voiceMeterTimer);
+      this.voiceMeterTimer = null;
+    }
+
+    try {
+      this.voiceSource?.disconnect();
+    } catch (_error) {}
+
+    this.voiceSource = null;
+    this.voiceAnalyser = null;
+
+    if (this.voiceAudioContext && this.voiceAudioContext.state !== 'closed') {
+      this.voiceAudioContext.close().catch(() => {});
+    }
+
+    this.voiceAudioContext = null;
+    this.lastSpeakingState = false;
+    this.lastVoiceLevel = 0;
+    this.lastSpeakingWriteAt = 0;
+    if (emit) {
+      this.emitLocal('voiceLevelChanged', {
+        active: false,
+        speaking: false,
+        voiceLevel: 0
+      });
+    }
+  }
+
+  publishSpeakingState(speaking, voiceLevel) {
+    if (!this.ready || !this.currentRoomCode || !this.authUser) {
+      return;
+    }
+
+    const now = Date.now();
+    const stateChanged = speaking !== this.lastSpeakingState;
+    const levelChanged = Math.abs(voiceLevel - this.lastVoiceLevel) >= 18;
+    const canWrite = now - this.lastSpeakingWriteAt >= SPEAKING_WRITE_INTERVAL_MS;
+    const stale = now - this.lastSpeakingWriteAt >= SPEAKING_KEEPALIVE_INTERVAL_MS;
+
+    if (!canWrite || (!stateChanged && !levelChanged && !stale)) {
+      return;
+    }
+
+    this.lastSpeakingState = speaking;
+    this.lastVoiceLevel = voiceLevel;
+    this.lastSpeakingWriteAt = now;
+
+    const { ref, update, serverTimestamp } = this.modules;
+    update(ref(this.db, `rooms/${this.currentRoomCode}/presence/${this.authUser.uid}`), {
+      mic: true,
+      speaking,
+      voiceLevel,
+      updatedAt: serverTimestamp()
+    }).catch((error) => console.warn('Firebase speaking state failed:', error));
   }
 
   subscribeVoiceSignals() {
