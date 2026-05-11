@@ -44,6 +44,18 @@ npm run dev
 
 Firebase is optional until configured. Fill `public/js/firebase-config.js`, enable Email/Password Authentication, create a Realtime Database, and apply the rules in `docs/FIREBASE_SETUP.md`.
 
+## Deployment
+
+For a full single-host deployment, use Render/Railway and run `npm start`.
+
+For split deployment:
+- Backend: deploy `server.js` to Render/Railway.
+- Frontend: deploy `public/` to Vercel.
+- Set Vercel env `TYPERACE_SOCKET_URL` to the backend URL.
+- Set backend env `CLIENT_ORIGIN` to the Vercel frontend URL.
+
+See `docs/SPLIT_DEPLOYMENT.md` for the full checklist.
+
 ## How to Play
 
 1. **Open the Game**: Navigate to `http://localhost:3000` in your web browser

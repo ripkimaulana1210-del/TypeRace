@@ -219,9 +219,14 @@ const STRIPPED_PUNCTUATION_PATTERN = /[.,!?;:]/g;
 
 const app = express();
 const server = http.createServer(app);
+const configuredOrigins = String(process.env.CLIENT_ORIGIN || process.env.CORS_ORIGIN || '*')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const corsOrigin = configuredOrigins.includes('*') ? '*' : configuredOrigins;
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: corsOrigin,
     methods: ['GET', 'POST']
   }
 });
@@ -231,10 +236,17 @@ const audioDir = path.join(publicDir, 'audio');
 const modelsDir = path.join(publicDir, 'models');
 const threeDir = path.join(__dirname, 'node_modules', 'three');
 
-app.use(cors());
+app.use(cors({ origin: corsOrigin }));
 
 app.get('/', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
+});
+
+app.get('/health', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'typerace-backend'
+  });
 });
 
 app.use('/vendor/three', express.static(threeDir));
