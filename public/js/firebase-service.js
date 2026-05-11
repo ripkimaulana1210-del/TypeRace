@@ -126,44 +126,19 @@ export class FirebaseRaceService {
     }
   }
 
-  async register({ email, password, displayName }) {
+  async loginWithGoogle() {
     this.ensureReady();
 
-    const credential = await this.modules.createUserWithEmailAndPassword(
-      this.auth,
-      String(email || '').trim(),
-      String(password || '')
+    const provider = new this.modules.GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+
+    const credential = await this.modules.signInWithPopup(this.auth, provider);
+    const name = cleanDisplayName(
+      credential.user.displayName,
+      credential.user.email?.split('@')[0] || 'Pembalap'
     );
-
-    const name = cleanDisplayName(displayName, credential.user.email?.split('@')[0] || 'Pembalap');
-    await this.modules.updateProfile(credential.user, { displayName: name });
-    this.authUser = credential.user;
-    this.displayName = name;
-
-    try {
-      await this.upsertUserProfile(credential.user, name);
-    } catch (error) {
-      console.warn('Firebase profile write failed:', error);
-    }
-
-    this.emitLocal('authChanged', { user: credential.user, displayName: name });
-    return credential.user;
-  }
-
-  async login({ email, password, displayName }) {
-    this.ensureReady();
-
-    const credential = await this.modules.signInWithEmailAndPassword(
-      this.auth,
-      String(email || '').trim(),
-      String(password || '')
-    );
-
-    const name = cleanDisplayName(displayName, credential.user.displayName || credential.user.email?.split('@')[0]);
-
-    if (name && credential.user.displayName !== name) {
-      await this.modules.updateProfile(credential.user, { displayName: name });
-    }
 
     this.authUser = credential.user;
     this.displayName = name;

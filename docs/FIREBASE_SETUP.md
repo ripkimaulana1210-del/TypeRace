@@ -5,7 +5,7 @@ Fitur akun, chat realtime, status online/offline, dan voice open mic memakai Fir
 ## 1. Buat Firebase app
 
 1. Buka Firebase Console dan buat project.
-2. Aktifkan Authentication dengan provider Email/Password.
+2. Aktifkan Authentication dengan provider Google.
 3. Buat Realtime Database.
 4. Dari Project settings > Your apps > Web app, salin config ke `public/js/firebase-config.js`.
 
@@ -75,6 +75,21 @@ Pakai rules ini sebagai baseline development. Chat dan presence bisa dibaca user
 }
 ```
 
-## 3. Catatan voice
+## 3. Authorized domains
+
+Tambahkan domain deploy kamu di:
+
+```txt
+Firebase Console > Authentication > Settings > Authorized domains
+```
+
+Contoh:
+
+```txt
+localhost
+typerace-ashen.vercel.app
+```
+
+## 4. Catatan voice
 
 Open mic memakai WebRTC mesh dengan Firebase Realtime Database sebagai signaling. Browser biasanya meminta HTTPS untuk mikrofon, kecuali di `localhost`.

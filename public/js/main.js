@@ -57,11 +57,7 @@ class F1TypingBattleApp {
       playerNameInput: document.getElementById('playerNameInput'),
       authPanel: document.querySelector('.auth-panel'),
       authStateLabel: document.getElementById('authStateLabel'),
-      authNameInput: document.getElementById('authNameInput'),
-      authEmailInput: document.getElementById('authEmailInput'),
-      authPasswordInput: document.getElementById('authPasswordInput'),
       authLoginBtn: document.getElementById('authLoginBtn'),
-      authRegisterBtn: document.getElementById('authRegisterBtn'),
       authLogoutBtn: document.getElementById('authLogoutBtn'),
       firebaseStatusText: document.getElementById('firebaseStatusText'),
       authUserLabel: document.getElementById('authUserLabel'),
@@ -252,10 +248,9 @@ class F1TypingBattleApp {
 
   bindUI() {
     this.syncAudioSettingsUI();
-    this.elements.authLoginBtn?.addEventListener('click', () => this.loginWithFirebase());
-    this.elements.authRegisterBtn?.addEventListener('click', () => this.registerWithFirebase());
+    this.elements.authLoginBtn?.addEventListener('click', () => this.loginWithGoogleFirebase());
     this.elements.authLogoutBtn?.addEventListener('click', () => this.logoutFromFirebase());
-    this.elements.authOpenBtn?.addEventListener('click', () => this.openAuthModal());
+    this.elements.authOpenBtn?.addEventListener('click', () => this.handleAuthButtonClick());
     this.elements.authCloseBtn?.addEventListener('click', () => this.closeAuthModal());
     this.elements.authModal?.addEventListener('click', (event) => {
       if (event.target === this.elements.authModal) {
@@ -269,11 +264,6 @@ class F1TypingBattleApp {
     this.elements.playerNameInput?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         this.openModeSetup(this.selectedMode);
-      }
-    });
-    this.elements.authPasswordInput?.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        this.loginWithFirebase();
       }
     });
     this.elements.createRoomBtn?.addEventListener('click', () => this.createRoom());
@@ -481,9 +471,6 @@ class F1TypingBattleApp {
         this.elements.playerNameInput.value = this.playerName;
       }
 
-      if (this.elements.authNameInput) {
-        this.elements.authNameInput.value = displayName;
-      }
     }
 
     this.updateFirebaseControls({
@@ -497,18 +484,24 @@ class F1TypingBattleApp {
     }
   }
 
+  handleAuthButtonClick() {
+    if (this.firebase.getCurrentUser()) {
+      this.openAuthModal();
+      return;
+    }
+
+    this.loginWithGoogleFirebase();
+  }
+
   openAuthModal() {
     this.elements.authModal?.classList.remove('hidden');
     requestAnimationFrame(() => {
       if (this.firebase.getCurrentUser()) {
-        this.elements.authCloseBtn?.focus();
+        this.elements.authLogoutBtn?.focus();
         return;
       }
 
-      const target = this.elements.authEmailInput?.value
-        ? this.elements.authPasswordInput
-        : this.elements.authEmailInput;
-      target?.focus();
+      this.elements.authLoginBtn?.focus();
     });
   }
 
@@ -551,11 +544,14 @@ class F1TypingBattleApp {
       this.elements.authOpenBtn.classList.toggle('signed-in', isLoggedIn);
     }
 
-    [this.elements.authLoginBtn, this.elements.authRegisterBtn].forEach((button) => {
-      if (button) {
-        button.disabled = !isConfigured || !isReady || isLoggedIn;
+    if (this.elements.authLoginBtn) {
+      this.elements.authLoginBtn.disabled = !isConfigured || !isReady || isLoggedIn;
+      const label = this.elements.authLoginBtn.querySelector('span:last-child');
+
+      if (label) {
+        label.textContent = isLoggedIn ? 'Google terhubung' : 'Login dengan Google';
       }
-    });
+    }
 
     this.elements.authLogoutBtn?.classList.toggle('hidden', !isLoggedIn);
     if (this.elements.authLogoutBtn) {
@@ -586,45 +582,29 @@ class F1TypingBattleApp {
     this.updateCommsVisibility();
   }
 
-  getAuthFormValues() {
-    return {
-      displayName: this.elements.authNameInput?.value?.trim() || this.elements.playerNameInput?.value?.trim() || '',
-      email: this.elements.authEmailInput?.value?.trim() || '',
-      password: this.elements.authPasswordInput?.value || ''
-    };
-  }
+  applySignedInName(user) {
+    const name = String(user?.displayName || user?.email?.split('@')[0] || '').trim().slice(0, 20);
 
-  async loginWithFirebase() {
-    try {
-      const values = this.getAuthFormValues();
-      await this.firebase.login(values);
+    if (!name) {
+      return;
+    }
 
-      if (values.displayName) {
-        this.elements.playerNameInput.value = values.displayName.slice(0, 20);
-        this.playerName = values.displayName.slice(0, 20);
-      }
+    this.playerName = name;
 
-      this.closeAuthModal();
-    } catch (error) {
-      console.error(error);
-      alert(error.message || 'Login Firebase gagal.');
+    if (this.elements.playerNameInput) {
+      this.elements.playerNameInput.value = name;
     }
   }
 
-  async registerWithFirebase() {
+  async loginWithGoogleFirebase() {
     try {
-      const values = this.getAuthFormValues();
-      await this.firebase.register(values);
-
-      if (values.displayName) {
-        this.elements.playerNameInput.value = values.displayName.slice(0, 20);
-        this.playerName = values.displayName.slice(0, 20);
-      }
+      const user = await this.firebase.loginWithGoogle();
+      this.applySignedInName(user);
 
       this.closeAuthModal();
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Registrasi Firebase gagal.');
+      alert(error.message || 'Login Google gagal.');
     }
   }
 
@@ -1266,10 +1246,6 @@ class F1TypingBattleApp {
     }
 
     this.playerName = name;
-
-    if (this.elements.authNameInput && !this.elements.authNameInput.value.trim()) {
-      this.elements.authNameInput.value = name;
-    }
 
     return name;
   }

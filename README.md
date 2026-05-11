@@ -10,7 +10,7 @@ A real-time multiplayer typing race game where Formula 1 cars compete based on t
 - **Dynamic Speed Control**: Car speed increases with fast & accurate typing, decreases with mistakes
 - **Live Statistics**: Track WPM (Words Per Minute), Accuracy, and Race Progress
 - **Podium Results**: See final rankings with player statistics
-- **Firebase Account + Chat**: Email/password registration, login, realtime room chat, and online/offline presence
+- **Firebase Account + Chat**: Google login, realtime room chat, and online/offline presence
 - **Voice Open Mic**: Optional WebRTC voice channel with Firebase Realtime Database signaling
 
 ## Prerequisites
@@ -42,7 +42,7 @@ npm run dev
 
 ## Firebase Setup
 
-Firebase is optional until configured. Fill `public/js/firebase-config.js`, enable Email/Password Authentication, create a Realtime Database, and apply the rules in `docs/FIREBASE_SETUP.md`.
+Firebase is optional until configured. Fill `public/js/firebase-config.js`, enable Google Authentication, create a Realtime Database, and apply the rules in `docs/FIREBASE_SETUP.md`.
 
 ## Deployment
 
