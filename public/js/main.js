@@ -2018,14 +2018,26 @@ class F1TypingBattleApp {
   async joinFirebaseRoom(roomCode) {
     if (!this.firebase.ready || !this.firebase.getCurrentUser()) {
       this.updateFirebaseControls();
-      return;
+      return false;
+    }
+
+    const normalizedRoomCode = String(roomCode || '').trim().toUpperCase();
+
+    if (!normalizedRoomCode) {
+      this.updateFirebaseControls();
+      return false;
     }
 
     try {
-      const normalizedRoomCode = String(roomCode || '').trim().toUpperCase();
       const isNewFirebaseRoom = this.firebase.currentRoomCode !== normalizedRoomCode;
       const driverName = this.getDriverName(false);
-      await this.firebase.setDisplayName(driverName);
+
+      try {
+        await this.firebase.setDisplayName(driverName);
+      } catch (error) {
+        console.warn('Firebase profile sync skipped before room join:', error);
+      }
+
       await this.firebase.joinRoom(normalizedRoomCode, driverName, this.network.socket?.id || '');
 
       if (isNewFirebaseRoom && this.elements.chatMessages) {
@@ -2035,6 +2047,7 @@ class F1TypingBattleApp {
       }
 
       this.updateFirebaseControls();
+      return true;
     } catch (error) {
       console.warn('Firebase room sync failed:', error);
       this.updateFirebaseControls({
@@ -2042,7 +2055,32 @@ class F1TypingBattleApp {
         ready: this.firebase.ready,
         message: 'Firebase room sync failed.'
       });
+      return this.firebase.currentRoomCode === normalizedRoomCode;
     }
+  }
+
+  async ensureFirebaseRoomSynced() {
+    const roomCode = String(this.network.roomCode || '').trim().toUpperCase();
+
+    if (!roomCode) {
+      throw new Error('Join a room first to use chat and voice.');
+    }
+
+    if (!this.firebase.ready || !this.firebase.getCurrentUser()) {
+      throw new Error('Sign in first to use chat and voice.');
+    }
+
+    if (this.firebase.currentRoomCode === roomCode) {
+      return true;
+    }
+
+    const synced = await this.joinFirebaseRoom(roomCode);
+
+    if (!synced && this.firebase.currentRoomCode !== roomCode) {
+      throw new Error('Room chat is still syncing. Please try again.');
+    }
+
+    return true;
   }
 
   async leaveFirebaseRoom() {
@@ -2067,6 +2105,7 @@ class F1TypingBattleApp {
     const text = this.elements.chatInput?.value || '';
 
     try {
+      await this.ensureFirebaseRoomSynced();
       const sent = await this.firebase.sendMessage(text);
 
       if (sent && this.elements.chatInput) {
@@ -2080,6 +2119,7 @@ class F1TypingBattleApp {
 
   async toggleVoiceChat() {
     try {
+      await this.ensureFirebaseRoomSynced();
       await this.firebase.toggleVoice();
     } catch (error) {
       console.error(error);

@@ -801,29 +801,37 @@ export class FirebaseRaceService {
     const { ref, set, update, onDisconnect, serverTimestamp } = this.modules;
     const roomPresenceRef = ref(this.db, `rooms/${normalizedRoomCode}/presence/${this.authUser.uid}`);
 
-    await set(roomPresenceRef, {
-      uid: this.authUser.uid,
-      playerId: this.playerId,
-      displayName: this.displayName,
-      photoURL,
-      state: 'online',
-      mic: this.voiceActive,
-      speaking: false,
-      voiceLevel: 0,
-      joinedAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    try {
+      await set(roomPresenceRef, {
+        uid: this.authUser.uid,
+        playerId: this.playerId,
+        displayName: this.displayName,
+        photoURL,
+        state: 'online',
+        mic: this.voiceActive,
+        speaking: false,
+        voiceLevel: 0,
+        joinedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
 
-    onDisconnect(roomPresenceRef).remove()
-      .catch((error) => console.warn('Firebase room onDisconnect failed:', error));
+      onDisconnect(roomPresenceRef).remove()
+        .catch((error) => console.warn('Firebase room onDisconnect failed:', error));
+    } catch (error) {
+      console.warn('Firebase room presence write failed:', error);
+    }
 
-    await update(ref(this.db, `users/${this.authUser.uid}/status`), {
-      state: 'online',
-      displayName: this.displayName,
-      photoURL,
-      roomCode: normalizedRoomCode,
-      lastChanged: serverTimestamp()
-    });
+    try {
+      await update(ref(this.db, `users/${this.authUser.uid}/status`), {
+        state: 'online',
+        displayName: this.displayName,
+        photoURL,
+        roomCode: normalizedRoomCode,
+        lastChanged: serverTimestamp()
+      });
+    } catch (error) {
+      console.warn('Firebase room status write failed:', error);
+    }
 
     this.subscribeRoom(normalizedRoomCode);
     this.emitLocal('roomChanged', { roomCode: normalizedRoomCode });
@@ -973,12 +981,12 @@ export class FirebaseRaceService {
       onDisconnect(peerRef).remove()
         .catch((error) => console.warn('Firebase voice onDisconnect failed:', error));
 
-      await update(ref(this.db, `rooms/${this.currentRoomCode}/presence/${this.authUser.uid}`), {
+      update(ref(this.db, `rooms/${this.currentRoomCode}/presence/${this.authUser.uid}`), {
         mic: true,
         speaking: false,
         voiceLevel: 0,
         updatedAt: serverTimestamp()
-      });
+      }).catch((error) => console.warn('Firebase voice presence update failed:', error));
 
       this.startSpeakingMeter();
       this.subscribeVoiceSignals();

@@ -38,6 +38,13 @@ Pakai rules ini sebagai baseline development. Chat dan presence bisa dibaca user
         ".write": "auth != null && auth.uid === $uid"
       }
     },
+    "userDirectory": {
+      ".read": "auth != null",
+      ".indexOn": ["usernameLower"],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
     "rooms": {
       "$roomCode": {
         "messages": {
