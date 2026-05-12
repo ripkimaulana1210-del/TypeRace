@@ -11,8 +11,8 @@ const BROADCAST_HUD_QUERY_PARAM = 'broadcastHud';
 const FINISH_REPLAY_DURATION_MS = 2600;
 const DEFAULT_BOT_DIFFICULTY = 'medium';
 const MAX_ROOM_PLAYERS = 8;
-const FLOATING_CHAT_POSITION_KEY = 'typerace_floating_chat_bubble_position_safe_v7';
-const FLOATING_FRIENDS_POSITION_KEY = 'typerace_floating_friends_bubble_position_safe_v7';
+const FLOATING_CHAT_POSITION_KEY = 'typerace_floating_chat_bubble_position_safe_v8';
+const FLOATING_FRIENDS_POSITION_KEY = 'typerace_floating_friends_bubble_position_safe_v8';
 const LEGACY_FLOATING_POSITION_KEYS = [
   'typerace_floating_chat_bubble_position_left_v2',
   'typerace_floating_friends_bubble_position_left_v2',
@@ -23,7 +23,9 @@ const LEGACY_FLOATING_POSITION_KEYS = [
   'typerace_floating_chat_bubble_position_safe_v5',
   'typerace_floating_friends_bubble_position_safe_v5',
   'typerace_floating_chat_bubble_position_safe_v6',
-  'typerace_floating_friends_bubble_position_safe_v6'
+  'typerace_floating_friends_bubble_position_safe_v6',
+  'typerace_floating_chat_bubble_position_safe_v7',
+  'typerace_floating_friends_bubble_position_safe_v7'
 ];
 
 if (typeof window !== 'undefined') {
@@ -367,6 +369,7 @@ class F1TypingBattleApp {
     this.orderedResults = [];
     this.resultsPageIndex = 0;
     this.routeHudFrameId = null;
+    this.routeHudLastRenderedAt = 0;
     this.lastRaceEventId = null;
     this.radioHideTimer = null;
     this.finishReplayTimer = null;
@@ -490,6 +493,9 @@ class F1TypingBattleApp {
       sfxVolumeInput: document.getElementById('sfxVolumeInput'),
       sfxVolumeValue: document.getElementById('sfxVolumeValue'),
       muteSfxBtn: document.getElementById('muteSfxBtn'),
+      voiceVolumeInput: document.getElementById('voiceVolumeInput'),
+      voiceVolumeValue: document.getElementById('voiceVolumeValue'),
+      muteVoiceBtn: document.getElementById('muteVoiceBtn'),
       resumeGameBtn: document.getElementById('resumeGameBtn'),
       restartAiRaceBtn: document.getElementById('restartAiRaceBtn'),
       gameMenuMainMenuBtn: document.getElementById('gameMenuMainMenuBtn'),
@@ -654,7 +660,8 @@ class F1TypingBattleApp {
         handle: this.elements.chatToggleBtn,
         storageKey: FLOATING_CHAT_POSITION_KEY,
         defaultPosition: { right: 24, bottom: 154, width: 86, height: 54 },
-        viewportPadding: 16
+        viewportPadding: 16,
+        getProtectedRects: () => this.getFloatingDockProtectedRects(this.elements.floatingChatDock)
       });
     }
 
@@ -664,9 +671,19 @@ class F1TypingBattleApp {
         handle: this.elements.inviteFriendsToggleBtn,
         storageKey: FLOATING_FRIENDS_POSITION_KEY,
         defaultPosition: { right: 24, bottom: 88, width: 132, height: 54 },
-        viewportPadding: 16
+        viewportPadding: 16,
+        getProtectedRects: () => this.getFloatingDockProtectedRects(this.elements.floatingFriendsDock)
       });
     }
+  }
+
+  getFloatingDockProtectedRects(excludedElement = null) {
+    return [
+      this.elements.floatingChatDock,
+      this.elements.floatingFriendsDock
+    ]
+      .filter((element) => element && element !== excludedElement && !element.classList.contains('hidden'))
+      .map((element) => element.getBoundingClientRect());
   }
 
   isRouteDebugEnabled() {
@@ -789,8 +806,10 @@ class F1TypingBattleApp {
     this.elements.gameMenuMainMenuBtn?.addEventListener('click', () => this.exitToMainMenuFromGame());
     this.elements.bgmVolumeInput?.addEventListener('input', () => this.updateAudioSetting('bgm'));
     this.elements.sfxVolumeInput?.addEventListener('input', () => this.updateAudioSetting('sfx'));
+    this.elements.voiceVolumeInput?.addEventListener('input', () => this.updateAudioSetting('voice'));
     this.elements.muteBgmBtn?.addEventListener('click', () => this.toggleAudioMute('bgm'));
     this.elements.muteSfxBtn?.addEventListener('click', () => this.toggleAudioMute('sfx'));
+    this.elements.muteVoiceBtn?.addEventListener('click', () => this.toggleAudioMute('voice'));
     this.elements.botDifficultyGroup?.addEventListener('click', (event) => {
       const button = event.target.closest('.difficulty-option');
 
@@ -1872,8 +1891,15 @@ class F1TypingBattleApp {
   }
 
   toggleFriendsPanel() {
-    this.isFriendsPanelOpen = !this.isFriendsPanelOpen;
+    const nextIsOpen = !this.isFriendsPanelOpen;
+
+    if (nextIsOpen) {
+      this.isChatPanelOpen = false;
+    }
+
+    this.isFriendsPanelOpen = nextIsOpen;
     this.renderLobbyInvites();
+    this.updateCommsVisibility();
   }
 
   requireSignedIn(message = 'Sign in to continue.') {
@@ -2148,6 +2174,8 @@ class F1TypingBattleApp {
 
     if (this.isChatPanelOpen) {
       this.unreadChatCount = 0;
+      this.isFriendsPanelOpen = false;
+      this.renderLobbyInvites();
     }
 
     this.updateCommsVisibility();
@@ -2396,21 +2424,23 @@ class F1TypingBattleApp {
       return {
         bgm: this.clampVolume(saved?.bgm, 0.65),
         sfx: this.clampVolume(saved?.sfx, 0.75),
+        voice: this.clampVolume(saved?.voice, 1),
         bgmMuted: Boolean(saved?.bgmMuted),
-        sfxMuted: Boolean(saved?.sfxMuted)
+        sfxMuted: Boolean(saved?.sfxMuted),
+        voiceMuted: Boolean(saved?.voiceMuted)
       };
     } catch (_error) {
-      return { bgm: 0.65, sfx: 0.75, bgmMuted: false, sfxMuted: false };
+      return { bgm: 0.65, sfx: 0.75, voice: 1, bgmMuted: false, sfxMuted: false, voiceMuted: false };
     }
   }
 
-  clampVolume(value, fallback) {
+  clampVolume(value, fallback, max = 1) {
     const number = Number(value);
     if (!Number.isFinite(number)) {
       return fallback;
     }
 
-    return Math.max(0, Math.min(1, number));
+    return Math.max(0, Math.min(max, number));
   }
 
   saveAudioSettings() {
@@ -2422,6 +2452,7 @@ class F1TypingBattleApp {
   syncAudioSettingsUI() {
     const bgmPercent = Math.round(this.audioSettings.bgm * 100);
     const sfxPercent = Math.round(this.audioSettings.sfx * 100);
+    const voicePercent = Math.round(this.audioSettings.voice * 100);
 
     if (this.elements.bgmVolumeInput) {
       this.elements.bgmVolumeInput.value = String(bgmPercent);
@@ -2429,6 +2460,10 @@ class F1TypingBattleApp {
 
     if (this.elements.sfxVolumeInput) {
       this.elements.sfxVolumeInput.value = String(sfxPercent);
+    }
+
+    if (this.elements.voiceVolumeInput) {
+      this.elements.voiceVolumeInput.value = String(voicePercent);
     }
 
     if (this.elements.bgmVolumeValue) {
@@ -2439,6 +2474,10 @@ class F1TypingBattleApp {
       this.elements.sfxVolumeValue.textContent = this.audioSettings.sfxMuted ? 'Muted' : `${sfxPercent}%`;
     }
 
+    if (this.elements.voiceVolumeValue) {
+      this.elements.voiceVolumeValue.textContent = this.audioSettings.voiceMuted ? 'Muted' : `${voicePercent}%`;
+    }
+
     if (this.elements.muteBgmBtn) {
       this.elements.muteBgmBtn.textContent = this.audioSettings.bgmMuted ? 'Unmute BGM' : 'Mute BGM';
       this.elements.muteBgmBtn.classList.toggle('active', this.audioSettings.bgmMuted);
@@ -2447,6 +2486,11 @@ class F1TypingBattleApp {
     if (this.elements.muteSfxBtn) {
       this.elements.muteSfxBtn.textContent = this.audioSettings.sfxMuted ? 'Unmute SFX' : 'Mute SFX';
       this.elements.muteSfxBtn.classList.toggle('active', this.audioSettings.sfxMuted);
+    }
+
+    if (this.elements.muteVoiceBtn) {
+      this.elements.muteVoiceBtn.textContent = this.audioSettings.voiceMuted ? 'Unmute Voice' : 'Mute Voice';
+      this.elements.muteVoiceBtn.classList.toggle('active', this.audioSettings.voiceMuted);
     }
   }
 
@@ -2459,6 +2503,11 @@ class F1TypingBattleApp {
     if (type === 'sfx') {
       this.audioSettings.sfx = this.clampVolume(Number(this.elements.sfxVolumeInput?.value || 0) / 100, 0.75);
       this.audioSettings.sfxMuted = false;
+    }
+
+    if (type === 'voice') {
+      this.audioSettings.voice = this.clampVolume(Number(this.elements.voiceVolumeInput?.value || 0) / 100, 1);
+      this.audioSettings.voiceMuted = false;
     }
 
     this.syncAudioSettingsUI();
@@ -2475,6 +2524,10 @@ class F1TypingBattleApp {
       this.audioSettings.sfxMuted = !this.audioSettings.sfxMuted;
     }
 
+    if (type === 'voice') {
+      this.audioSettings.voiceMuted = !this.audioSettings.voiceMuted;
+    }
+
     this.syncAudioSettingsUI();
     this.applyAudioSettings();
     this.saveAudioSettings();
@@ -2484,6 +2537,10 @@ class F1TypingBattleApp {
     this.game?.setAudioVolumes?.({
       bgm: this.audioSettings.bgmMuted ? 0 : this.audioSettings.bgm,
       sfx: this.audioSettings.sfxMuted ? 0 : this.audioSettings.sfx
+    });
+    this.firebase.setVoiceOutput?.({
+      volume: this.audioSettings.voice,
+      muted: this.audioSettings.voiceMuted
     });
   }
 
@@ -2661,10 +2718,11 @@ class F1TypingBattleApp {
       return;
     }
 
-    const tick = () => {
+    const tick = (timestamp = 0) => {
       this.routeHudFrameId = requestAnimationFrame(tick);
 
-      if (this.currentScreen === 'game') {
+      if (this.currentScreen === 'game' && timestamp - this.routeHudLastRenderedAt >= 120) {
+        this.routeHudLastRenderedAt = timestamp;
         this.renderRouteHud();
       }
     };

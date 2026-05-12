@@ -993,7 +993,7 @@ body.chat-open.friends-open .floating-comms-dock.is-panel-below .race-comms-pane
   height: min(410px, calc(100dvh - 112px));
   min-height: 270px;
   display: grid;
-  grid-template-rows: auto auto minmax(110px, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
 .floating-comms-dock .race-friends-panel {
@@ -1009,6 +1009,28 @@ body.chat-open.friends-open .floating-comms-dock.is-panel-below .race-comms-pane
 .online-users-list,
 .account-list {
   min-width: 0;
+}
+
+.chat-messages {
+  min-height: 0;
+  display: block;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-messages:empty {
+  display: grid;
+}
+
+.chat-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-message + .chat-message {
+  margin-top: 8px;
 }
 
 .chat-form {
@@ -1224,6 +1246,11 @@ body.chat-open.friends-open .floating-comms-dock.is-panel-below .race-comms-pane
   body.chat-open.friends-open .floating-comms-dock .race-comms-panel {
     inset: auto 0 calc(100% + 10px) auto;
     width: min(336px, calc(100vw - 24px));
+  }
+
+  .floating-comms-dock .race-comms-panel {
+    height: min(390px, calc(100dvh - 132px));
+    min-height: 246px;
   }
 
   .text-to-type {

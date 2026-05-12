@@ -120,6 +120,8 @@ export class FirebaseRaceService {
     this.queuedCandidates = new Map();
     this.localStream = null;
     this.voiceActive = false;
+    this.voiceOutputVolume = 1;
+    this.voiceOutputMuted = false;
     this.voiceAudioContext = null;
     this.voiceAnalyser = null;
     this.voiceSource = null;
@@ -1391,6 +1393,20 @@ export class FirebaseRaceService {
     });
   }
 
+  setVoiceOutput({ volume = this.voiceOutputVolume, muted = this.voiceOutputMuted } = {}) {
+    const nextVolume = Math.max(0, Math.min(1, Number(volume)));
+    this.voiceOutputVolume = Number.isFinite(nextVolume) ? nextVolume : 1;
+    this.voiceOutputMuted = Boolean(muted);
+    this.applyVoiceOutputSettings();
+  }
+
+  applyVoiceOutputSettings() {
+    this.remoteAudioElements.forEach((audio) => {
+      audio.volume = this.voiceOutputVolume;
+      audio.muted = this.voiceOutputMuted || this.voiceOutputVolume <= 0;
+    });
+  }
+
   attachRemoteAudio(remoteUid, stream) {
     let audio = this.remoteAudioElements.get(remoteUid);
 
@@ -1398,7 +1414,6 @@ export class FirebaseRaceService {
       audio = document.createElement('audio');
       audio.autoplay = true;
       audio.controls = false;
-      audio.muted = false;
       audio.playsInline = true;
       audio.dataset.remoteVoice = remoteUid;
       document.body.appendChild(audio);
@@ -1406,7 +1421,7 @@ export class FirebaseRaceService {
     }
 
     audio.srcObject = stream;
-    audio.volume = 1;
+    this.applyVoiceOutputSettings();
     audio.play().catch((error) => {
       console.warn('Remote voice playback was blocked until the next tap:', error);
       this.queueRemoteAudioUnlock();

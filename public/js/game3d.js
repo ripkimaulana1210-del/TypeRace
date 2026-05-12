@@ -54,6 +54,7 @@ const CAMERA_COLLISION_NEAR = 0.8;
 const CAMERA_COLLISION_PADDING = 1.35;
 const CAMERA_COLLISION_LIFT = 1.9;
 const CAMERA_MODE_STORAGE_KEY = 'f1TypingBattle.cameraMode.v2';
+const LITE_FRAME_INTERVAL_MS = 1000 / 45;
 const CAMERA_MODE_SETTINGS = {
   far: {
     offset: new THREE.Vector3(0, 6.4, -18.4),
@@ -76,6 +77,26 @@ const CAMERA_MODE_SETTINGS = {
     fovBoost: 8.5
   }
 };
+
+function getPerformanceProfile() {
+  const isCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches;
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const lowMemory = Number(navigator.deviceMemory || 8) <= 4;
+  const smallViewport = Math.min(window.innerWidth || 9999, window.innerHeight || 9999) <= 720;
+  const lite = Boolean(isCoarsePointer || prefersReducedMotion || lowMemory || smallViewport);
+
+  return {
+    lite,
+    antialias: !lite,
+    shadows: !lite,
+    maxPixelRatio: lite ? 1 : 1.35,
+    frameIntervalMs: lite ? LITE_FRAME_INTERVAL_MS : 0,
+    decorUpdateInterval: lite ? 0.14 : 0,
+    speedLineCount: lite ? 12 : 32,
+    skybox: !lite,
+    trackLifeDecor: !lite
+  };
+}
 const MODEL_ROUTE_BLOCK_ZONES = [
   {
     name: 'right-loop shortcut',
@@ -2208,6 +2229,7 @@ export class Game3D {
     this.startTime = null;
     this.animationFrameId = null;
     this.clock = new THREE.Clock();
+    this.performanceProfile = getPerformanceProfile();
     this.baseFov = 54;
     this.cameraOffset = new THREE.Vector3(0, 5.2, -13.2);
     this.cameraLookAhead = new THREE.Vector3(0, 1.35, 12.5);
@@ -2283,6 +2305,7 @@ export class Game3D {
 
     this.maxDeltaTime = 1 / 30;
     this.lastRenderTime = null;
+    this.decorUpdateAccumulator = 0;
     this.localSurfaceCache = { hit: null, progress: -1 };
     this.remoteSurfaceCaches = new Map();
 
@@ -2298,16 +2321,18 @@ export class Game3D {
 
       this.renderer = new THREE.WebGLRenderer({
         canvas: this.canvas,
-        antialias: true,
-        powerPreference: 'high-performance'
+        antialias: this.performanceProfile.antialias,
+        powerPreference: this.performanceProfile.lite ? 'default' : 'high-performance'
       });
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.performanceProfile.maxPixelRatio));
       this.renderer.setSize(window.innerWidth, window.innerHeight, false);
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.toneMappingExposure = 1.05;
-      this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.shadowMap.enabled = this.performanceProfile.shadows;
+      if (this.performanceProfile.shadows) {
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      }
 
       this.loadSkybox();
       this.addLights();
@@ -2334,14 +2359,16 @@ export class Game3D {
 
       const directionalLight = new THREE.DirectionalLight(0xffffff, 3.1);
       directionalLight.position.set(28, 46, 16);
-      directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.set(1024, 1024);
-      directionalLight.shadow.camera.near = 1;
-      directionalLight.shadow.camera.far = 130;
-      directionalLight.shadow.camera.left = -85;
-      directionalLight.shadow.camera.right = 85;
-      directionalLight.shadow.camera.top = 85;
-      directionalLight.shadow.camera.bottom = -85;
+      directionalLight.castShadow = this.performanceProfile.shadows;
+      if (this.performanceProfile.shadows) {
+        directionalLight.shadow.mapSize.set(1024, 1024);
+        directionalLight.shadow.camera.near = 1;
+        directionalLight.shadow.camera.far = 130;
+        directionalLight.shadow.camera.left = -85;
+        directionalLight.shadow.camera.right = 85;
+        directionalLight.shadow.camera.top = 85;
+        directionalLight.shadow.camera.bottom = -85;
+      }
       this.scene.add(directionalLight);
     } catch (error) {
       console.error('Failed to add lights:', error);
@@ -2352,7 +2379,7 @@ export class Game3D {
     try {
       this.scene.background = new THREE.Color(0x6fa8dc);
 
-      if (!SKYBOX_URLS.length) {
+      if (!SKYBOX_URLS.length || !this.performanceProfile.skybox) {
         return;
       }
 
@@ -2412,7 +2439,7 @@ export class Game3D {
       this.trackLifeDecor = null;
     }
 
-    if (!this.scene || !this.circuitModel) {
+    if (!this.scene || !this.circuitModel || !this.performanceProfile.trackLifeDecor) {
       return;
     }
 
@@ -2657,7 +2684,7 @@ export class Game3D {
 
   addSpeedLines() {
     try {
-      const lineCount = 32;
+      const lineCount = this.performanceProfile.speedLineCount;
       const positions = new Float32Array(lineCount * 2 * 3);
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -3062,6 +3089,7 @@ export class Game3D {
 
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.performanceProfile.maxPixelRatio));
       this.renderer.setSize(width, height, false);
     } catch (error) {
       console.error('Resize handling failed:', error);
@@ -4031,6 +4059,10 @@ export class Game3D {
       return;
     }
 
+    if (this.performanceProfile.frameIntervalMs > 0 && timestamp - this.lastRenderTime < this.performanceProfile.frameIntervalMs) {
+      return;
+    }
+
     const deltaTime = Math.min(
       Math.max((timestamp - this.lastRenderTime) / 1000, 0),
       this.maxDeltaTime
@@ -4043,7 +4075,11 @@ export class Game3D {
       this.updateRemoteCars(deltaTime);
       this.updateCamera(deltaTime);
       this.updateSpeedLines();
-      this.updateTrackLifeDecor(deltaTime);
+      this.decorUpdateAccumulator += deltaTime;
+      if (!this.performanceProfile.lite || this.decorUpdateAccumulator >= this.performanceProfile.decorUpdateInterval) {
+        this.updateTrackLifeDecor(this.decorUpdateAccumulator);
+        this.decorUpdateAccumulator = 0;
+      }
       this.updateFinishCeremony(deltaTime);
       this.sound?.update(
         this.localCar?.speed || 0,
