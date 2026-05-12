@@ -115,6 +115,7 @@ export class FirebaseRaceService {
     this.voiceSignalsRoomCode = '';
     this.voicePeersRoomCode = '';
     this.latestVoicePeers = [];
+    this.latestRoomParticipants = [];
     this.peerConnections = new Map();
     this.remoteAudioElements = new Map();
     this.queuedCandidates = new Map();
@@ -915,7 +916,9 @@ export class FirebaseRaceService {
       const users = snapshotList(snapshot)
         .sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
 
+      this.latestRoomParticipants = users;
       this.emitLocal('presenceChanged', { roomCode, users });
+      this.syncVoiceParticipants();
     }));
 
     this.subscribeVoiceSignals();
@@ -928,6 +931,7 @@ export class FirebaseRaceService {
     this.voiceSignalsRoomCode = '';
     this.voicePeersRoomCode = '';
     this.latestVoicePeers = [];
+    this.latestRoomParticipants = [];
   }
 
   async sendMessage(text) {
@@ -1009,7 +1013,7 @@ export class FirebaseRaceService {
       this.startSpeakingMeter();
       this.subscribeVoiceSignals();
       this.subscribeVoicePeers();
-      this.syncLocalTracksToPeers();
+      this.syncVoiceParticipants();
     } catch (error) {
       await this.stopVoice();
       throw error;
@@ -1200,26 +1204,63 @@ export class FirebaseRaceService {
     this.roomUnsubscribers.push(onValue(peersRef, (snapshot) => {
       const peers = snapshotList(snapshot)
         .filter((peer) => peer.active && peer.uid && peer.uid !== this.authUser?.uid);
-      const activePeerIds = new Set(peers.map((peer) => peer.uid));
       this.latestVoicePeers = peers;
 
       this.emitLocal('voicePeersChanged', { peers });
-
-      peers.forEach((peer) => {
-        const localUid = String(this.authUser.uid || '');
-        const remoteUid = String(peer.uid || '');
-        const shouldOffer = this.voiceActive
-          ? localUid < remoteUid
-          : true;
-        this.ensurePeer(peer.uid, shouldOffer);
-      });
-
-      Array.from(this.peerConnections.keys()).forEach((remoteUid) => {
-        if (!activePeerIds.has(remoteUid)) {
-          this.closePeer(remoteUid);
-        }
-      });
+      this.syncVoiceParticipants();
     }));
+  }
+
+  syncVoiceParticipants() {
+    if (!this.currentRoomCode || !this.authUser) {
+      return;
+    }
+
+    const localUid = String(this.authUser.uid || '');
+    const participantIds = new Set(
+      (this.latestRoomParticipants || [])
+        .map((participant) => String(participant.uid || '').trim())
+        .filter((uid) => uid && uid !== localUid)
+    );
+    const activeVoicePeerIds = new Set(
+      (this.latestVoicePeers || [])
+        .map((peer) => String(peer.uid || '').trim())
+        .filter((uid) => uid && uid !== localUid)
+    );
+
+    Array.from(this.peerConnections.keys()).forEach((remoteUid) => {
+      const isParticipant = participantIds.has(String(remoteUid));
+      const shouldKeepListening = !this.voiceActive && activeVoicePeerIds.has(String(remoteUid));
+
+      if (!isParticipant || (!this.voiceActive && !shouldKeepListening)) {
+        this.closePeer(remoteUid);
+      }
+    });
+
+    if (this.voiceActive) {
+      participantIds.forEach((remoteUid) => {
+        this.ensurePeer(remoteUid, this.shouldCreateOfferToPeer(remoteUid));
+      });
+      this.syncLocalTracksToPeers();
+      return;
+    }
+
+    activeVoicePeerIds.forEach((remoteUid) => {
+      this.ensurePeer(remoteUid, false);
+    });
+  }
+
+  shouldCreateOfferToPeer(remoteUid) {
+    if (!this.voiceActive || !this.authUser || !remoteUid) {
+      return false;
+    }
+
+    const localUid = String(this.authUser.uid || '');
+    const targetUid = String(remoteUid || '');
+    const remoteMicActive = (this.latestVoicePeers || [])
+      .some((peer) => String(peer.uid || '') === targetUid);
+
+    return remoteMicActive ? localUid < targetUid : true;
   }
 
   reconnectListeningPeers() {
@@ -1229,7 +1270,7 @@ export class FirebaseRaceService {
 
     this.latestVoicePeers.forEach((peer) => {
       if (peer?.uid && peer.uid !== this.authUser.uid) {
-        this.ensurePeer(peer.uid, true);
+        this.ensurePeer(peer.uid, false);
       }
     });
   }
@@ -1249,7 +1290,7 @@ export class FirebaseRaceService {
         });
       }
 
-      if (connection.signalingState === 'stable') {
+      if (connection.signalingState === 'stable' && this.shouldCreateOfferToPeer(remoteUid)) {
         this.createOffer(remoteUid, connection).catch((error) => {
           console.warn('Voice renegotiation failed:', error);
         });
@@ -1258,18 +1299,22 @@ export class FirebaseRaceService {
   }
 
   ensurePeer(remoteUid, shouldOffer = false) {
-    if (this.peerConnections.has(remoteUid)) {
-      return this.peerConnections.get(remoteUid);
+    const targetUid = String(remoteUid || '').trim();
+
+    if (!targetUid || targetUid === this.authUser?.uid) {
+      return null;
+    }
+
+    if (this.peerConnections.has(targetUid)) {
+      const existingConnection = this.peerConnections.get(targetUid);
+      this.attachLocalAudioTracks(existingConnection);
+      return existingConnection;
     }
 
     const connection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    this.peerConnections.set(remoteUid, connection);
+    this.peerConnections.set(targetUid, connection);
 
-    if (this.localStream?.getAudioTracks().length) {
-      this.localStream.getAudioTracks().forEach((track) => {
-        connection.addTrack(track, this.localStream);
-      });
-    } else {
+    if (!this.attachLocalAudioTracks(connection)) {
       connection.addTransceiver('audio', { direction: 'recvonly' });
     }
 
@@ -1287,7 +1332,7 @@ export class FirebaseRaceService {
             usernameFragment: event.candidate.usernameFragment
           };
 
-      this.sendSignal(remoteUid, 'candidate', candidate).catch((error) => {
+      this.sendSignal(targetUid, 'candidate', candidate).catch((error) => {
         console.warn('ICE candidate send failed:', error);
       });
     };
@@ -1299,27 +1344,55 @@ export class FirebaseRaceService {
         return;
       }
 
-      this.attachRemoteAudio(remoteUid, stream);
+      this.attachRemoteAudio(targetUid, stream);
     };
 
     connection.onconnectionstatechange = () => {
       if (['failed', 'closed'].includes(connection.connectionState)) {
-        this.closePeer(remoteUid);
+        this.closePeer(targetUid);
       }
     };
 
     if (shouldOffer) {
-      queueMicrotask(() => this.createOffer(remoteUid, connection));
+      queueMicrotask(() => this.createOffer(targetUid, connection));
     }
 
     return connection;
   }
 
+  attachLocalAudioTracks(connection) {
+    const audioTracks = this.localStream?.getAudioTracks?.() || [];
+
+    if (!connection || !audioTracks.length) {
+      return false;
+    }
+
+    audioTracks.forEach((track) => {
+      track.enabled = this.voiceActive;
+      const existingSender = connection.getSenders()
+        .find((sender) => sender.track?.kind === 'audio');
+
+      if (existingSender) {
+        if (existingSender.track !== track) {
+          existingSender.replaceTrack(track).catch((error) => {
+            console.warn('Voice replaceTrack failed:', error);
+          });
+        }
+        return;
+      }
+
+      connection.addTrack(track, this.localStream);
+    });
+
+    return true;
+  }
+
   async createOffer(remoteUid, connection) {
-    if (!this.currentRoomCode || !this.authUser || connection.signalingState !== 'stable') {
+    if (!connection || !this.currentRoomCode || !this.authUser || connection.signalingState !== 'stable') {
       return;
     }
 
+    this.attachLocalAudioTracks(connection);
     const offer = await connection.createOffer({ offerToReceiveAudio: true });
     await connection.setLocalDescription(offer);
     await this.sendSignal(remoteUid, 'offer', {
@@ -1329,11 +1402,24 @@ export class FirebaseRaceService {
   }
 
   async handleSignal(signal) {
-    if (!this.currentRoomCode || !this.authUser || !signal?.from || signal.from === this.authUser?.uid) {
+    const fromUid = String(signal?.fromUid || signal?.from || '').trim();
+    const signalRoomCode = String(signal?.roomCode || this.currentRoomCode || '').trim().toUpperCase();
+
+    if (
+      !this.currentRoomCode
+      || !this.authUser
+      || !fromUid
+      || fromUid === this.authUser?.uid
+      || signalRoomCode !== this.currentRoomCode
+    ) {
       return;
     }
 
-    const connection = this.ensurePeer(signal.from, false);
+    const connection = this.ensurePeer(fromUid, false);
+
+    if (!connection) {
+      return;
+    }
 
     if (signal.type === 'offer') {
       if (connection.signalingState !== 'stable') {
@@ -1343,11 +1429,11 @@ export class FirebaseRaceService {
       }
 
       await connection.setRemoteDescription(new RTCSessionDescription(signal.data));
-      await this.flushQueuedCandidates(signal.from, connection);
+      await this.flushQueuedCandidates(fromUid, connection);
 
       const answer = await connection.createAnswer();
       await connection.setLocalDescription(answer);
-      await this.sendSignal(signal.from, 'answer', {
+      await this.sendSignal(fromUid, 'answer', {
         type: answer.type,
         sdp: answer.sdp
       });
@@ -1357,18 +1443,18 @@ export class FirebaseRaceService {
     if (signal.type === 'answer') {
       if (connection.signalingState === 'have-local-offer') {
         await connection.setRemoteDescription(new RTCSessionDescription(signal.data));
-        await this.flushQueuedCandidates(signal.from, connection);
+        await this.flushQueuedCandidates(fromUid, connection);
       }
       return;
     }
 
     if (signal.type === 'candidate' && signal.data?.candidate) {
       if (!connection.remoteDescription?.type) {
-        if (!this.queuedCandidates.has(signal.from)) {
-          this.queuedCandidates.set(signal.from, []);
+        if (!this.queuedCandidates.has(fromUid)) {
+          this.queuedCandidates.set(fromUid, []);
         }
 
-        this.queuedCandidates.get(signal.from).push(signal.data);
+        this.queuedCandidates.get(fromUid).push(signal.data);
         return;
       }
 
@@ -1393,6 +1479,9 @@ export class FirebaseRaceService {
     const { ref, push, serverTimestamp } = this.modules;
     await push(ref(this.db, `rooms/${this.currentRoomCode}/voice/signals/${remoteUid}`), {
       from: this.authUser.uid,
+      fromUid: this.authUser.uid,
+      toUid: remoteUid,
+      roomCode: this.currentRoomCode,
       name: this.displayName,
       type,
       data,
