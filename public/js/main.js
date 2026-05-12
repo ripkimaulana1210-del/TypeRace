@@ -11,15 +11,19 @@ const BROADCAST_HUD_QUERY_PARAM = 'broadcastHud';
 const FINISH_REPLAY_DURATION_MS = 2600;
 const DEFAULT_BOT_DIFFICULTY = 'medium';
 const MAX_ROOM_PLAYERS = 8;
-const FLOATING_CHAT_POSITION_KEY = 'typerace_floating_chat_bubble_position_safe_v5';
-const FLOATING_FRIENDS_POSITION_KEY = 'typerace_floating_friends_bubble_position_safe_v5';
+const FLOATING_CHAT_POSITION_KEY = 'typerace_floating_chat_bubble_position_safe_v7';
+const FLOATING_FRIENDS_POSITION_KEY = 'typerace_floating_friends_bubble_position_safe_v7';
 const LEGACY_FLOATING_POSITION_KEYS = [
   'typerace_floating_chat_bubble_position_left_v2',
   'typerace_floating_friends_bubble_position_left_v2',
   'typerace_floating_chat_bubble_position_safe_v3',
   'typerace_floating_friends_bubble_position_safe_v3',
   'typerace_floating_chat_bubble_position_safe_v4',
-  'typerace_floating_friends_bubble_position_safe_v4'
+  'typerace_floating_friends_bubble_position_safe_v4',
+  'typerace_floating_chat_bubble_position_safe_v5',
+  'typerace_floating_friends_bubble_position_safe_v5',
+  'typerace_floating_chat_bubble_position_safe_v6',
+  'typerace_floating_friends_bubble_position_safe_v6'
 ];
 
 if (typeof window !== 'undefined') {
@@ -376,6 +380,9 @@ class F1TypingBattleApp {
     this.roomMaxPlayers = MAX_ROOM_PLAYERS;
     this.chatMessageIds = new Set();
     this.latestPresenceUsers = [];
+    this.lastKeydownInputAt = 0;
+    this.lastBeforeInputAt = 0;
+    this.visualViewportFrame = null;
     this.isFriendsPanelOpen = false;
     this.accountData = {
       profile: null,
@@ -436,6 +443,7 @@ class F1TypingBattleApp {
       profilePreviewName: document.getElementById('profilePreviewName'),
       profileBioInput: document.getElementById('profileBioInput'),
       profileSaveBtn: document.getElementById('profileSaveBtn'),
+      useGooglePhotoBtn: document.getElementById('useGooglePhotoBtn'),
       friendSearchInput: document.getElementById('friendSearchInput'),
       friendSearchBtn: document.getElementById('friendSearchBtn'),
       friendSearchResults: document.getElementById('friendSearchResults'),
@@ -559,6 +567,7 @@ class F1TypingBattleApp {
     this.elements.loadingText.textContent = 'Connecting to race control...';
     this.restoreSavedSession();
     this.bindUI();
+    this.initViewportHandling();
     this.initFloatingCommsDocks();
     this.bindNetwork();
     this.bindFirebase();
@@ -606,13 +615,45 @@ class F1TypingBattleApp {
     }
   }
 
+  initViewportHandling() {
+    this.updateVisualViewportMetrics();
+
+    const scheduleUpdate = () => this.scheduleVisualViewportUpdate();
+    window.addEventListener('resize', scheduleUpdate, { passive: true });
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', scheduleUpdate, { passive: true });
+      window.visualViewport.addEventListener('scroll', scheduleUpdate, { passive: true });
+    }
+  }
+
+  scheduleVisualViewportUpdate() {
+    if (this.visualViewportFrame) {
+      return;
+    }
+
+    this.visualViewportFrame = requestAnimationFrame(() => {
+      this.visualViewportFrame = null;
+      this.updateVisualViewportMetrics();
+    });
+  }
+
+  updateVisualViewportMetrics() {
+    const viewport = window.visualViewport;
+    const keyboardOffset = viewport
+      ? Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop))
+      : 0;
+
+    document.documentElement.style.setProperty('--mobile-keyboard-offset', `${keyboardOffset}px`);
+  }
+
   initFloatingCommsDocks() {
     if (this.elements.floatingChatDock && !this.floatingChatPanel) {
       this.floatingChatPanel = new DraggableFloatingPanel({
         element: this.elements.floatingChatDock,
         handle: this.elements.chatToggleBtn,
         storageKey: FLOATING_CHAT_POSITION_KEY,
-        defaultPosition: { right: 24, bottom: 154, width: 76, height: 58 },
+        defaultPosition: { right: 24, bottom: 154, width: 86, height: 54 },
         viewportPadding: 16
       });
     }
@@ -622,7 +663,7 @@ class F1TypingBattleApp {
         element: this.elements.floatingFriendsDock,
         handle: this.elements.inviteFriendsToggleBtn,
         storageKey: FLOATING_FRIENDS_POSITION_KEY,
-        defaultPosition: { right: 24, bottom: 88, width: 86, height: 58 },
+        defaultPosition: { right: 24, bottom: 88, width: 132, height: 54 },
         viewportPadding: 16
       });
     }
@@ -703,6 +744,7 @@ class F1TypingBattleApp {
     this.elements.profileBioInput?.addEventListener('input', () => {
       this.isProfileEditDirty = true;
     });
+    this.elements.useGooglePhotoBtn?.addEventListener('click', () => this.useGooglePhotoAsAvatar());
     this.elements.profileSaveBtn?.addEventListener('click', () => this.saveProfile());
     this.elements.friendSearchBtn?.addEventListener('click', () => this.searchFriends());
     this.elements.friendSearchInput?.addEventListener('keydown', (event) => {
@@ -812,6 +854,10 @@ class F1TypingBattleApp {
     this.elements.resultsPrevBtn?.addEventListener('click', () => this.changeResultsPage(-1));
     this.elements.resultsNextBtn?.addEventListener('click', () => this.changeResultsPage(1));
     this.elements.typingInput.addEventListener('keydown', (event) => this.handleTyping(event));
+    this.elements.typingInput.addEventListener('beforeinput', (event) => this.handleTypingBeforeInput(event));
+    this.elements.typingInput.addEventListener('input', () => this.handleTypingInput());
+    this.elements.textToType?.addEventListener('pointerdown', () => this.focusTypingInput());
+    this.elements.gameScreen?.addEventListener('pointerdown', (event) => this.handleGameScreenPointerDown(event));
     this.elements.cameraModeButtons.forEach((button) => {
       button.addEventListener('click', () => {
         const nextMode = this.game?.setCameraMode(button.dataset.cameraMode);
@@ -1285,12 +1331,17 @@ class F1TypingBattleApp {
     element.innerHTML = this.renderAvatarContent({ photoURL: safePhotoURL, name, fallback });
   }
 
-  getProfilePhotoURL(profile = this.accountData.profile || {}, user = this.firebase.getCurrentUser()) {
-    if (profile && Object.prototype.hasOwnProperty.call(profile, 'photoURL')) {
-      return String(profile.photoURL || '').trim();
-    }
+  getGoogleProfilePhotoURL(user = this.firebase.getCurrentUser()) {
+    const googleProfile = (user?.providerData || [])
+      .find((profile) => profile?.providerId === 'google.com');
 
-    return String(user?.photoURL || '').trim();
+    return this.getSafeImageUrl(googleProfile?.photoURL || '');
+  }
+
+  getProfilePhotoURL(profile = this.accountData.profile || {}, user = this.firebase.getCurrentUser()) {
+    return this.getGoogleProfilePhotoURL(user)
+      || this.getSafeImageUrl(profile?.photoURL || '')
+      || this.getSafeImageUrl(user?.photoURL || '');
   }
 
   renderNavbarProfile() {
@@ -1614,12 +1665,51 @@ class F1TypingBattleApp {
     return friend?.photoURL || '';
   }
 
+  async useGooglePhotoAsAvatar() {
+    try {
+      const user = this.firebase.getCurrentUser();
+
+      if (!user) {
+        alert('Mohon login terlebih dahulu untuk menggunakan Google Photo.');
+        return;
+      }
+
+      const photoURL = this.getGoogleProfilePhotoURL(user) || this.getSafeImageUrl(user.photoURL);
+
+      if (!photoURL) {
+        alert('Foto Google tidak ditemukan. Login menggunakan Google terlebih dahulu.');
+        return;
+      }
+
+      if (this.elements.profileAvatarInput) {
+        this.elements.profileAvatarInput.value = photoURL;
+        this.isProfileEditDirty = true;
+        this.renderProfileEditPreview();
+      }
+
+      const btn = this.elements.useGooglePhotoBtn;
+      if (btn) {
+        const originalText = btn.textContent;
+        btn.textContent = 'Google Photo loaded';
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.disabled = false;
+        }, 2000);
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Gagal memuat Google Photo.');
+    }
+  }
+
   async saveProfile() {
     const saveButton = this.elements.profileSaveBtn;
     const originalLabel = saveButton?.textContent || 'Save Profile';
 
     try {
-      const photoURL = String(this.elements.profileAvatarInput?.value || '').trim();
+      const googlePhotoURL = this.getGoogleProfilePhotoURL(this.firebase.getCurrentUser());
+      const photoURL = googlePhotoURL || String(this.elements.profileAvatarInput?.value || '').trim();
       if (photoURL && !this.isSafeImageUrl(photoURL)) {
         throw new Error('Avatar URL must start with http:// or https://.');
       }
@@ -2481,6 +2571,7 @@ class F1TypingBattleApp {
 
     this.currentScreen = name;
     document.body.dataset.screen = name;
+    this.updateVisualViewportMetrics();
     this.refreshFloatingCommsDock();
     this.elements.gameMenuBtn?.classList.toggle('hidden', name !== 'game');
     this.updateAuthGateControls({
@@ -2498,9 +2589,7 @@ class F1TypingBattleApp {
           this.renderTyping();
         }
 
-        if (this.network.state === 'racing' && !this.elements.typingInput.disabled) {
-          this.elements.typingInput.focus();
-        }
+        this.focusTypingInput();
       });
     }
   }
@@ -3129,7 +3218,7 @@ class F1TypingBattleApp {
           <div class="player-info">
             <div class="player-name-line">
               <strong>Open slot</strong>
-              <span class="player-role">Ready</span>
+              <span class="player-role waiting">Waiting</span>
             </div>
             <div class="player-meta">
               <span>Waiting for driver</span>
@@ -3354,18 +3443,134 @@ class F1TypingBattleApp {
   handleTyping(event) {
     if (this.currentScreen !== 'game' || this.network.state !== 'racing') {
       event.preventDefault();
+      this.resetTypingInputValue();
+      return;
+    }
+
+    const char = event.key;
+    const shouldLetTextEventHandle = event.isComposing
+      || char === 'Unidentified'
+      || char === 'Process'
+      || char === 'Dead';
+
+    if (shouldLetTextEventHandle) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (char.length !== 1) {
+      this.resetTypingInputValue();
+      return;
+    }
+
+    this.lastKeydownInputAt = Date.now();
+    this.safeResumeAudio();
+    this.submitTypingChar(char);
+  }
+
+  handleTypingBeforeInput(event) {
+    if (this.currentScreen !== 'game' || this.network.state !== 'racing') {
+      event.preventDefault();
+      this.resetTypingInputValue();
+      return;
+    }
+
+    const inputType = event.inputType || '';
+    const canInsertText = inputType === 'insertText'
+      || inputType === 'insertCompositionText'
+      || inputType === 'insertFromPaste';
+    const text = String(event.data || '');
+
+    if (!canInsertText || !text) {
+      event.preventDefault();
+      this.resetTypingInputValue();
+      return;
+    }
+
+    event.preventDefault();
+    this.resetTypingInputValue();
+
+    if (Date.now() - this.lastKeydownInputAt < 60) {
+      return;
+    }
+
+    this.lastBeforeInputAt = Date.now();
+    this.safeResumeAudio();
+    this.submitTypingText(text);
+  }
+
+  handleTypingInput() {
+    const input = this.elements.typingInput;
+
+    if (!input) {
+      return;
+    }
+
+    const text = String(input.value || '');
+    input.value = '';
+
+    if (!text || this.currentScreen !== 'game' || this.network.state !== 'racing') {
+      return;
+    }
+
+    if (Date.now() - this.lastBeforeInputAt < 80) {
       return;
     }
 
     this.safeResumeAudio();
-    event.preventDefault();
+    this.submitTypingText(text);
+  }
 
-    const char = event.key;
-
-    if (char.length !== 1) {
+  handleGameScreenPointerDown(event) {
+    if (this.currentScreen !== 'game' || this.network.state !== 'racing' || this.isGameMenuOpen) {
       return;
     }
 
+    const target = event.target;
+    const interactiveTarget = target?.closest?.('button, input, textarea, select, a, .race-tools, .corner-control-bar, .modal, .floating-comms-dock');
+
+    if (interactiveTarget) {
+      return;
+    }
+
+    this.focusTypingInput();
+  }
+
+  focusTypingInput() {
+    const input = this.elements.typingInput;
+
+    if (!input || input.disabled || this.currentScreen !== 'game' || this.network.state !== 'racing' || this.isGameMenuOpen) {
+      return;
+    }
+
+    try {
+      input.focus({ preventScroll: true });
+    } catch (_error) {
+      input.focus();
+    }
+
+    this.scheduleVisualViewportUpdate();
+  }
+
+  resetTypingInputValue() {
+    if (this.elements.typingInput) {
+      this.elements.typingInput.value = '';
+    }
+  }
+
+  submitTypingText(text) {
+    Array.from(String(text || '')).some((char) => {
+      if (char === '\n' || char === '\r' || char === '\t') {
+        return false;
+      }
+
+      this.submitTypingChar(char);
+      return this.typing.typed.length >= this.typing.text.length;
+    });
+  }
+
+  submitTypingChar(char) {
     const result = this.typing.handleInput(char);
 
     if (!result.accepted) {
@@ -3820,10 +4025,10 @@ class F1TypingBattleApp {
 
     this.elements.typingInput.disabled = !active;
     this.elements.typingInput.value = '';
-    this.elements.typingInput.placeholder = active ? '' : 'Tunggu start';
+    this.elements.typingInput.placeholder = active ? '' : 'Waiting for start';
 
     if (active) {
-      requestAnimationFrame(() => this.elements.typingInput.focus());
+      requestAnimationFrame(() => this.focusTypingInput());
       return;
     }
 

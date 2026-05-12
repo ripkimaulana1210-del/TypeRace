@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/f1-theme.css">
   <link rel="stylesheet" href="css/race-control-redesign.css">
+  <link rel="stylesheet" href="css/ui-ux-overhaul.css">
   <script src="/socket.io/socket.io.js"></script>
   <script type="importmap">
     {
@@ -42,12 +43,12 @@
       </div>
 
       <button id="authLoginNavBtn" class="topbar-btn" type="button">Login</button>
-      <button id="settingsBtn" class="topbar-btn" type="button">Setting</button>
+      <button id="settingsBtn" class="topbar-btn" type="button">Settings</button>
     </div>
   </header>
 
   <div class="corner-control-bar">
-    <button id="gameMenuBtn" class="icon-btn hidden" type="button" title="Menu race">MENU</button>
+    <button id="gameMenuBtn" class="icon-btn hidden" type="button" title="Race menu">MENU</button>
   </div>
 
   <div id="accountMenu" class="account-menu hidden" aria-label="Account menu">
@@ -60,7 +61,7 @@
 
   <div id="globalCommsRoot" class="global-comms-root">
     <div id="floatingChatDock" class="floating-comms-dock floating-chat-dock" aria-label="Chat shortcut">
-      <button id="chatToggleBtn" class="chat-toggle-btn hidden" type="button" aria-controls="raceCommsPanel" aria-expanded="false" title="Buka chat race">
+      <button id="chatToggleBtn" class="chat-toggle-btn hidden" type="button" aria-controls="raceCommsPanel" aria-expanded="false" title="Open race chat">
         <span>CHAT</span>
         <strong id="chatUnreadBadge" class="chat-unread-badge hidden">0</strong>
       </button>
@@ -94,7 +95,7 @@
       <aside id="inviteFriendsPanel" class="panel race-friends-panel friends-panel hidden collapsed" aria-label="Invite friends">
         <div class="race-friends-body">
           <div class="race-friends-head">
-            <span class="field-label">Online Friends</span>
+            <span class="field-label">Invite Friends</span>
           </div>
           <div id="lobbyInviteList" class="account-list"></div>
         </div>
@@ -108,7 +109,7 @@
         <div>
           <p class="eyebrow">Account</p>
           <h2>Sign in to Play</h2>
-          <p class="auth-copy">Login unlocks race rooms, saved sessions, realtime chat, and voice.</p>
+          <p class="auth-copy">Login unlocks race rooms, saved sessions, realtime chat, and voice comms.</p>
         </div>
         <button id="authCloseBtn" class="icon-btn" type="button" title="Close login">X</button>
       </div>
@@ -148,7 +149,7 @@
         <div>
           <p class="eyebrow">Account</p>
           <h2>Driver Profile</h2>
-          <p class="auth-copy">Driver identity, squad, and race record.</p>
+          <p class="auth-copy">Driver identity, friends, invites, and race record.</p>
         </div>
         <button id="accountCloseBtn" class="icon-btn" type="button" title="Close profile">X</button>
       </div>
@@ -185,7 +186,7 @@
           <div>
             <span class="field-label">Preview</span>
             <strong id="profilePreviewName">Driver</strong>
-            <p class="room-context">Paste image URL or leave empty to use initials.</p>
+            <p class="room-context">Google sign-in uses your Google photo automatically.</p>
           </div>
         </div>
         <div class="account-form-grid">
@@ -201,6 +202,9 @@
             <span class="field-label">Avatar URL</span>
             <input id="profileAvatarInput" class="input-field" type="url" maxlength="500" placeholder="https://...">
           </label>
+          <div class="account-actions-row">
+            <button id="useGooglePhotoBtn" class="btn btn-secondary" type="button">Use Google Photo</button>
+          </div>
           <label class="account-field-wide">
             <span class="field-label">Bio / Status</span>
             <textarea id="profileBioInput" class="input-field account-textarea" maxlength="120" placeholder="Short racing status"></textarea>
@@ -353,7 +357,7 @@
 
       <div id="aiSetupPanel" class="ai-setup-panel">
         <div class="setup-row">
-          <span class="field-label">Difficulty Bot</span>
+          <span class="field-label">Bot Difficulty</span>
           <div id="botDifficultyGroup" class="difficulty-grid">
             <button type="button" class="difficulty-option" data-difficulty="very-easy">Very Easy</button>
             <button type="button" class="difficulty-option" data-difficulty="easy">Easy</button>
@@ -404,7 +408,7 @@
 
   <div id="gameMenuModal" class="modal hidden">
     <div class="panel modal-panel game-menu-panel">
-      <p id="gameMenuModeLabel" class="eyebrow">Setting</p>
+      <p id="gameMenuModeLabel" class="eyebrow">Settings</p>
       <h2 id="gameMenuTitle">Menu</h2>
       <div id="aiPauseNotice" class="pause-notice hidden">VS AI mode is paused.</div>
       <div class="settings-panel">
@@ -478,31 +482,31 @@
               <button type="button" class="lap-option lap-card active" data-lap="1">
                 <span>01</span>
                 <strong>Sprint</strong>
-                <small>Singkat</small>
+                <small>Fast</small>
               </button>
 
               <button type="button" class="lap-option lap-card" data-lap="2">
                 <span>02</span>
                 <strong>Short</strong>
-                <small>Santai</small>
+                <small>Light</small>
               </button>
 
               <button type="button" class="lap-option lap-card" data-lap="3">
                 <span>03</span>
                 <strong>Standard</strong>
-                <small>Seimbang</small>
+                <small>Balanced</small>
               </button>
 
               <button type="button" class="lap-option lap-card" data-lap="4">
                 <span>04</span>
                 <strong>Extended</strong>
-                <small>Panjang</small>
+                <small>Long</small>
               </button>
 
               <button type="button" class="lap-option lap-card" data-lap="5">
                 <span>05</span>
                 <strong>Endurance</strong>
-                <small>Fokus</small>
+                <small>Focus</small>
               </button>
             </div>
           </section>
@@ -560,7 +564,7 @@
         <div class="hud-grid">
           <div class="hud-card typing-card">
             <div id="textToType" class="text-to-type"></div>
-            <input id="typingInput" class="typing-input" type="text" autocomplete="off" spellcheck="false">
+            <input id="typingInput" class="typing-input" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="Race typing input">
             <div id="inputFeedback" class="input-feedback"></div>
           </div>
           <div class="hud-card stats-card">

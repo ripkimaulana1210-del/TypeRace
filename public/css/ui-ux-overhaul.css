@@ -1,0 +1,1472 @@
+:root {
+  --ux-bg: #070908;
+  --ux-bg-raised: #101512;
+  --ux-panel: rgba(13, 18, 16, 0.94);
+  --ux-panel-strong: rgba(18, 24, 21, 0.98);
+  --ux-panel-soft: rgba(245, 247, 242, 0.055);
+  --ux-line: rgba(232, 240, 234, 0.14);
+  --ux-line-strong: rgba(232, 240, 234, 0.26);
+  --ux-text: #f7faf5;
+  --ux-muted: #b5c0b8;
+  --ux-dim: #78857c;
+  --ux-red: #ff3447;
+  --ux-amber: #f6c85f;
+  --ux-green: #56df92;
+  --ux-cyan: #5bc8ed;
+  --ux-danger: #ff6c78;
+  --ux-shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
+  --ux-radius: 8px;
+  --ux-topbar: 64px;
+  --mobile-keyboard-offset: 0px;
+}
+
+* {
+  scrollbar-color: rgba(246, 200, 95, 0.58) rgba(255, 255, 255, 0.06);
+}
+
+html,
+body {
+  min-width: 320px;
+}
+
+body {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 26%),
+    linear-gradient(115deg, rgba(255, 52, 71, 0.18) 0 12%, transparent 12.15%),
+    linear-gradient(244deg, rgba(91, 200, 237, 0.12) 0 13%, transparent 13.2%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.032) 0 1px, transparent 1px 96px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 96px),
+    linear-gradient(180deg, #0a0d0b 0%, var(--ux-bg) 52%, #040504 100%);
+  color: var(--ux-text);
+  overflow: hidden;
+}
+
+body::before {
+  opacity: 0.34;
+  background:
+    linear-gradient(90deg, transparent 0 11%, rgba(246, 200, 95, 0.15) 11% 11.25%, transparent 11.25%),
+    repeating-linear-gradient(135deg, transparent 0 24px, rgba(255, 52, 71, 0.065) 24px 26px);
+  mask-image: linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 120;
+  height: 8px;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, #f7faf5 0 18px, #070908 18px 36px),
+    linear-gradient(90deg, var(--ux-red), var(--ux-amber), var(--ux-green), var(--ux-cyan));
+  box-shadow: 0 -12px 30px rgba(255, 52, 71, 0.18);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  letter-spacing: 0;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(91, 200, 237, 0.85);
+  outline-offset: 2px;
+}
+
+.screen {
+  padding: calc(var(--ux-topbar) + 18px) clamp(16px, 3vw, 40px) 22px;
+}
+
+.screen.active {
+  min-width: 0;
+}
+
+body[data-screen="game"] .screen {
+  padding: 0;
+}
+
+.panel,
+.start-panel,
+.start-side-panel,
+.setup-panel,
+.modal-panel,
+.lobby-panel,
+.results-panel,
+.hud-card,
+.race-comms-panel,
+.race-friends-panel,
+.quick-preview,
+.side-status-card,
+.setup-action-card,
+.mode-card,
+.lap-settings-card,
+.account-player-card,
+.account-stat-card,
+.account-list-wrap,
+.player-card,
+.result-card {
+  border: 1px solid var(--ux-line);
+  border-radius: var(--ux-radius);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.07), transparent 34%),
+    var(--ux-panel);
+  box-shadow: var(--ux-shadow);
+  backdrop-filter: blur(16px);
+}
+
+.panel::before,
+.start-panel::before,
+.start-side-panel::before,
+.setup-panel::before,
+.modal-panel::before,
+.lobby-panel::before,
+.results-panel::before,
+.lap-settings-card::before,
+.race-comms-panel::before,
+.race-friends-panel::before {
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, var(--ux-red) 0 28%, transparent 28% 49%, var(--ux-amber) 49% 55%, transparent 55% 76%, var(--ux-cyan) 76% 100%) top left / 100% 3px no-repeat;
+}
+
+.field-label,
+.eyebrow,
+.status-pill,
+.topbar-btn,
+.btn,
+.mode-kicker,
+.player-role,
+.badge,
+.mini-btn,
+.chip {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-topbar {
+  min-height: var(--ux-topbar);
+  padding: 10px clamp(18px, 3vw, 40px);
+  border-bottom: 1px solid rgba(232, 240, 234, 0.12);
+  background: rgba(6, 8, 7, 0.92);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+.app-brand {
+  gap: 12px;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-color: rgba(246, 200, 95, 0.42);
+  background:
+    linear-gradient(135deg, rgba(255, 52, 71, 0.2), rgba(246, 200, 95, 0.13)),
+    rgba(255, 255, 255, 0.035);
+  color: var(--ux-amber);
+  font-size: 0.8rem;
+}
+
+.app-brand strong {
+  color: var(--ux-text);
+  font-size: 0.95rem;
+  line-height: 1.05;
+}
+
+.app-brand small {
+  color: var(--ux-amber);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.topbar-actions {
+  gap: 10px;
+}
+
+.status-pill,
+.topbar-btn,
+.navbar-profile-btn,
+.btn,
+.mini-btn,
+.icon-btn {
+  min-height: 38px;
+  border-radius: 8px;
+  border-color: var(--ux-line);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--ux-text);
+  box-shadow: none;
+}
+
+.status-pill.online,
+#appConnectionLabel.online {
+  border-color: rgba(86, 223, 146, 0.38);
+  background: rgba(86, 223, 146, 0.1);
+  color: #eafff2;
+}
+
+.topbar-btn,
+.btn,
+.mini-btn,
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 900;
+  text-align: center;
+}
+
+.topbar-btn:hover,
+.btn:hover:not(:disabled),
+.mini-btn:hover:not(:disabled),
+.icon-btn:hover:not(:disabled),
+.navbar-profile-btn:hover {
+  border-color: rgba(246, 200, 95, 0.58);
+  background: rgba(246, 200, 95, 0.095);
+  transform: translateY(-1px);
+}
+
+.btn-primary,
+.mini-btn.primary {
+  border-color: rgba(86, 223, 146, 0.45);
+  background:
+    linear-gradient(135deg, rgba(86, 223, 146, 0.24), rgba(91, 200, 237, 0.1)),
+    rgba(86, 223, 146, 0.08);
+  color: #f4fff8;
+}
+
+.btn-secondary,
+.btn-ghost {
+  border-color: rgba(232, 240, 234, 0.16);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--ux-muted);
+}
+
+.btn:disabled,
+.mini-btn:disabled,
+.topbar-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+}
+
+.input-field,
+.typing-input,
+select,
+textarea {
+  border-radius: 8px;
+  border: 1px solid rgba(232, 240, 234, 0.14);
+  background: rgba(2, 5, 4, 0.58);
+  color: var(--ux-text);
+}
+
+.input-field::placeholder,
+textarea::placeholder {
+  color: rgba(181, 192, 184, 0.58);
+}
+
+.input-field:focus,
+.typing-input:focus,
+textarea:focus {
+  border-color: rgba(91, 200, 237, 0.55);
+  background: rgba(4, 8, 7, 0.82);
+}
+
+.modal {
+  z-index: 95;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.52);
+  overflow-y: auto;
+}
+
+.modal-panel {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100dvh - 36px);
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 24px);
+  overflow-y: auto;
+}
+
+.modal-head,
+.panel-header,
+.lobby-header,
+.race-comms-head,
+.lobby-section-head,
+.lap-settings-head,
+.auth-panel-head,
+.account-section-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-head h2,
+.panel-header h2,
+.lobby-section-head h3,
+.lap-settings-head h3 {
+  color: var(--ux-text);
+  line-height: 1.05;
+}
+
+.auth-modal-panel,
+.account-modal-panel {
+  width: min(780px, calc(100vw - 32px));
+}
+
+.auth-panel,
+.account-form-grid,
+.account-list-wrap,
+.profile-edit-preview {
+  border: 1px solid rgba(232, 240, 234, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.auth-grid,
+.account-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.account-tabs {
+  padding: 4px;
+  border: 1px solid rgba(232, 240, 234, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.account-tabs button {
+  min-height: 38px;
+  border-radius: 6px;
+  color: var(--ux-muted);
+}
+
+.account-tabs button.active {
+  color: var(--ux-text);
+  background: rgba(246, 200, 95, 0.12);
+}
+
+.account-menu {
+  z-index: 100;
+  top: calc(var(--ux-topbar) + 8px);
+  right: clamp(14px, 3vw, 40px);
+  width: min(230px, calc(100vw - 28px));
+  padding: 6px;
+  border: 1px solid rgba(232, 240, 234, 0.14);
+  border-radius: 8px;
+  background: rgba(10, 14, 13, 0.98);
+  box-shadow: var(--ux-shadow);
+}
+
+.account-menu button {
+  min-height: 38px;
+  border-radius: 6px;
+  color: var(--ux-muted);
+}
+
+.account-menu button:hover {
+  color: var(--ux-amber);
+  background: rgba(246, 200, 95, 0.1);
+}
+
+body[data-screen="menu"] #menuScreen.screen.active,
+body[data-screen="multiplayerSetup"] #multiplayerSetupScreen.screen.active,
+body[data-screen="aiSetup"] #aiSetupScreen.screen.active,
+body[data-screen="loading"] #loadingScreen.screen.active {
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+body[data-screen="menu"] .start-dashboard {
+  width: min(1180px, calc(100vw - 40px));
+  min-height: min(620px, calc(100dvh - 110px));
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(330px, 0.72fr);
+  gap: 18px;
+}
+
+body[data-screen="menu"] .start-panel,
+body[data-screen="menu"] .start-side-panel {
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(20px, 3vw, 34px);
+}
+
+body[data-screen="menu"] .start-panel {
+  display: grid;
+  align-content: space-between;
+  gap: 24px;
+}
+
+.hero-copy {
+  max-width: 680px;
+}
+
+.hero-copy h1 {
+  max-width: none;
+  margin-top: 10px;
+  color: var(--ux-text);
+  font-size: clamp(3.8rem, 8vw, 7rem);
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+.hero-copy .subtitle,
+.auth-copy,
+.room-context,
+.saved-room-hint {
+  color: var(--ux-muted);
+}
+
+.hero-telemetry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.hero-telemetry span,
+.chip,
+.lobby-state span,
+.status-badge {
+  border: 1px solid rgba(232, 240, 234, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.hero-telemetry span {
+  padding: 9px 11px;
+  color: var(--ux-muted);
+}
+
+.hero-telemetry strong {
+  color: var(--ux-amber);
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mode-card,
+.setup-action-card {
+  min-height: 136px;
+  align-items: stretch;
+  padding: 18px;
+  text-align: left;
+}
+
+.mode-card strong,
+.setup-action-card strong {
+  color: var(--ux-text);
+  font-size: 1.25rem;
+}
+
+.mode-card small,
+.setup-action-card small,
+.side-status-card small {
+  color: var(--ux-muted);
+  line-height: 1.35;
+}
+
+.mode-card.active,
+.mode-switch .mode-card.active,
+.setup-action-card:hover {
+  border-color: rgba(246, 200, 95, 0.42);
+  background:
+    linear-gradient(135deg, rgba(255, 52, 71, 0.16), rgba(246, 200, 95, 0.08)),
+    var(--ux-panel);
+}
+
+.mode-card.locked {
+  opacity: 0.64;
+}
+
+.start-side-panel {
+  display: grid;
+  grid-template-rows: minmax(260px, 1fr) auto;
+  gap: 14px;
+}
+
+.quick-preview {
+  min-height: 300px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(91, 200, 237, 0.12), transparent 45%),
+    linear-gradient(315deg, rgba(246, 200, 95, 0.12), transparent 42%),
+    #0b0f0d;
+}
+
+.side-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.side-status-card {
+  min-height: 112px;
+  padding: 16px;
+}
+
+.setup-panel {
+  width: min(760px, calc(100vw - 40px));
+  display: grid;
+  gap: 18px;
+  padding: clamp(20px, 3vw, 28px);
+}
+
+.setup-hero {
+  min-height: 104px;
+  padding: 18px;
+  background:
+    linear-gradient(90deg, rgba(91, 200, 237, 0.12), transparent 44%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.setup-action-grid,
+.difficulty-grid,
+.compact-lap-grid {
+  gap: 12px;
+}
+
+.difficulty-option,
+.compact-lap-option,
+.lap-option {
+  min-height: 48px;
+  border-radius: 8px;
+}
+
+body[data-screen="lobby"] #lobbyScreen.screen.active,
+body.chat-open[data-screen="lobby"] #lobbyScreen.screen.active,
+body.friends-open[data-screen="lobby"] #lobbyScreen.screen.active {
+  align-items: flex-start;
+  justify-content: center;
+  padding: calc(var(--ux-topbar) + 14px) clamp(16px, 3vw, 34px) 18px;
+  overflow: hidden;
+}
+
+body[data-screen="lobby"] .lobby-panel {
+  width: min(1180px, calc(100vw - 40px));
+  height: min(690px, calc(100dvh - var(--ux-topbar) - 32px));
+  max-height: calc(100dvh - var(--ux-topbar) - 32px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: clamp(16px, 2vw, 22px);
+  overflow: hidden;
+}
+
+body[data-screen="lobby"] .lobby-header {
+  min-width: 0;
+  align-items: flex-start;
+  padding-bottom: 12px;
+}
+
+.room-summary {
+  min-width: 0;
+}
+
+.room-code-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.room-code-row h2 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--ux-text);
+  font-size: clamp(2.6rem, 5.3vw, 4.6rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+}
+
+.room-code-row .btn {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 38px;
+}
+
+body[data-screen="lobby"] .lobby-state {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: min(360px, 42vw);
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+body[data-screen="lobby"] .lobby-state span {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 12px;
+  color: var(--ux-text);
+}
+
+#trackReadyLabel.ready,
+.status-badge.online {
+  border-color: rgba(86, 223, 146, 0.34);
+  background: rgba(86, 223, 146, 0.1);
+  color: #eafff2;
+}
+
+body[data-screen="lobby"] .lobby-layout {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(330px, 0.86fr) minmax(450px, 1.14fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+body[data-screen="lobby"] .left-column,
+body[data-screen="lobby"] .center-column {
+  min-width: 0;
+  min-height: 0;
+}
+
+body[data-screen="lobby"] .laps-panel,
+body[data-screen="lobby"] .drivers-panel {
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.062), transparent 36%),
+    rgba(7, 11, 10, 0.82);
+}
+
+body[data-screen="lobby"] .laps-panel {
+  height: fit-content;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+body[data-screen="lobby"] .drivers-panel {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.lap-settings-head {
+  gap: 14px;
+}
+
+.lap-settings-head p {
+  margin-top: 6px;
+}
+
+.lap-preview {
+  flex: 0 0 60px;
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+}
+
+body[data-screen="lobby"] .lap-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(70px, 1fr));
+  gap: 9px;
+}
+
+body[data-screen="lobby"] .lap-card {
+  min-height: 74px;
+  padding: 12px 10px;
+}
+
+body[data-screen="lobby"] .lap-card span {
+  color: var(--ux-red);
+}
+
+body[data-screen="lobby"] .lap-card strong,
+body[data-screen="lobby"] .lap-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lobby-section-head {
+  align-items: center;
+}
+
+#lobbyDriverCount {
+  min-width: 74px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(246, 200, 95, 0.3);
+  border-radius: 8px;
+  background: rgba(246, 200, 95, 0.08);
+  color: var(--ux-amber);
+}
+
+body[data-screen="lobby"] .drivers-panel .players-list {
+  min-height: 0;
+  max-height: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.player-card,
+.result-card,
+.account-list-item,
+.history-row {
+  min-width: 0;
+}
+
+.player-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-areas: "slot info";
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.player-card:not(.empty-slot) {
+  grid-column: 1 / -1;
+  grid-template-columns: 42px 52px minmax(0, 1fr) max-content;
+  grid-template-areas: "slot avatar info badges";
+  min-height: 86px;
+  padding: 12px 14px;
+  border-color: rgba(91, 200, 237, 0.22);
+}
+
+.player-card.empty-slot {
+  border-style: dashed;
+  opacity: 0.58;
+}
+
+.player-card .grid-slot {
+  grid-area: slot;
+  align-self: center;
+  justify-self: center;
+}
+
+.driver-card-avatar {
+  grid-area: avatar;
+  align-self: center;
+  justify-self: center;
+  width: 52px;
+  height: 52px;
+}
+
+.player-info {
+  grid-area: info;
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+}
+
+.player-name-line,
+.player-badges {
+  min-width: 0;
+}
+
+.player-name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.1;
+}
+
+.player-name-line strong {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.player-role.waiting {
+  color: var(--ux-dim);
+}
+
+.player-badges {
+  grid-area: badges;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-self: center;
+  gap: 5px;
+  max-width: 112px;
+}
+
+.player-badges .badge {
+  min-height: 24px;
+  padding: 4px 8px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.driver-voice-row {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.player-card.empty-slot .player-badges {
+  display: none;
+}
+
+.player-card.empty-slot .player-name-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.player-card.empty-slot strong {
+  font-size: 0.95rem;
+}
+
+.player-card.empty-slot .player-role {
+  font-size: 0.58rem;
+}
+
+body[data-screen="lobby"] .bottom-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+}
+
+body[data-screen="lobby"] .bottom-actions .btn {
+  min-height: 50px;
+}
+
+.global-comms-root {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.floating-comms-dock {
+  position: fixed;
+  width: max-content;
+  min-height: 54px;
+  max-width: calc(100vw - 32px);
+  display: grid;
+  justify-items: end;
+  pointer-events: none;
+  z-index: 80;
+}
+
+.floating-chat-dock {
+  right: 24px;
+  bottom: 154px;
+  left: auto;
+  top: auto;
+}
+
+.floating-friends-dock {
+  right: 24px;
+  bottom: 88px;
+  left: auto;
+  top: auto;
+}
+
+.floating-comms-dock .chat-toggle-btn,
+.floating-comms-dock .floating-friends-toggle {
+  position: relative;
+  inset: auto;
+  min-height: 54px;
+  border-color: rgba(246, 200, 95, 0.3);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 52, 71, 0.14), rgba(91, 200, 237, 0.08)),
+    rgba(9, 13, 12, 0.96);
+  color: var(--ux-text);
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.floating-comms-dock .chat-toggle-btn {
+  width: 86px;
+  min-width: 86px;
+}
+
+.floating-comms-dock .floating-friends-toggle {
+  width: 132px;
+  min-width: 132px;
+  display: grid;
+  place-items: center;
+  padding: 8px 10px;
+}
+
+.floating-comms-dock .floating-friends-toggle::before,
+.floating-comms-dock .floating-friends-toggle::after {
+  content: none;
+  display: none;
+}
+
+.floating-comms-dock .floating-friends-toggle span,
+.floating-comms-dock .floating-friends-toggle strong {
+  display: block;
+  line-height: 1.05;
+}
+
+.floating-comms-dock .floating-friends-toggle span {
+  color: var(--ux-muted);
+  font-size: 0.62rem;
+}
+
+.floating-comms-dock .floating-friends-toggle strong {
+  color: var(--ux-text);
+  font-size: 0.72rem;
+}
+
+.floating-comms-dock.is-dragging .chat-toggle-btn,
+.floating-comms-dock.is-dragging .floating-friends-toggle {
+  cursor: grabbing;
+}
+
+.floating-comms-dock .race-comms-panel,
+.floating-comms-dock .race-friends-panel,
+body.chat-open.friends-open .floating-comms-dock .race-comms-panel {
+  position: absolute;
+  inset: auto calc(100% + 12px) 0 auto;
+  width: min(342px, calc(100vw - 112px));
+  min-width: 0;
+  pointer-events: auto;
+  transform: none;
+}
+
+.floating-comms-dock.is-panel-to-right .race-comms-panel,
+.floating-comms-dock.is-panel-to-right .race-friends-panel,
+body.chat-open.friends-open .floating-comms-dock.is-panel-to-right .race-comms-panel {
+  inset: auto auto 0 calc(100% + 12px);
+}
+
+.floating-comms-dock.is-panel-below .race-comms-panel,
+.floating-comms-dock.is-panel-below .race-friends-panel,
+body.chat-open.friends-open .floating-comms-dock.is-panel-below .race-comms-panel {
+  top: 0;
+  bottom: auto;
+}
+
+.floating-comms-dock .race-comms-panel {
+  height: min(410px, calc(100dvh - 112px));
+  min-height: 270px;
+  display: grid;
+  grid-template-rows: auto auto minmax(110px, 1fr) auto;
+}
+
+.floating-comms-dock .race-friends-panel {
+  max-height: min(280px, calc(100dvh - 112px));
+}
+
+.race-comms-panel,
+.race-friends-panel {
+  padding: 14px;
+}
+
+.chat-messages,
+.online-users-list,
+.account-list {
+  min-width: 0;
+}
+
+.chat-form {
+  grid-template-columns: minmax(0, 1fr) minmax(72px, 86px);
+}
+
+.game-shell {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.52), transparent 28%),
+    linear-gradient(90deg, rgba(255, 52, 71, 0.08), transparent 32%),
+    #020403;
+}
+
+.hud-grid {
+  max-width: calc(100vw - 36px);
+}
+
+.typing-card,
+.stats-card,
+.timing-tower,
+.race-tools {
+  min-width: 0;
+}
+
+.text-to-type {
+  max-width: 100%;
+  padding-right: 140px;
+}
+
+.results-panel {
+  width: min(1180px, calc(100vw - 40px));
+}
+
+.result-card {
+  grid-template-columns: 42px 48px minmax(0, 1fr) minmax(220px, auto);
+}
+
+.classification-driver,
+.classification-metrics {
+  min-width: 0;
+}
+
+@media (max-height: 760px) and (min-width: 861px) {
+  body[data-screen="lobby"] .lobby-panel {
+    height: calc(100dvh - var(--ux-topbar) - 24px);
+    max-height: calc(100dvh - var(--ux-topbar) - 24px);
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .room-code-row h2 {
+    font-size: clamp(2.15rem, 4vw, 3.4rem);
+  }
+
+  body[data-screen="lobby"] .lobby-state span {
+    min-height: 38px;
+    padding: 7px 10px;
+  }
+
+  body[data-screen="lobby"] .lap-card {
+    min-height: 66px;
+  }
+
+  .player-card:not(.empty-slot) {
+    min-height: 82px;
+  }
+}
+
+@media (max-width: 1020px) {
+  body[data-screen="menu"] .start-dashboard,
+  body[data-screen="lobby"] .lobby-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-screen="menu"] .start-side-panel {
+    grid-template-rows: auto;
+  }
+
+  body[data-screen="lobby"] #lobbyScreen.screen.active,
+  body.chat-open[data-screen="lobby"] #lobbyScreen.screen.active,
+  body.friends-open[data-screen="lobby"] #lobbyScreen.screen.active {
+    overflow-y: auto;
+  }
+
+  body[data-screen="lobby"] .lobby-panel {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  body[data-screen="lobby"] .drivers-panel {
+    height: auto;
+  }
+
+  body[data-screen="lobby"] .drivers-panel .players-list {
+    max-height: 420px;
+  }
+
+  .result-card {
+    grid-template-columns: 42px 48px minmax(0, 1fr);
+  }
+
+  .classification-metrics {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --ux-topbar: 58px;
+  }
+
+  .screen,
+  body[data-screen="menu"] #menuScreen.screen.active,
+  body[data-screen="multiplayerSetup"] #multiplayerSetupScreen.screen.active,
+  body[data-screen="aiSetup"] #aiSetupScreen.screen.active,
+  body[data-screen="lobby"] #lobbyScreen.screen.active,
+  body[data-screen="results"] #resultsScreen.screen.active,
+  body[data-screen="loading"] #loadingScreen.screen.active {
+    align-items: flex-start;
+    padding: calc(var(--ux-topbar) + 14px) 12px 16px;
+  }
+
+  .app-topbar {
+    padding: 8px 12px;
+  }
+
+  .app-brand small,
+  .navbar-profile-copy small {
+    display: none;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .status-pill {
+    display: none;
+  }
+
+  .topbar-btn {
+    min-width: 70px;
+    padding-inline: 9px;
+    font-size: 0.68rem;
+  }
+
+  body[data-screen="menu"] .start-dashboard,
+  body[data-screen="lobby"] .lobby-panel,
+  .setup-panel,
+  .modal-panel,
+  .results-panel {
+    width: 100%;
+  }
+
+  body[data-screen="menu"] .start-panel,
+  body[data-screen="menu"] .start-side-panel,
+  body[data-screen="lobby"] .lobby-panel,
+  .setup-panel,
+  .modal-panel {
+    padding: 15px;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(3rem, 15vw, 4.8rem);
+  }
+
+  .mode-switch,
+  .setup-action-grid,
+  .auth-grid,
+  .email-actions,
+  .account-form-grid,
+  .account-search-row,
+  .account-tabs,
+  .side-status-grid,
+  body[data-screen="lobby"] .lap-options,
+  body[data-screen="lobby"] .drivers-panel .players-list,
+  body[data-screen="lobby"] .bottom-actions {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-screen="lobby"] .lobby-header,
+  body[data-screen="lobby"] .lap-settings-head,
+  .modal-head,
+  .panel-header {
+    flex-direction: column;
+  }
+
+  body[data-screen="lobby"] .lobby-state {
+    width: 100%;
+    max-width: none;
+    justify-content: stretch;
+  }
+
+  body[data-screen="lobby"] .lobby-state span {
+    flex: 1 1 140px;
+  }
+
+  .room-code-row h2 {
+    font-size: clamp(2.25rem, 14vw, 3.4rem);
+  }
+
+  .floating-chat-dock,
+  .floating-friends-dock {
+    right: 12px;
+  }
+
+  .floating-comms-dock .race-comms-panel,
+  .floating-comms-dock .race-friends-panel,
+  .floating-comms-dock.is-panel-to-right .race-comms-panel,
+  .floating-comms-dock.is-panel-to-right .race-friends-panel,
+  .floating-comms-dock.is-panel-below .race-comms-panel,
+  .floating-comms-dock.is-panel-below .race-friends-panel,
+  body.chat-open.friends-open .floating-comms-dock .race-comms-panel {
+    inset: auto 0 calc(100% + 10px) auto;
+    width: min(336px, calc(100vw - 24px));
+  }
+
+  .text-to-type {
+    height: auto;
+    min-height: 72px;
+    max-height: 110px;
+    padding-right: 10px;
+  }
+
+  .hud-grid {
+    grid-template-columns: 1fr;
+    left: 10px;
+    right: 10px;
+    max-width: calc(100vw - 20px);
+  }
+}
+
+@media (max-width: 440px) {
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .app-brand strong {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .navbar-profile-btn {
+    max-width: 96px;
+  }
+
+  .navbar-profile-copy {
+    display: none;
+  }
+
+  .floating-comms-dock .chat-toggle-btn {
+    width: 76px;
+    min-width: 76px;
+  }
+
+  .floating-comms-dock .floating-friends-toggle {
+    width: 112px;
+    min-width: 112px;
+  }
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body[data-screen="game"] {
+    overscroll-behavior: none;
+  }
+
+  body[data-screen="game"] #gameScreen.screen.active {
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+
+  body[data-screen="game"] .game-shell,
+  body[data-screen="game"] #gameCanvas {
+    touch-action: manipulation;
+  }
+
+  body[data-screen="game"] .corner-control-bar {
+    top: calc(10px + env(safe-area-inset-top));
+    right: calc(10px + env(safe-area-inset-right));
+  }
+
+  body[data-screen="game"] .hud-grid {
+    left: calc(10px + env(safe-area-inset-left));
+    right: calc(10px + env(safe-area-inset-right));
+    top: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom) + var(--mobile-keyboard-offset, 0px));
+    max-width: none;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: end;
+  }
+
+  body[data-screen="game"] .typing-card {
+    padding: 10px;
+  }
+
+  body[data-screen="game"] .text-to-type {
+    height: auto;
+    min-height: 64px;
+    max-height: 96px;
+    margin-bottom: 8px;
+    padding: 9px 10px 22px;
+    font-size: 0.84rem;
+    line-height: 1.42;
+  }
+
+  body[data-screen="game"] .text-to-type::after {
+    display: block;
+    right: 0;
+    bottom: 0;
+    min-width: auto;
+    max-width: 68%;
+    padding: 2px 7px 3px;
+    font-size: 0.62rem;
+  }
+
+  body[data-screen="game"] .typing-input {
+    height: 44px;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 16px;
+  }
+
+  body[data-screen="game"] .input-feedback {
+    min-height: 20px;
+    padding-top: 5px;
+    font-size: 0.78rem;
+  }
+
+  body[data-screen="game"] .stats-card {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  body[data-screen="game"] .stat {
+    min-height: 52px;
+    padding: 8px 7px;
+  }
+
+  body[data-screen="game"] .stat-label {
+    margin-bottom: 4px;
+    font-size: 0.58rem;
+  }
+
+  body[data-screen="game"] .stat-value {
+    font-size: 1rem;
+  }
+
+  body[data-screen="game"] .race-tools {
+    top: calc(58px + env(safe-area-inset-top));
+    right: calc(10px + env(safe-area-inset-right));
+    bottom: auto;
+    width: 112px;
+    opacity: 0.82;
+  }
+
+  body[data-screen="game"] .route-minimap {
+    width: 112px;
+    height: 78px;
+  }
+
+  body[data-screen="game"] .camera-mode-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-screen="game"] .camera-mode {
+    min-height: 36px;
+  }
+
+  body[data-screen="game"] .timing-tower {
+    top: calc(58px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left));
+    width: min(176px, calc(100vw - 150px));
+    max-height: 168px;
+    overflow: hidden;
+  }
+
+  body[data-screen="game"] .engineer-radio {
+    left: calc(10px + env(safe-area-inset-left));
+    right: calc(10px + env(safe-area-inset-right));
+    bottom: calc(210px + env(safe-area-inset-bottom) + var(--mobile-keyboard-offset, 0px));
+    top: auto;
+    max-width: none;
+  }
+
+  body[data-screen="lobby"] .drivers-panel .players-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  body[data-screen="lobby"] .player-card:not(.empty-slot) {
+    grid-template-columns: 38px 48px minmax(0, 1fr);
+    grid-template-areas:
+      "slot avatar info"
+      "badges badges badges";
+    min-height: 0;
+    padding: 10px;
+  }
+
+  body[data-screen="lobby"] .player-badges {
+    justify-self: stretch;
+    max-width: none;
+  }
+
+  body[data-screen="lobby"] .driver-card-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .btn,
+  .topbar-btn,
+  .mode-card,
+  .setup-action-card,
+  .lap-option,
+  .difficulty-option,
+  .compact-lap-option,
+  .account-tabs button {
+    min-height: 44px;
+  }
+
+  .floating-chat-dock {
+    right: 12px;
+    bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+
+  .floating-friends-dock {
+    right: 12px;
+    bottom: calc(26px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  body[data-screen="game"] .hud-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(176px, 250px);
+    bottom: calc(8px + env(safe-area-inset-bottom) + var(--mobile-keyboard-offset, 0px));
+  }
+
+  body[data-screen="game"] .text-to-type {
+    min-height: 52px;
+    max-height: 72px;
+  }
+
+  body[data-screen="game"] .stats-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-screen="game"] .race-tools,
+  body[data-screen="game"] .timing-tower {
+    display: none;
+  }
+
+  body[data-screen="game"] .engineer-radio {
+    bottom: calc(132px + env(safe-area-inset-bottom) + var(--mobile-keyboard-offset, 0px));
+  }
+}

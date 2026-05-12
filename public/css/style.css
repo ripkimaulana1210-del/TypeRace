@@ -1748,6 +1748,18 @@ body.chat-open[data-screen="lobby"] .race-friends-panel {
   grid-column: 1 / -1;
 }
 
+.account-actions-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+
+.account-actions-row .btn {
+  flex: 1 1 auto;
+}
+
 .account-textarea {
   min-height: 86px;
   resize: vertical;

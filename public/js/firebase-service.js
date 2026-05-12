@@ -77,6 +77,18 @@ function isWebPhotoURL(url = '') {
   }
 }
 
+function getGoogleProviderPhotoURL(user = null) {
+  const googleProfile = (user?.providerData || [])
+    .find((profile) => profile?.providerId === 'google.com');
+
+  return cleanPhotoURL(googleProfile?.photoURL || '', { throwOnInvalid: false });
+}
+
+function getPreferredPhotoURL(user = null, profile = {}) {
+  return getGoogleProviderPhotoURL(user)
+    || cleanPhotoURL(profile?.photoURL || user?.photoURL || '', { throwOnInvalid: false });
+}
+
 function snapshotList(snapshot) {
   const value = snapshot.val() || {};
   return Object.entries(value)
@@ -322,10 +334,8 @@ export class FirebaseRaceService {
     const fallbackUsername = cleanUsername(user.email?.split('@')[0] || displayName || 'driver');
     const existingProfile = (await get(ref(this.db, `users/${user.uid}/profile`))).val() || {};
     const username = cleanUsername(existingProfile.username || fallbackUsername);
-    const photoSource = Object.prototype.hasOwnProperty.call(existingProfile, 'photoURL')
-      ? existingProfile.photoURL
-      : user.photoURL || '';
-    const photoURL = cleanPhotoURL(photoSource, { throwOnInvalid: false });
+    const googlePhotoURL = getGoogleProviderPhotoURL(user);
+    const photoURL = getPreferredPhotoURL(user, existingProfile);
     const nextProfile = {
       uid: user.uid,
       displayName: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver'),
@@ -336,6 +346,10 @@ export class FirebaseRaceService {
       bio: cleanBio(existingProfile.bio || ''),
       updatedAt: serverTimestamp()
     };
+
+    if (googlePhotoURL && user.photoURL !== googlePhotoURL) {
+      await this.modules.updateProfile(user, { photoURL: googlePhotoURL });
+    }
 
     await update(ref(this.db, `users/${user.uid}/profile`), nextProfile);
 
@@ -440,7 +454,8 @@ export class FirebaseRaceService {
     const displayName = cleanDisplayName(profile.displayName, this.displayName || 'Driver');
     const username = cleanUsername(profile.username || displayName);
     const bio = cleanBio(profile.bio || '');
-    const photoURL = cleanPhotoURL(profile.photoURL || '');
+    const googlePhotoURL = getGoogleProviderPhotoURL(this.authUser);
+    const photoURL = googlePhotoURL || cleanPhotoURL(profile.photoURL || '');
     const { ref, update, serverTimestamp } = this.modules;
 
     this.displayName = displayName;
@@ -723,7 +738,7 @@ export class FirebaseRaceService {
   }
 
   getCurrentPhotoURL() {
-    return cleanPhotoURL(this.currentProfile?.photoURL || this.authUser?.photoURL || '', { throwOnInvalid: false });
+    return getPreferredPhotoURL(this.authUser, this.currentProfile || {});
   }
 
   async setGlobalPresence(state = 'online') {
