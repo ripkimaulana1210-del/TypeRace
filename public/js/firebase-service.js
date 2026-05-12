@@ -96,6 +96,13 @@ function snapshotList(snapshot) {
     .filter((item) => item.uid || item.id);
 }
 
+function getProfileName(profile = {}, fallback = 'Driver') {
+  return cleanDisplayName(
+    profile.displayName || profile.nickname || profile.username || profile.email?.split('@')[0],
+    fallback
+  );
+}
+
 export { isFirebaseConfigured };
 
 export class FirebaseRaceService {
@@ -116,6 +123,7 @@ export class FirebaseRaceService {
     this.voicePeersRoomCode = '';
     this.latestVoicePeers = [];
     this.latestRoomParticipants = [];
+    this.processedVoiceSignalIds = new Set();
     this.peerConnections = new Map();
     this.remoteAudioElements = new Map();
     this.queuedCandidates = new Map();
@@ -338,15 +346,21 @@ export class FirebaseRaceService {
 
     const { ref, get, update, serverTimestamp } = this.modules;
     const fallbackUsername = cleanUsername(user.email?.split('@')[0] || displayName || 'driver');
-    const existingProfile = (await get(ref(this.db, `users/${user.uid}/profile`))).val() || {};
+    const [profileSnapshot, legacyProfileSnapshot] = await Promise.all([
+      get(ref(this.db, `profiles/${user.uid}`)),
+      get(ref(this.db, `users/${user.uid}/profile`))
+    ]);
+    const existingProfile = profileSnapshot.val() || legacyProfileSnapshot.val() || {};
     const username = cleanUsername(existingProfile.username || fallbackUsername);
     const googlePhotoURL = getGoogleProviderPhotoURL(user);
     const photoURL = getPreferredPhotoURL(user, existingProfile);
     const nextProfile = {
       uid: user.uid,
       displayName: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver'),
+      nickname: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver'),
       username,
       usernameLower: username,
+      nicknameLower: cleanDisplayName(displayName, user.email?.split('@')[0] || 'Driver').toLowerCase(),
       email: user.email || '',
       photoURL,
       bio: cleanBio(existingProfile.bio || ''),
@@ -357,16 +371,11 @@ export class FirebaseRaceService {
       await this.modules.updateProfile(user, { photoURL: googlePhotoURL });
     }
 
-    await update(ref(this.db, `users/${user.uid}/profile`), nextProfile);
-
-    await update(ref(this.db, `userDirectory/${user.uid}`), {
-      uid: user.uid,
-      displayName: nextProfile.displayName,
-      username,
-      usernameLower: username,
-      photoURL,
-      updatedAt: serverTimestamp()
-    });
+    await Promise.all([
+      update(ref(this.db, `profiles/${user.uid}`), nextProfile),
+      update(ref(this.db, `users/${user.uid}`), nextProfile),
+      update(ref(this.db, `users/${user.uid}/profile`), nextProfile)
+    ]);
 
     this.currentProfile = {
       ...nextProfile,
@@ -423,7 +432,7 @@ export class FirebaseRaceService {
       this.accountUnsubscribers.push(unsubscribe);
     };
 
-    bindValue(`users/${uid}/profile`, 'profile', (snapshot) => {
+    bindValue(`profiles/${uid}`, 'profile', (snapshot) => {
       const profile = snapshot.val() || null;
       this.currentProfile = profile;
       return profile;
@@ -432,7 +441,7 @@ export class FirebaseRaceService {
     bindValue(`stats/${uid}`, 'stats');
     bindValue(`friends/${uid}`, 'friends', snapshotList);
     bindValue(`friendRequests/${uid}`, 'requests', snapshotList);
-    bindValue(`friendRequestsSent/${uid}`, 'sentRequests', snapshotList);
+    bindValue(`sentFriendRequests/${uid}`, 'sentRequests', snapshotList);
     bindValue(`invites/${uid}`, 'invites', snapshotList);
     bindValue('users', 'statuses', (snapshot) => {
       const users = snapshot.val() || {};
@@ -470,8 +479,10 @@ export class FirebaseRaceService {
     const profilePayload = {
       uid: this.authUser.uid,
       displayName,
+      nickname: displayName,
       username,
       usernameLower: username,
+      nicknameLower: displayName.toLowerCase(),
       email: this.authUser.email || '',
       photoURL,
       bio,
@@ -483,16 +494,11 @@ export class FirebaseRaceService {
       photoURL: isWebPhotoURL(photoURL) ? photoURL : null
     });
 
-    await update(ref(this.db, `users/${this.authUser.uid}/profile`), profilePayload);
-
-    await update(ref(this.db, `userDirectory/${this.authUser.uid}`), {
-      uid: this.authUser.uid,
-      displayName,
-      username,
-      usernameLower: username,
-      photoURL,
-      updatedAt: serverTimestamp()
-    });
+    await Promise.all([
+      update(ref(this.db, `profiles/${this.authUser.uid}`), profilePayload),
+      update(ref(this.db, `users/${this.authUser.uid}`), profilePayload),
+      update(ref(this.db, `users/${this.authUser.uid}/profile`), profilePayload)
+    ]);
 
     this.currentProfile = {
       ...profilePayload,
@@ -514,17 +520,42 @@ export class FirebaseRaceService {
     }
 
     const { ref, get } = this.modules;
-    const [directorySnapshot, statusSnapshot] = await Promise.all([
-      get(ref(this.db, 'userDirectory')),
+    const [profilesSnapshot, usersSnapshot] = await Promise.all([
+      get(ref(this.db, 'profiles')),
       get(ref(this.db, 'users'))
     ]);
-    const directory = directorySnapshot.val() || {};
-    const users = statusSnapshot.val() || {};
+    const profiles = profilesSnapshot.val() || {};
+    const users = usersSnapshot.val() || {};
+    const mergedProfiles = new Map();
 
-    return Object.values(directory)
+    Object.entries(users).forEach(([uid, value]) => {
+      const profile = {
+        ...(value?.profile || {}),
+        ...(value || {}),
+        uid
+      };
+      mergedProfiles.set(uid, profile);
+    });
+
+    Object.entries(profiles).forEach(([uid, value]) => {
+      mergedProfiles.set(uid, {
+        ...(mergedProfiles.get(uid) || {}),
+        ...(value || {}),
+        uid
+      });
+    });
+
+    return Array.from(mergedProfiles.values())
       .filter((profile) => profile?.uid && profile.uid !== this.authUser.uid)
       .filter((profile) => {
-        const haystack = `${profile.displayName || ''} ${profile.username || ''}`.toLowerCase();
+        const haystack = [
+          profile.username,
+          profile.usernameLower,
+          profile.nickname,
+          profile.nicknameLower,
+          profile.displayName,
+          profile.email
+        ].join(' ').toLowerCase();
         return haystack.includes(needle);
       })
       .slice(0, 12)
@@ -543,23 +574,64 @@ export class FirebaseRaceService {
       return false;
     }
 
-    const { ref, get, update, serverTimestamp } = this.modules;
-    const targetProfile = (await get(ref(this.db, `users/${target}/profile`))).val() || {};
+    const { ref, get, update, push, serverTimestamp } = this.modules;
+    const [targetProfileSnapshot, ownProfileSnapshot, existingFriendSnapshot] = await Promise.all([
+      get(ref(this.db, `profiles/${target}`)),
+      get(ref(this.db, `profiles/${this.authUser.uid}`)),
+      get(ref(this.db, `friends/${this.authUser.uid}/${target}`))
+    ]);
+    const targetProfile = targetProfileSnapshot.val() || {};
+    const ownProfile = ownProfileSnapshot.val() || this.currentProfile || {};
 
-    await update(ref(this.db, `friendRequests/${target}/${this.authUser.uid}`), {
-      uid: this.authUser.uid,
-      fromUid: this.authUser.uid,
-      fromName: this.displayName || this.authUser.displayName || 'Driver',
-      fromPhotoURL: this.getCurrentPhotoURL(),
-      createdAt: serverTimestamp()
+    if (existingFriendSnapshot.exists()) {
+      return false;
+    }
+
+    const notificationRef = push(ref(this.db, `notifications/${target}`));
+    const fromName = getProfileName(ownProfile, this.displayName || this.authUser.displayName || 'Driver');
+    const toName = getProfileName(targetProfile, 'Driver');
+
+    await update(ref(this.db), {
+      [`friendRequests/${target}/${this.authUser.uid}`]: {
+        fromUid: this.authUser.uid,
+        toUid: target,
+        fromName,
+        fromPhotoURL: this.getCurrentPhotoURL(),
+        status: 'pending',
+        createdAt: serverTimestamp()
+      },
+      [`sentFriendRequests/${this.authUser.uid}/${target}`]: {
+        fromUid: this.authUser.uid,
+        toUid: target,
+        toName,
+        toPhotoURL: targetProfile.photoURL || '',
+        status: 'pending',
+        createdAt: serverTimestamp()
+      },
+      [`notifications/${target}/${notificationRef.key}`]: {
+        type: 'friend_request',
+        fromUid: this.authUser.uid,
+        createdAt: serverTimestamp()
+      }
     });
-    await update(ref(this.db, `friendRequestsSent/${this.authUser.uid}/${target}`), {
-      uid: target,
-      displayName: targetProfile.displayName || 'Driver',
-      username: targetProfile.username || '',
-      photoURL: targetProfile.photoURL || '',
-      createdAt: serverTimestamp()
-    });
+
+    return true;
+  }
+
+  async cancelFriendRequest(targetUid) {
+    this.ensureSignedIn();
+
+    const target = String(targetUid || '').trim();
+
+    if (!target || target === this.authUser.uid) {
+      return false;
+    }
+
+    const { ref, remove } = this.modules;
+    await Promise.all([
+      remove(ref(this.db, `friendRequests/${target}/${this.authUser.uid}`)),
+      remove(ref(this.db, `sentFriendRequests/${this.authUser.uid}/${target}`))
+    ]);
     return true;
   }
 
@@ -572,29 +644,52 @@ export class FirebaseRaceService {
       return false;
     }
 
-    const { ref, get, update, remove, serverTimestamp } = this.modules;
-    const otherProfile = (await get(ref(this.db, `users/${otherUid}/profile`))).val() || {};
-    const ownProfile = (await get(ref(this.db, `users/${this.authUser.uid}/profile`))).val() || {};
+    const { ref, get, update, remove, push, serverTimestamp } = this.modules;
+    const requestSnapshot = await get(ref(this.db, `friendRequests/${this.authUser.uid}/${otherUid}`));
+    const request = requestSnapshot.val() || {};
+
+    if (request.toUid && request.toUid !== this.authUser.uid) {
+      throw new Error('This friend request is not addressed to you.');
+    }
+
+    const [otherProfileSnapshot, ownProfileSnapshot] = await Promise.all([
+      get(ref(this.db, `profiles/${otherUid}`)),
+      get(ref(this.db, `profiles/${this.authUser.uid}`))
+    ]);
+    const otherProfile = otherProfileSnapshot.val() || {};
+    const ownProfile = ownProfileSnapshot.val() || this.currentProfile || {};
 
     if (accept) {
-      await update(ref(this.db, `friends/${this.authUser.uid}/${otherUid}`), {
-        uid: otherUid,
-        displayName: otherProfile.displayName || 'Driver',
-        username: otherProfile.username || '',
-        photoURL: otherProfile.photoURL || '',
-        since: serverTimestamp()
-      });
-      await update(ref(this.db, `friends/${otherUid}/${this.authUser.uid}`), {
-        uid: this.authUser.uid,
-        displayName: ownProfile.displayName || this.displayName || 'Driver',
-        username: ownProfile.username || '',
-        photoURL: ownProfile.photoURL || '',
-        since: serverTimestamp()
+      const notificationRef = push(ref(this.db, `notifications/${otherUid}`));
+      await update(ref(this.db), {
+        [`friends/${this.authUser.uid}/${otherUid}`]: {
+          uid: otherUid,
+          name: request.fromName || getProfileName(otherProfile, 'Driver'),
+          displayName: request.fromName || getProfileName(otherProfile, 'Driver'),
+          username: otherProfile.username || '',
+          photoURL: otherProfile.photoURL || request.fromPhotoURL || '',
+          createdAt: serverTimestamp()
+        },
+        [`friends/${otherUid}/${this.authUser.uid}`]: {
+          uid: this.authUser.uid,
+          name: getProfileName(ownProfile, this.displayName || 'Driver'),
+          displayName: getProfileName(ownProfile, this.displayName || 'Driver'),
+          username: ownProfile.username || '',
+          photoURL: this.getCurrentPhotoURL(),
+          createdAt: serverTimestamp()
+        },
+        [`notifications/${otherUid}/${notificationRef.key}`]: {
+          type: 'friend_request_accepted',
+          fromUid: this.authUser.uid,
+          createdAt: serverTimestamp()
+        }
       });
     }
 
-    await remove(ref(this.db, `friendRequests/${this.authUser.uid}/${otherUid}`));
-    await remove(ref(this.db, `friendRequestsSent/${otherUid}/${this.authUser.uid}`));
+    await Promise.all([
+      remove(ref(this.db, `friendRequests/${this.authUser.uid}/${otherUid}`)),
+      remove(ref(this.db, `sentFriendRequests/${otherUid}/${this.authUser.uid}`))
+    ]);
     return true;
   }
 
@@ -932,6 +1027,7 @@ export class FirebaseRaceService {
     this.voicePeersRoomCode = '';
     this.latestVoicePeers = [];
     this.latestRoomParticipants = [];
+    this.processedVoiceSignalIds.clear();
   }
 
   async sendMessage(text) {
@@ -995,6 +1091,7 @@ export class FirebaseRaceService {
       await set(peerRef, {
         uid: this.authUser.uid,
         displayName: this.displayName,
+        micEnabled: true,
         active: true,
         joinedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -1180,10 +1277,21 @@ export class FirebaseRaceService {
     const inboxRef = ref(this.db, `rooms/${this.currentRoomCode}/voice/signals/${this.authUser.uid}`);
 
     this.roomUnsubscribers.push(onChildAdded(inboxRef, async (snapshot) => {
+      const signalKey = `${this.currentRoomCode}:${snapshot.key}`;
+
+      if (this.processedVoiceSignalIds.has(signalKey)) {
+        return;
+      }
+
+      this.processedVoiceSignalIds.add(signalKey);
       const signal = snapshot.val();
+      const createdAt = Number(signal?.createdAt) || 0;
+      const isStaleSignal = createdAt > 0 && Date.now() - createdAt > 120000;
 
       try {
-        await this.handleSignal(signal);
+        if (!isStaleSignal) {
+          await this.handleSignal(signal);
+        }
       } catch (error) {
         console.warn('Voice signal failed:', error);
       } finally {
@@ -1203,7 +1311,7 @@ export class FirebaseRaceService {
 
     this.roomUnsubscribers.push(onValue(peersRef, (snapshot) => {
       const peers = snapshotList(snapshot)
-        .filter((peer) => peer.active && peer.uid && peer.uid !== this.authUser?.uid);
+        .filter((peer) => (peer.micEnabled || peer.active) && peer.uid && peer.uid !== this.authUser?.uid);
       this.latestVoicePeers = peers;
 
       this.emitLocal('voicePeersChanged', { peers });
@@ -1307,8 +1415,12 @@ export class FirebaseRaceService {
 
     if (this.peerConnections.has(targetUid)) {
       const existingConnection = this.peerConnections.get(targetUid);
-      this.attachLocalAudioTracks(existingConnection);
-      return existingConnection;
+      if (['closed', 'failed'].includes(existingConnection.connectionState)) {
+        this.closePeer(targetUid);
+      } else {
+        this.attachLocalAudioTracks(existingConnection);
+        return existingConnection;
+      }
     }
 
     const connection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
@@ -1428,7 +1540,7 @@ export class FirebaseRaceService {
         } catch (_error) {}
       }
 
-      await connection.setRemoteDescription(new RTCSessionDescription(signal.data));
+      await connection.setRemoteDescription(new RTCSessionDescription(signal.payload || signal.data));
       await this.flushQueuedCandidates(fromUid, connection);
 
       const answer = await connection.createAnswer();
@@ -1442,23 +1554,25 @@ export class FirebaseRaceService {
 
     if (signal.type === 'answer') {
       if (connection.signalingState === 'have-local-offer') {
-        await connection.setRemoteDescription(new RTCSessionDescription(signal.data));
+        await connection.setRemoteDescription(new RTCSessionDescription(signal.payload || signal.data));
         await this.flushQueuedCandidates(fromUid, connection);
       }
       return;
     }
 
-    if (signal.type === 'candidate' && signal.data?.candidate) {
+    const candidatePayload = signal.payload || signal.data;
+
+    if (signal.type === 'candidate' && candidatePayload?.candidate) {
       if (!connection.remoteDescription?.type) {
         if (!this.queuedCandidates.has(fromUid)) {
           this.queuedCandidates.set(fromUid, []);
         }
 
-        this.queuedCandidates.get(fromUid).push(signal.data);
+        this.queuedCandidates.get(fromUid).push(candidatePayload);
         return;
       }
 
-      await connection.addIceCandidate(new RTCIceCandidate(signal.data));
+      await connection.addIceCandidate(new RTCIceCandidate(candidatePayload));
     }
   }
 
@@ -1479,12 +1593,11 @@ export class FirebaseRaceService {
     const { ref, push, serverTimestamp } = this.modules;
     await push(ref(this.db, `rooms/${this.currentRoomCode}/voice/signals/${remoteUid}`), {
       from: this.authUser.uid,
-      fromUid: this.authUser.uid,
-      toUid: remoteUid,
+      to: remoteUid,
       roomCode: this.currentRoomCode,
       name: this.displayName,
       type,
-      data,
+      payload: data,
       createdAt: serverTimestamp()
     });
   }

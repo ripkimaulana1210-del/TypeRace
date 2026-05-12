@@ -1527,9 +1527,9 @@ class F1TypingBattleApp {
               user.username ? `@${user.username}` : 'No username',
               user.status?.state || 'offline',
               relationship === 'friend'
-                ? 'Friend'
+                ? 'Already Friends'
                 : relationship === 'sent'
-                  ? 'Request sent'
+                  ? 'Pending'
                   : relationship === 'incoming'
                     ? 'Request received'
                     : ''
@@ -1562,11 +1562,12 @@ class F1TypingBattleApp {
     if (!requests.length && sentRequests.length && this.elements.friendRequestsList) {
       const sentHtml = sentRequests
         .slice(0, 4)
-        .map((request) => `
-          <div class="account-list-empty sent-request-note">
-            Request sent to ${this.escapeHtml(request.displayName || request.uid || 'driver')}.
-          </div>
-        `)
+        .map((request) => this.renderAccountListItem({
+          title: request.toName || request.displayName || 'Driver',
+          meta: 'Pending friend request',
+          photoURL: request.toPhotoURL || request.photoURL || '',
+          actions: `<button class="mini-btn" data-friend-action="cancel" data-uid="${this.escapeHtml(request.toUid || request.uid || request.id)}">Cancel</button>`
+        }))
         .join('');
       this.elements.friendRequestsList.innerHTML = sentHtml || this.elements.friendRequestsList.innerHTML;
     }
@@ -1578,7 +1579,7 @@ class F1TypingBattleApp {
             const online = presence?.state === 'online';
             const canInvite = online && this.network.roomCode && this.network.mode !== 'ai';
             return this.renderAccountListItem({
-              title: friend.displayName || 'Driver',
+              title: friend.name || friend.displayName || 'Driver',
               meta: friend.username ? `@${friend.username}` : 'Friend',
               status: online ? 'online' : 'offline',
               photoURL: friend.photoURL || presence?.photoURL || '',
@@ -1688,7 +1689,7 @@ class F1TypingBattleApp {
       return 'incoming';
     }
 
-    if ((this.accountData.sentRequests || []).some((request) => String(request.uid || request.id || '') === targetUid)) {
+    if ((this.accountData.sentRequests || []).some((request) => String(request.toUid || request.uid || request.id || '') === targetUid)) {
       return 'sent';
     }
 
@@ -1705,11 +1706,11 @@ class F1TypingBattleApp {
     }
 
     if (relationship === 'friend') {
-      return `<button class="${className}" type="button" disabled>Friends</button>`;
+      return `<button class="${className}" type="button" disabled>Already Friends</button>`;
     }
 
     if (relationship === 'sent') {
-      return `<button class="${className}" type="button" disabled>Sent</button>`;
+      return `<button class="${className}" data-friend-action="cancel" data-uid="${safeUid}">Cancel Request</button>`;
     }
 
     if (relationship === 'incoming') {
@@ -1890,11 +1891,15 @@ class F1TypingBattleApp {
       if (action === 'request') {
         await this.firebase.sendFriendRequest(uid);
         this.accountData.sentRequests = [
-          ...(this.accountData.sentRequests || []).filter((request) => String(request.uid || request.id || '') !== String(uid || '')),
-          { uid }
+          ...(this.accountData.sentRequests || []).filter((request) => String(request.toUid || request.uid || request.id || '') !== String(uid || '')),
+          { uid, toUid: uid, status: 'pending' }
         ];
         button.textContent = 'Sent';
         button.disabled = true;
+      } else if (action === 'cancel') {
+        await this.firebase.cancelFriendRequest(uid);
+        this.accountData.sentRequests = (this.accountData.sentRequests || [])
+          .filter((request) => String(request.toUid || request.uid || request.id || '') !== String(uid || ''));
       } else if (action === 'accept') {
         await this.firebase.respondFriendRequest(uid, true);
         this.accountData.friends = [
