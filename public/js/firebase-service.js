@@ -404,6 +404,7 @@ export class FirebaseRaceService {
       stats: null,
       friends: [],
       requests: [],
+      sentRequests: [],
       invites: [],
       history: [],
       statuses: {}
@@ -430,6 +431,7 @@ export class FirebaseRaceService {
     bindValue(`stats/${uid}`, 'stats');
     bindValue(`friends/${uid}`, 'friends', snapshotList);
     bindValue(`friendRequests/${uid}`, 'requests', snapshotList);
+    bindValue(`friendRequestsSent/${uid}`, 'sentRequests', snapshotList);
     bindValue(`invites/${uid}`, 'invites', snapshotList);
     bindValue('users', 'statuses', (snapshot) => {
       const users = snapshot.val() || {};
@@ -540,7 +542,9 @@ export class FirebaseRaceService {
       return false;
     }
 
-    const { ref, update, serverTimestamp } = this.modules;
+    const { ref, get, update, serverTimestamp } = this.modules;
+    const targetProfile = (await get(ref(this.db, `users/${target}/profile`))).val() || {};
+
     await update(ref(this.db, `friendRequests/${target}/${this.authUser.uid}`), {
       uid: this.authUser.uid,
       fromUid: this.authUser.uid,
@@ -550,6 +554,9 @@ export class FirebaseRaceService {
     });
     await update(ref(this.db, `friendRequestsSent/${this.authUser.uid}/${target}`), {
       uid: target,
+      displayName: targetProfile.displayName || 'Driver',
+      username: targetProfile.username || '',
+      photoURL: targetProfile.photoURL || '',
       createdAt: serverTimestamp()
     });
     return true;

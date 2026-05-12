@@ -393,6 +393,7 @@ class F1TypingBattleApp {
       stats: null,
       friends: [],
       requests: [],
+      sentRequests: [],
       invites: [],
       history: [],
       statuses: {}
@@ -772,6 +773,7 @@ class F1TypingBattleApp {
     this.elements.friendSearchResults?.addEventListener('click', (event) => this.handleFriendAction(event));
     this.elements.friendRequestsList?.addEventListener('click', (event) => this.handleFriendAction(event));
     this.elements.friendsList?.addEventListener('click', (event) => this.handleFriendAction(event));
+    this.elements.playersList?.addEventListener('click', (event) => this.handleFriendAction(event));
     this.elements.accountInvitesList?.addEventListener('click', (event) => this.handleInviteAction(event));
     this.elements.lobbyInviteList?.addEventListener('click', (event) => this.handleFriendAction(event));
     this.elements.inviteFriendsToggleBtn?.addEventListener('click', () => this.toggleFriendsPanel());
@@ -1054,6 +1056,7 @@ class F1TypingBattleApp {
         stats: null,
         friends: [],
         requests: [],
+        sentRequests: [],
         invites: [],
         history: [],
         statuses: {}
@@ -1144,6 +1147,7 @@ class F1TypingBattleApp {
       stats: payload.stats || null,
       friends: payload.friends || [],
       requests: payload.requests || [],
+      sentRequests: payload.sentRequests || [],
       invites: payload.invites || [],
       history: payload.history || [],
       statuses: payload.statuses || {}
@@ -1513,15 +1517,31 @@ class F1TypingBattleApp {
   renderFriends() {
     const friends = this.accountData.friends || [];
     const requests = this.accountData.requests || [];
+    const sentRequests = this.accountData.sentRequests || [];
 
     if (this.elements.friendSearchResults) {
       this.elements.friendSearchResults.innerHTML = this.friendSearchResults.length
-        ? this.friendSearchResults.map((user) => this.renderAccountListItem({
-            title: user.displayName || 'Driver',
-            meta: `${user.username ? `@${user.username}` : 'No username'} - ${user.status?.state || 'offline'}`,
-            photoURL: user.photoURL || '',
-            actions: `<button class="mini-btn primary" data-friend-action="request" data-uid="${this.escapeHtml(user.uid)}">Add</button>`
-          })).join('')
+        ? this.friendSearchResults.map((user) => {
+            const relationship = this.getFriendshipState(user.uid);
+            const metaParts = [
+              user.username ? `@${user.username}` : 'No username',
+              user.status?.state || 'offline',
+              relationship === 'friend'
+                ? 'Friend'
+                : relationship === 'sent'
+                  ? 'Request sent'
+                  : relationship === 'incoming'
+                    ? 'Request received'
+                    : ''
+            ].filter(Boolean);
+
+            return this.renderAccountListItem({
+              title: user.displayName || 'Driver',
+              meta: metaParts.join(' - '),
+              photoURL: user.photoURL || '',
+              actions: this.renderFriendActionButton(user.uid)
+            });
+          }).join('')
         : '<div class="account-list-empty">Search for racers by username or nickname.</div>';
     }
 
@@ -1537,6 +1557,18 @@ class F1TypingBattleApp {
             `
           })).join('')
         : '<div class="account-list-empty">No pending requests.</div>';
+    }
+
+    if (!requests.length && sentRequests.length && this.elements.friendRequestsList) {
+      const sentHtml = sentRequests
+        .slice(0, 4)
+        .map((request) => `
+          <div class="account-list-empty sent-request-note">
+            Request sent to ${this.escapeHtml(request.displayName || request.uid || 'driver')}.
+          </div>
+        `)
+        .join('');
+      this.elements.friendRequestsList.innerHTML = sentHtml || this.elements.friendRequestsList.innerHTML;
     }
 
     if (this.elements.friendsList) {
@@ -1634,6 +1666,61 @@ class F1TypingBattleApp {
     return this.latestPresenceUsers.find((user) => user.uid === uid)
       || this.accountData.statuses?.[uid]
       || (this.accountData.status?.uid === uid ? this.accountData.status : null);
+  }
+
+  getFriendshipState(uid = '') {
+    const targetUid = String(uid || '').trim();
+    const currentUid = String(this.firebase.getCurrentUser()?.uid || '').trim();
+
+    if (!targetUid) {
+      return 'unknown';
+    }
+
+    if (currentUid && targetUid === currentUid) {
+      return 'self';
+    }
+
+    if ((this.accountData.friends || []).some((friend) => String(friend.uid || '') === targetUid)) {
+      return 'friend';
+    }
+
+    if ((this.accountData.requests || []).some((request) => String(request.fromUid || request.uid || '') === targetUid)) {
+      return 'incoming';
+    }
+
+    if ((this.accountData.sentRequests || []).some((request) => String(request.uid || request.id || '') === targetUid)) {
+      return 'sent';
+    }
+
+    return this.firebase.getCurrentUser() ? 'none' : 'signed-out';
+  }
+
+  renderFriendActionButton(uid = '', { compact = false } = {}) {
+    const safeUid = this.escapeHtml(uid);
+    const relationship = this.getFriendshipState(uid);
+    const className = compact ? 'mini-btn driver-friend-btn' : 'mini-btn';
+
+    if (!safeUid || relationship === 'self' || relationship === 'unknown') {
+      return '';
+    }
+
+    if (relationship === 'friend') {
+      return `<button class="${className}" type="button" disabled>Friends</button>`;
+    }
+
+    if (relationship === 'sent') {
+      return `<button class="${className}" type="button" disabled>Sent</button>`;
+    }
+
+    if (relationship === 'incoming') {
+      return `<button class="${className} primary" data-friend-action="accept" data-uid="${safeUid}">Accept</button>`;
+    }
+
+    if (relationship === 'signed-out') {
+      return `<button class="${className}" type="button" disabled>Login to Add</button>`;
+    }
+
+    return `<button class="${className} primary" data-friend-action="request" data-uid="${safeUid}">Add Friend</button>`;
   }
 
   getPresenceByPlayer(player = {}) {
@@ -1802,18 +1889,48 @@ class F1TypingBattleApp {
     try {
       if (action === 'request') {
         await this.firebase.sendFriendRequest(uid);
+        this.accountData.sentRequests = [
+          ...(this.accountData.sentRequests || []).filter((request) => String(request.uid || request.id || '') !== String(uid || '')),
+          { uid }
+        ];
         button.textContent = 'Sent';
         button.disabled = true;
       } else if (action === 'accept') {
         await this.firebase.respondFriendRequest(uid, true);
+        this.accountData.friends = [
+          ...(this.accountData.friends || []).filter((friend) => String(friend.uid || '') !== String(uid || '')),
+          { uid }
+        ];
+        this.accountData.requests = (this.accountData.requests || [])
+          .filter((request) => String(request.fromUid || request.uid || '') !== String(uid || ''));
       } else if (action === 'reject') {
         await this.firebase.respondFriendRequest(uid, false);
+        this.accountData.requests = (this.accountData.requests || [])
+          .filter((request) => String(request.fromUid || request.uid || '') !== String(uid || ''));
       } else if (action === 'remove') {
         await this.firebase.removeFriend(uid);
+        this.accountData.friends = (this.accountData.friends || [])
+          .filter((friend) => String(friend.uid || '') !== String(uid || ''));
       } else if (action === 'invite') {
         await this.firebase.sendLobbyInvite(uid, this.network.roomCode);
         button.textContent = 'Invited';
         button.disabled = true;
+      }
+
+      this.renderFriends();
+      this.renderLobbyInvites();
+      if (this.currentScreen === 'lobby') {
+        this.handleRoomUpdated({
+          roomCode: this.network.roomCode,
+          players: this.network.players,
+          hostId: this.network.hostId,
+          state: this.network.state,
+          mode: this.network.mode,
+          botDifficulty: this.network.botDifficulty,
+          lapCount: this.network.lapCount,
+          maxPlayers: this.roomMaxPlayers,
+          circuit: this.network.circuitProfile
+        });
       }
     } catch (error) {
       console.error(error);
@@ -3276,9 +3393,14 @@ class F1TypingBattleApp {
       const isYou = player.id === this.network.socket.id;
       const isHost = player.id === this.network.hostId;
       const driverType = player.isGhost ? 'AI Bot' : isYou ? 'You' : 'Driver';
+      const presence = this.getPresenceByPlayer(player);
+      const friendAction = !player.isGhost && !isYou && presence?.uid
+        ? this.renderFriendActionButton(presence.uid, { compact: true })
+        : '';
       const badges = [
         isHost ? '<span class="badge">Host</span>' : '',
-        isYou ? '<span class="badge">You</span>' : ''
+        isYou ? '<span class="badge">You</span>' : '',
+        friendAction
       ].join('');
 
       card.innerHTML = `

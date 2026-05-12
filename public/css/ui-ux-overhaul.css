@@ -1497,3 +1497,44 @@ body.chat-open.friends-open .floating-comms-dock.is-panel-below .race-comms-pane
     bottom: calc(132px + env(safe-area-inset-bottom) + var(--mobile-keyboard-offset, 0px));
   }
 }
+
+.brand-mark {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 5px;
+  border-color: rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 0 26px rgba(242, 5, 5, 0.18);
+  clip-path: none;
+  line-height: 0;
+  transform: none;
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  object-position: center;
+  flex: 0 0 auto;
+  transform: none;
+}
+
+.player-badges .driver-friend-btn {
+  min-height: 26px;
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
+.sent-request-note {
+  border-style: dashed;
+  color: var(--ux-amber);
+}
