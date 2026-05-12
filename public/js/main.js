@@ -395,6 +395,7 @@ class F1TypingBattleApp {
       requests: [],
       sentRequests: [],
       invites: [],
+      notifications: [],
       history: [],
       statuses: {}
     };
@@ -478,6 +479,9 @@ class F1TypingBattleApp {
       chatInput: document.getElementById('chatInput'),
       sendChatBtn: document.getElementById('sendChatBtn'),
       voiceToggleBtn: document.getElementById('voiceToggleBtn'),
+      voiceMuteMicBtn: document.getElementById('voiceMuteMicBtn'),
+      voiceSpeakerBtn: document.getElementById('voiceSpeakerBtn'),
+      voiceStatusText: document.getElementById('voiceStatusText'),
       modeButtons: Array.from(document.querySelectorAll('.mode-switch .mode-card[data-mode]')),
       aiSetupPanel: document.getElementById('aiSetupPanel'),
       botDifficultyGroup: document.getElementById('botDifficultyGroup'),
@@ -786,6 +790,8 @@ class F1TypingBattleApp {
     this.elements.chatToggleBtn?.addEventListener('click', () => this.toggleChatPanel());
     this.elements.chatCloseBtn?.addEventListener('click', () => this.setChatPanelOpen(false));
     this.elements.voiceToggleBtn?.addEventListener('click', () => this.toggleVoiceChat());
+    this.elements.voiceMuteMicBtn?.addEventListener('click', () => this.toggleVoiceMicMute());
+    this.elements.voiceSpeakerBtn?.addEventListener('click', () => this.toggleVoiceSpeaker());
     this.elements.copyRoomCodeBtn?.addEventListener('click', () => this.copyRoomCode());
     this.elements.authPasswordInput?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -990,7 +996,7 @@ class F1TypingBattleApp {
     this.firebase.on('messageAdded', (message) => this.renderChatMessage(message));
     this.firebase.on('presenceChanged', (payload) => this.renderPresence(payload.users || []));
     this.firebase.on('accountDataChanged', (payload) => this.handleAccountDataChanged(payload));
-    this.firebase.on('voiceChanged', (payload) => this.updateVoiceState(payload.active));
+    this.firebase.on('voiceChanged', (payload) => this.updateVoiceState(payload));
     this.firebase.on('voiceLevelChanged', (payload) => this.updateLocalVoiceLevel(payload));
     this.firebase.on('roomChanged', () => this.updateCommsVisibility());
   }
@@ -1058,6 +1064,7 @@ class F1TypingBattleApp {
         requests: [],
         sentRequests: [],
         invites: [],
+        notifications: [],
         history: [],
         statuses: {}
       };
@@ -1149,6 +1156,7 @@ class F1TypingBattleApp {
       requests: payload.requests || [],
       sentRequests: payload.sentRequests || [],
       invites: payload.invites || [],
+      notifications: payload.notifications || [],
       history: payload.history || [],
       statuses: payload.statuses || {}
     };
@@ -1272,6 +1280,12 @@ class F1TypingBattleApp {
     if (this.elements.voiceToggleBtn) {
       this.elements.voiceToggleBtn.disabled = !roomActive;
     }
+
+    [this.elements.voiceMuteMicBtn, this.elements.voiceSpeakerBtn].forEach((button) => {
+      if (button) {
+        button.disabled = !roomActive;
+      }
+    });
 
     this.updateAuthGateControls({
       isLoggedIn,
@@ -1546,8 +1560,7 @@ class F1TypingBattleApp {
     }
 
     if (this.elements.friendRequestsList) {
-      this.elements.friendRequestsList.innerHTML = requests.length
-        ? requests.map((request) => this.renderAccountListItem({
+      const incomingHtml = requests.map((request) => this.renderAccountListItem({
             title: request.fromName || 'Driver',
             meta: 'Incoming friend request',
             photoURL: request.fromPhotoURL || request.photoURL || '',
@@ -1555,11 +1568,7 @@ class F1TypingBattleApp {
               <button class="mini-btn primary" data-friend-action="accept" data-uid="${this.escapeHtml(request.fromUid || request.uid)}">Accept</button>
               <button class="mini-btn" data-friend-action="reject" data-uid="${this.escapeHtml(request.fromUid || request.uid)}">Reject</button>
             `
-          })).join('')
-        : '<div class="account-list-empty">No pending requests.</div>';
-    }
-
-    if (!requests.length && sentRequests.length && this.elements.friendRequestsList) {
+          })).join('');
       const sentHtml = sentRequests
         .slice(0, 4)
         .map((request) => this.renderAccountListItem({
@@ -1569,7 +1578,13 @@ class F1TypingBattleApp {
           actions: `<button class="mini-btn" data-friend-action="cancel" data-uid="${this.escapeHtml(request.toUid || request.uid || request.id)}">Cancel</button>`
         }))
         .join('');
-      this.elements.friendRequestsList.innerHTML = sentHtml || this.elements.friendRequestsList.innerHTML;
+      const sections = [
+        incomingHtml ? `<div class="account-list-section"><span>Incoming</span>${incomingHtml}</div>` : '',
+        sentHtml ? `<div class="account-list-section"><span>Sent</span>${sentHtml}</div>` : ''
+      ].filter(Boolean);
+      this.elements.friendRequestsList.innerHTML = sections.length
+        ? sections.join('')
+        : '<div class="account-list-empty">No pending requests.</div>';
     }
 
     if (this.elements.friendsList) {
@@ -1577,7 +1592,7 @@ class F1TypingBattleApp {
         ? friends.map((friend) => {
             const presence = this.getFriendPresence(friend.uid);
             const online = presence?.state === 'online';
-            const canInvite = online && this.network.roomCode && this.network.mode !== 'ai';
+            const canInvite = this.network.roomCode && this.network.mode !== 'ai';
             return this.renderAccountListItem({
               title: friend.name || friend.displayName || 'Driver',
               meta: friend.username ? `@${friend.username}` : 'Friend',
@@ -1589,7 +1604,7 @@ class F1TypingBattleApp {
               `
             });
           }).join('')
-        : '<div class="account-list-empty">No friends yet.</div>';
+      : '<div class="account-list-empty">No friends available.</div>';
     }
   }
 
@@ -2000,16 +2015,14 @@ class F1TypingBattleApp {
           const presence = this.getFriendPresence(friend.uid);
           const online = presence?.state === 'online';
           return this.renderAccountListItem({
-            title: friend.displayName || 'Driver',
+            title: friend.name || friend.displayName || 'Driver',
             meta: friend.username ? `@${friend.username}` : online ? 'Online now' : 'Offline',
             status: online ? 'online' : 'offline',
             photoURL: friend.photoURL || presence?.photoURL || '',
-            actions: online
-              ? `<button class="mini-btn primary" data-friend-action="invite" data-uid="${this.escapeHtml(friend.uid)}">Invite</button>`
-              : '<button class="mini-btn" type="button" disabled>Offline</button>'
+            actions: `<button class="mini-btn primary" data-friend-action="invite" data-uid="${this.escapeHtml(friend.uid)}">Invite</button>`
           });
         }).join('')
-      : '<div class="account-list-empty">No online friends to invite.</div>';
+      : '<div class="account-list-empty">No friends available.</div>';
   }
 
   toggleFriendsPanel() {
@@ -2272,7 +2285,27 @@ class F1TypingBattleApp {
     } catch (error) {
       console.error(error);
       alert(error.message || 'Voice chat could not be enabled.');
-      this.updateVoiceState(false);
+      this.updateVoiceState({ active: false, status: 'error' });
+    }
+  }
+
+  async toggleVoiceMicMute() {
+    try {
+      await this.ensureFirebaseRoomSynced();
+      await this.firebase.toggleMicMute();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Mic mute could not be changed.');
+    }
+  }
+
+  async toggleVoiceSpeaker() {
+    try {
+      await this.ensureFirebaseRoomSynced();
+      await this.firebase.toggleSpeaker();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Speaker could not be changed.');
     }
   }
 
@@ -2345,16 +2378,53 @@ class F1TypingBattleApp {
     this.refreshFloatingCommsDock();
   }
 
-  updateVoiceState(active) {
+  updateVoiceState(payload = {}) {
     if (!this.elements.voiceToggleBtn) {
       return;
     }
+
+    const state = typeof payload === 'boolean' ? { active: payload } : payload;
+    const active = Boolean(state.active);
+    const micMuted = Boolean(state.micMuted);
+    const speakerEnabled = state.speakerEnabled !== false;
+    const status = state.status || (active ? 'connected' : 'idle');
+    const statusLabel = active
+      ? micMuted
+        ? 'Mic muted'
+        : speakerEnabled
+          ? (status === 'connecting' ? 'Connecting' : 'Voice connected')
+          : 'Speaker off'
+      : status === 'error'
+        ? 'Voice error'
+        : 'Voice off';
 
     this.elements.voiceToggleBtn.classList.toggle('active', Boolean(active));
     this.elements.voiceToggleBtn.classList.toggle('speaking', false);
     this.elements.voiceToggleBtn.style.removeProperty('--voice-level');
     this.elements.voiceToggleBtn.textContent = active ? 'LIVE' : 'MIC';
-    this.elements.voiceToggleBtn.title = active ? 'Turn off open mic' : 'Turn on open mic';
+    this.elements.voiceToggleBtn.title = active ? 'Turn voice off' : 'Turn voice on';
+
+    if (this.elements.voiceMuteMicBtn) {
+      this.elements.voiceMuteMicBtn.classList.toggle('active', active && micMuted);
+      this.elements.voiceMuteMicBtn.classList.toggle('hidden', !active);
+      this.elements.voiceMuteMicBtn.textContent = micMuted ? 'UNMUTE' : 'MUTE';
+      this.elements.voiceMuteMicBtn.title = micMuted ? 'Unmute microphone' : 'Mute microphone';
+      this.elements.voiceMuteMicBtn.disabled = !active;
+    }
+
+    if (this.elements.voiceSpeakerBtn) {
+      this.elements.voiceSpeakerBtn.classList.toggle('active', active && !speakerEnabled);
+      this.elements.voiceSpeakerBtn.classList.toggle('hidden', !active);
+      this.elements.voiceSpeakerBtn.textContent = speakerEnabled ? 'SPK' : 'SPK OFF';
+      this.elements.voiceSpeakerBtn.title = speakerEnabled ? 'Turn speaker off' : 'Turn speaker on';
+      this.elements.voiceSpeakerBtn.disabled = !active;
+    }
+
+    if (this.elements.voiceStatusText) {
+      this.elements.voiceStatusText.textContent = statusLabel;
+      this.elements.voiceStatusText.classList.toggle('active', active);
+      this.elements.voiceStatusText.classList.toggle('error', status === 'error');
+    }
   }
 
   updateLocalVoiceLevel(payload = {}) {

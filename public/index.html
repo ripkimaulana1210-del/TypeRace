@@ -76,9 +76,12 @@
           </div>
           <div class="race-comms-actions">
             <button id="voiceToggleBtn" class="icon-btn voice-toggle-btn" type="button" title="Open mic" disabled>MIC</button>
+            <button id="voiceMuteMicBtn" class="icon-btn voice-sub-btn hidden" type="button" title="Mute microphone" disabled>MUTE</button>
+            <button id="voiceSpeakerBtn" class="icon-btn voice-sub-btn hidden" type="button" title="Turn speaker off" disabled>SPK</button>
             <button id="chatCloseBtn" class="icon-btn chat-close-btn" type="button" title="Close chat">X</button>
           </div>
         </div>
+        <div id="voiceStatusText" class="voice-status-text">Voice off</div>
         <div id="onlineUsersList" class="online-users-list" aria-live="polite"></div>
         <div id="chatMessages" class="chat-messages" aria-live="polite" data-empty-label="No messages yet. Sign in with Firebase for chat and voice."></div>
         <form id="chatForm" class="chat-form">

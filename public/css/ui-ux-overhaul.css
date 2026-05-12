@@ -1037,6 +1037,117 @@ body.chat-open.friends-open .floating-comms-dock.is-panel-below .race-comms-pane
   grid-template-columns: minmax(0, 1fr) minmax(72px, 86px);
 }
 
+.race-comms-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.voice-sub-btn {
+  width: auto;
+  min-width: 46px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 0.56rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.voice-sub-btn.active {
+  border-color: rgba(255, 52, 71, 0.65);
+  color: #ff4055;
+}
+
+.voice-status-text {
+  min-height: 18px;
+  margin: -3px 0 6px;
+  color: var(--ux-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.voice-status-text.active {
+  color: #5bc8ed;
+}
+
+.voice-status-text.error {
+  color: #ff4055;
+}
+
+.account-list-section {
+  display: grid;
+  gap: 8px;
+}
+
+.account-list-section > span {
+  color: var(--ux-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.account-list-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+}
+
+.account-list-item > div:not(.account-item-actions) {
+  min-width: 0;
+}
+
+.account-list-item strong,
+.account-list-item small {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-list-item strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-item-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: max-content;
+}
+
+.account-item-actions .mini-btn {
+  min-height: 28px;
+  padding: 5px 8px;
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+.race-friends-panel .account-list,
+.account-list-wrap .account-list {
+  max-height: 260px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.race-friends-panel .account-list-item {
+  grid-template-columns: 34px minmax(0, 1fr) max-content;
+  padding: 8px;
+}
+
+.race-friends-panel .account-item-actions .mini-btn {
+  min-width: 56px;
+}
+
 .game-shell {
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.52), transparent 28%),

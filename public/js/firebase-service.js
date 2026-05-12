@@ -129,6 +129,9 @@ export class FirebaseRaceService {
     this.queuedCandidates = new Map();
     this.localStream = null;
     this.voiceActive = false;
+    this.micMuted = false;
+    this.speakerEnabled = true;
+    this.voiceStatus = 'idle';
     this.voiceOutputVolume = 1;
     this.voiceOutputMuted = false;
     this.voiceAudioContext = null;
@@ -406,7 +409,7 @@ export class FirebaseRaceService {
       return;
     }
 
-    const { ref, query, limitToLast, onValue } = this.modules;
+    const { ref, onValue } = this.modules;
     const uid = this.authUser.uid;
     const latest = {
       profile: null,
@@ -416,13 +419,18 @@ export class FirebaseRaceService {
       requests: [],
       sentRequests: [],
       invites: [],
+      notifications: [],
       history: [],
       statuses: {}
     };
-    const emit = () => this.emitLocal('accountDataChanged', {
-      ...latest,
-      uid
-    });
+    const emit = () => {
+      const notifications = latest.notifications || [];
+      this.emitLocal('accountDataChanged', {
+        ...latest,
+        invites: notifications.filter((notification) => notification.type === 'lobby_invite'),
+        uid
+      });
+    };
 
     const bindValue = (path, key, mapper = (snapshot) => snapshot.val()) => {
       const unsubscribe = onValue(ref(this.db, path), (snapshot) => {
@@ -438,26 +446,16 @@ export class FirebaseRaceService {
       return profile;
     });
     bindValue(`users/${uid}/status`, 'status');
-    bindValue(`stats/${uid}`, 'stats');
     bindValue(`friends/${uid}`, 'friends', snapshotList);
     bindValue(`friendRequests/${uid}`, 'requests', snapshotList);
     bindValue(`sentFriendRequests/${uid}`, 'sentRequests', snapshotList);
-    bindValue(`invites/${uid}`, 'invites', snapshotList);
+    bindValue(`notifications/${uid}`, 'notifications', snapshotList);
     bindValue('users', 'statuses', (snapshot) => {
       const users = snapshot.val() || {};
       return Object.fromEntries(
         Object.entries(users).map(([userUid, userData]) => [userUid, userData?.status || null])
       );
     });
-
-    const historyUnsubscribe = onValue(
-      query(ref(this.db, `matchHistory/${uid}`), limitToLast(MAX_HISTORY_ITEMS)),
-      (snapshot) => {
-        latest.history = snapshotList(snapshot).reverse();
-        emit();
-      }
-    );
-    this.accountUnsubscribers.push(historyUnsubscribe);
   }
 
   cleanupAccountListeners() {
@@ -721,13 +719,13 @@ export class FirebaseRaceService {
     }
 
     const { ref, push, serverTimestamp } = this.modules;
-    await push(ref(this.db, `invites/${target}`), {
+    await push(ref(this.db, `notifications/${target}`), {
+      type: 'lobby_invite',
       fromUid: this.authUser.uid,
       fromName: this.displayName || this.authUser.displayName || 'Driver',
       fromPhotoURL: this.getCurrentPhotoURL(),
       roomCode: normalizedRoomCode,
       mode: 'multiplayer',
-      status: 'pending',
       createdAt: serverTimestamp()
     });
     return true;
@@ -743,69 +741,13 @@ export class FirebaseRaceService {
     }
 
     const { ref, remove } = this.modules;
-    await remove(ref(this.db, `invites/${this.authUser.uid}/${id}`));
+    await remove(ref(this.db, `notifications/${this.authUser.uid}/${id}`));
     return true;
   }
 
   async recordMatchResult(match = {}) {
-    if (!this.ready || !this.authUser) {
-      return false;
-    }
-
-    const uid = this.authUser.uid;
-    const position = Math.max(1, Math.round(Number(match.position) || 99));
-    const totalPlayers = Math.max(1, Math.round(Number(match.totalPlayers) || 1));
-    const wpm = Math.max(0, Math.round(Number(match.wpm) || 0));
-    const accuracy = Math.max(0, Math.min(100, Math.round(Number(match.accuracy) || 0)));
-    const totalKeys = Math.max(0, Math.round(Number(match.totalKeys) || 0));
-    const { ref, push, get, set, serverTimestamp } = this.modules;
-    const statsRef = ref(this.db, `stats/${uid}`);
-    const currentStats = (await get(statsRef)).val() || {};
-    const totalMatches = Math.max(0, Number(currentStats.totalMatches) || 0) + 1;
-    const totalWins = Math.max(0, Number(currentStats.totalWins) || 0) + (position === 1 ? 1 : 0);
-    const totalPodiums = Math.max(0, Number(currentStats.totalPodiums) || 0) + (position <= 3 ? 1 : 0);
-    const totalWpm = Math.max(0, Number(currentStats.totalWpm) || 0) + wpm;
-    const totalAccuracy = Math.max(0, Number(currentStats.totalAccuracy) || 0) + accuracy;
-    const totalCharacters = Math.max(0, Number(currentStats.totalCharacters) || 0) + totalKeys;
-    const totalFinishPosition = Math.max(0, Number(currentStats.totalFinishPosition) || 0) + position;
-
-    await push(ref(this.db, `matchHistory/${uid}`), {
-      roomCode: normalizeRoomCode(match.roomCode),
-      mode: match.mode || 'multiplayer',
-      position,
-      totalPlayers,
-      opponents: Array.isArray(match.opponents) ? match.opponents.slice(0, 10) : [],
-      wpm,
-      accuracy,
-      totalKeys,
-      mistakes: Math.max(0, Math.round(Number(match.mistakes) || 0)),
-      completed: Boolean(match.completed ?? true),
-      createdAt: serverTimestamp()
-    });
-
-    await set(statsRef, {
-      totalMatches,
-      totalWins,
-      totalLosses: Math.max(0, totalMatches - totalWins),
-      totalPodiums,
-      firstPlaces: Math.max(0, Number(currentStats.firstPlaces) || 0) + (position === 1 ? 1 : 0),
-      secondPlaces: Math.max(0, Number(currentStats.secondPlaces) || 0) + (position === 2 ? 1 : 0),
-      thirdPlaces: Math.max(0, Number(currentStats.thirdPlaces) || 0) + (position === 3 ? 1 : 0),
-      totalRaceCompleted: totalMatches,
-      totalWpm,
-      totalAccuracy,
-      totalCharacters,
-      totalFinishPosition,
-      averageWpm: Math.round(totalWpm / totalMatches),
-      bestWpm: Math.max(Number(currentStats.bestWpm) || 0, wpm),
-      averageAccuracy: Math.round(totalAccuracy / totalMatches),
-      bestAccuracy: Math.max(Number(currentStats.bestAccuracy) || 0, accuracy),
-      winRate: Math.round((totalWins / totalMatches) * 100),
-      averageFinishPosition: Number((totalFinishPosition / totalMatches).toFixed(1)),
-      updatedAt: serverTimestamp()
-    });
-
-    return true;
+    void match;
+    return false;
   }
 
   startGlobalPresence() {
@@ -1023,8 +965,7 @@ export class FirebaseRaceService {
   clearRoomSubscriptions() {
     this.roomUnsubscribers.forEach((unsubscribe) => unsubscribe());
     this.roomUnsubscribers = [];
-    this.voiceSignalsRoomCode = '';
-    this.voicePeersRoomCode = '';
+    this.cleanupVoiceListeners();
     this.latestVoicePeers = [];
     this.latestRoomParticipants = [];
     this.processedVoiceSignalIds.clear();
@@ -1073,7 +1014,6 @@ export class FirebaseRaceService {
       return true;
     }
 
-    const { ref, set, update, onDisconnect, serverTimestamp } = this.modules;
     this.localStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
@@ -1084,35 +1024,25 @@ export class FirebaseRaceService {
     });
 
     this.voiceActive = true;
-    this.emitLocal('voiceChanged', { active: true });
+    this.micMuted = false;
+    this.voiceStatus = 'connecting';
+    this.localStream.getAudioTracks().forEach((track) => {
+      track.enabled = true;
+    });
+    this.emitVoiceState();
 
     try {
-      const peerRef = ref(this.db, `rooms/${this.currentRoomCode}/voice/peers/${this.authUser.uid}`);
-      await set(peerRef, {
-        uid: this.authUser.uid,
-        displayName: this.displayName,
-        micEnabled: true,
-        active: true,
-        joinedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      onDisconnect(peerRef).remove()
-        .catch((error) => console.warn('Firebase voice onDisconnect failed:', error));
-
-      update(ref(this.db, `rooms/${this.currentRoomCode}/presence/${this.authUser.uid}`), {
-        mic: true,
-        speaking: false,
-        voiceLevel: 0,
-        updatedAt: serverTimestamp()
-      }).catch((error) => console.warn('Firebase voice presence update failed:', error));
-
+      await this.publishVoicePeer(this.currentRoomCode);
       this.startSpeakingMeter();
       this.subscribeVoiceSignals();
       this.subscribeVoicePeers();
       this.syncVoiceParticipants();
+      this.voiceStatus = 'connected';
+      this.emitVoiceState();
     } catch (error) {
       await this.stopVoice();
+      this.voiceStatus = 'error';
+      this.emitVoiceState({ error });
       throw error;
     }
 
@@ -1124,11 +1054,10 @@ export class FirebaseRaceService {
     const uid = this.authUser?.uid;
 
     this.voiceActive = false;
-    this.voiceUnsubscribers.forEach((unsubscribe) => unsubscribe());
-    this.voiceUnsubscribers = [];
-    Array.from(this.peerConnections.keys()).forEach((remoteUid) => this.closePeer(remoteUid));
-    this.peerConnections.clear();
-    this.queuedCandidates.clear();
+    this.micMuted = false;
+    this.voiceStatus = 'idle';
+    this.cleanupVoiceListeners();
+    this.cleanupVoiceConnections();
     this.stopSpeakingMeter();
 
     if (this.localStream) {
@@ -1138,26 +1067,154 @@ export class FirebaseRaceService {
 
     this.reconnectListeningPeers();
 
-    this.emitLocal('voiceChanged', { active: false });
+    this.emitVoiceState();
 
     if (!this.ready || !roomCode || !uid) {
       return;
     }
 
-    const { ref, remove, update, serverTimestamp } = this.modules;
+    await this.removeVoicePeer(roomCode).catch((error) => {
+      console.warn('Firebase stop voice failed:', error);
+    });
+  }
 
-    try {
-      await update(ref(this.db, `rooms/${roomCode}/presence/${uid}`), {
-        mic: false,
+  emitVoiceState(extra = {}) {
+    this.emitLocal('voiceChanged', {
+      active: this.voiceActive,
+      micMuted: this.micMuted,
+      speakerEnabled: this.speakerEnabled,
+      status: this.voiceStatus,
+      ...extra
+    });
+  }
+
+  async publishVoicePeer(roomCode = this.currentRoomCode) {
+    if (!this.ready || !this.authUser || !roomCode) {
+      return false;
+    }
+
+    const { ref, set, update, onDisconnect, serverTimestamp } = this.modules;
+    const peerRef = ref(this.db, `rooms/${roomCode}/voice/peers/${this.authUser.uid}`);
+    await set(peerRef, {
+      uid: this.authUser.uid,
+      name: this.displayName || this.authUser.displayName || 'Driver',
+      displayName: this.displayName || this.authUser.displayName || 'Driver',
+      micEnabled: this.voiceActive,
+      muted: this.micMuted,
+      speakerEnabled: this.speakerEnabled,
+      active: this.voiceActive,
+      joinedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    onDisconnect(peerRef).remove()
+      .catch((error) => console.warn('Firebase voice onDisconnect failed:', error));
+
+    update(ref(this.db, `rooms/${roomCode}/presence/${this.authUser.uid}`), {
+      mic: this.voiceActive && !this.micMuted,
+      speaking: false,
+      voiceLevel: 0,
+      updatedAt: serverTimestamp()
+    }).catch((error) => console.warn('Firebase voice presence update failed:', error));
+
+    return true;
+  }
+
+  async removeVoicePeer(roomCode = this.currentRoomCode) {
+    if (!this.ready || !this.authUser || !roomCode) {
+      return false;
+    }
+
+    const { ref, remove, update, serverTimestamp } = this.modules;
+    await update(ref(this.db, `rooms/${roomCode}/presence/${this.authUser.uid}`), {
+      mic: false,
+      speaking: false,
+      voiceLevel: 0,
+      updatedAt: serverTimestamp()
+    });
+    await remove(ref(this.db, `rooms/${roomCode}/voice/peers/${this.authUser.uid}`));
+    return true;
+  }
+
+  async muteMic() {
+    if (!this.voiceActive) {
+      return false;
+    }
+
+    this.micMuted = true;
+    this.localStream?.getAudioTracks?.().forEach((track) => {
+      track.enabled = false;
+    });
+    this.stopSpeakingMeter();
+    this.emitVoiceState();
+    await this.updateVoicePeerState();
+    return true;
+  }
+
+  async unmuteMic() {
+    if (!this.voiceActive) {
+      return false;
+    }
+
+    this.micMuted = false;
+    this.localStream?.getAudioTracks?.().forEach((track) => {
+      track.enabled = true;
+    });
+    this.startSpeakingMeter();
+    this.emitVoiceState();
+    await this.updateVoicePeerState();
+    return true;
+  }
+
+  async toggleMicMute() {
+    return this.micMuted ? this.unmuteMic() : this.muteMic();
+  }
+
+  async toggleSpeaker() {
+    this.speakerEnabled = !this.speakerEnabled;
+    this.applyVoiceOutputSettings();
+    this.emitVoiceState();
+    await this.updateVoicePeerState({ presence: false });
+    return this.speakerEnabled;
+  }
+
+  async updateVoicePeerState({ presence = true } = {}) {
+    if (!this.ready || !this.currentRoomCode || !this.authUser) {
+      return false;
+    }
+
+    const { ref, update, serverTimestamp } = this.modules;
+    await update(ref(this.db, `rooms/${this.currentRoomCode}/voice/peers/${this.authUser.uid}`), {
+      micEnabled: this.voiceActive,
+      muted: this.micMuted,
+      speakerEnabled: this.speakerEnabled,
+      active: this.voiceActive,
+      updatedAt: serverTimestamp()
+    });
+
+    if (presence) {
+      await update(ref(this.db, `rooms/${this.currentRoomCode}/presence/${this.authUser.uid}`), {
+        mic: this.voiceActive && !this.micMuted,
         speaking: false,
         voiceLevel: 0,
         updatedAt: serverTimestamp()
       });
-      await remove(ref(this.db, `rooms/${roomCode}/voice/peers/${uid}`));
-      await remove(ref(this.db, `rooms/${roomCode}/voice/signals/${uid}`));
-    } catch (error) {
-      console.warn('Firebase stop voice failed:', error);
     }
+
+    return true;
+  }
+
+  cleanupVoiceConnections() {
+    Array.from(this.peerConnections.keys()).forEach((remoteUid) => this.closePeer(remoteUid));
+    this.peerConnections.clear();
+    this.queuedCandidates.clear();
+  }
+
+  cleanupVoiceListeners() {
+    this.voiceUnsubscribers.forEach((unsubscribe) => unsubscribe());
+    this.voiceUnsubscribers = [];
+    this.voiceSignalsRoomCode = '';
+    this.voicePeersRoomCode = '';
   }
 
   startSpeakingMeter() {
@@ -1179,7 +1236,7 @@ export class FirebaseRaceService {
 
       const samples = new Uint8Array(this.voiceAnalyser.fftSize);
       this.voiceMeterTimer = window.setInterval(() => {
-        if (!this.voiceActive || !this.voiceAnalyser) {
+        if (!this.voiceActive || this.micMuted || !this.voiceAnalyser) {
           return;
         }
 
@@ -1260,7 +1317,7 @@ export class FirebaseRaceService {
 
     const { ref, update, serverTimestamp } = this.modules;
     update(ref(this.db, `rooms/${this.currentRoomCode}/presence/${this.authUser.uid}`), {
-      mic: true,
+      mic: this.voiceActive && !this.micMuted,
       speaking,
       voiceLevel,
       updatedAt: serverTimestamp()
@@ -1273,10 +1330,10 @@ export class FirebaseRaceService {
     }
 
     this.voiceSignalsRoomCode = this.currentRoomCode;
-    const { ref, onChildAdded, remove } = this.modules;
+    const { ref, onChildAdded } = this.modules;
     const inboxRef = ref(this.db, `rooms/${this.currentRoomCode}/voice/signals/${this.authUser.uid}`);
 
-    this.roomUnsubscribers.push(onChildAdded(inboxRef, async (snapshot) => {
+    this.voiceUnsubscribers.push(onChildAdded(inboxRef, async (snapshot) => {
       const signalKey = `${this.currentRoomCode}:${snapshot.key}`;
 
       if (this.processedVoiceSignalIds.has(signalKey)) {
@@ -1294,8 +1351,6 @@ export class FirebaseRaceService {
         }
       } catch (error) {
         console.warn('Voice signal failed:', error);
-      } finally {
-        remove(snapshot.ref).catch(() => {});
       }
     }));
   }
@@ -1309,7 +1364,7 @@ export class FirebaseRaceService {
     const { ref, onValue } = this.modules;
     const peersRef = ref(this.db, `rooms/${this.currentRoomCode}/voice/peers`);
 
-    this.roomUnsubscribers.push(onValue(peersRef, (snapshot) => {
+    this.voiceUnsubscribers.push(onValue(peersRef, (snapshot) => {
       const peers = snapshotList(snapshot)
         .filter((peer) => (peer.micEnabled || peer.active) && peer.uid && peer.uid !== this.authUser?.uid);
       this.latestVoicePeers = peers;
@@ -1462,6 +1517,9 @@ export class FirebaseRaceService {
     connection.onconnectionstatechange = () => {
       if (['failed', 'closed'].includes(connection.connectionState)) {
         this.closePeer(targetUid);
+        if (this.voiceActive && this.latestRoomParticipants.some((participant) => String(participant.uid || '') === targetUid)) {
+          window.setTimeout(() => this.ensurePeer(targetUid, this.shouldCreateOfferToPeer(targetUid)), 500);
+        }
       }
     };
 
@@ -1480,7 +1538,7 @@ export class FirebaseRaceService {
     }
 
     audioTracks.forEach((track) => {
-      track.enabled = this.voiceActive;
+      track.enabled = this.voiceActive && !this.micMuted;
       const existingSender = connection.getSenders()
         .find((sender) => sender.track?.kind === 'audio');
 
@@ -1602,6 +1660,82 @@ export class FirebaseRaceService {
     });
   }
 
+  initVoice(roomCode = this.currentRoomCode) {
+    this.currentRoomCode = normalizeRoomCode(roomCode || this.currentRoomCode);
+    this.subscribeVoiceSignals();
+    this.subscribeVoicePeers();
+    return Boolean(this.currentRoomCode);
+  }
+
+  startMic(roomCode = this.currentRoomCode) {
+    if (roomCode) {
+      this.currentRoomCode = normalizeRoomCode(roomCode);
+    }
+    return this.startVoice();
+  }
+
+  stopMic() {
+    return this.stopVoice();
+  }
+
+  createPeerConnection(roomCode, remoteUid) {
+    if (roomCode) {
+      this.currentRoomCode = normalizeRoomCode(roomCode);
+    }
+    return this.ensurePeer(remoteUid, false);
+  }
+
+  ensurePeerConnection(roomCode, remoteUid) {
+    return this.createPeerConnection(roomCode, remoteUid);
+  }
+
+  startCallToPeer(roomCode, remoteUid) {
+    if (roomCode) {
+      this.currentRoomCode = normalizeRoomCode(roomCode);
+    }
+    return this.ensurePeer(remoteUid, true);
+  }
+
+  listenVoicePeers(roomCode = this.currentRoomCode) {
+    if (roomCode) {
+      this.currentRoomCode = normalizeRoomCode(roomCode);
+    }
+    return this.subscribeVoicePeers();
+  }
+
+  listenVoiceSignals(roomCode = this.currentRoomCode) {
+    if (roomCode) {
+      this.currentRoomCode = normalizeRoomCode(roomCode);
+    }
+    return this.subscribeVoiceSignals();
+  }
+
+  handleOffer(roomCode, signal) {
+    if (roomCode) {
+      this.currentRoomCode = normalizeRoomCode(roomCode);
+    }
+    return this.handleSignal({ ...signal, type: 'offer' });
+  }
+
+  handleAnswer(roomCode, signal) {
+    if (roomCode) {
+      this.currentRoomCode = normalizeRoomCode(roomCode);
+    }
+    return this.handleSignal({ ...signal, type: 'answer' });
+  }
+
+  handleCandidate(roomCode, signal) {
+    if (roomCode) {
+      this.currentRoomCode = normalizeRoomCode(roomCode);
+    }
+    return this.handleSignal({ ...signal, type: 'candidate' });
+  }
+
+  cleanupVoice(roomCode = this.currentRoomCode) {
+    void roomCode;
+    return this.stopVoice();
+  }
+
   setVoiceOutput({ volume = this.voiceOutputVolume, muted = this.voiceOutputMuted } = {}) {
     const nextVolume = Math.max(0, Math.min(1, Number(volume)));
     this.voiceOutputVolume = Number.isFinite(nextVolume) ? nextVolume : 1;
@@ -1612,7 +1746,7 @@ export class FirebaseRaceService {
   applyVoiceOutputSettings() {
     this.remoteAudioElements.forEach((audio) => {
       audio.volume = this.voiceOutputVolume;
-      audio.muted = this.voiceOutputMuted || this.voiceOutputVolume <= 0;
+      audio.muted = !this.speakerEnabled || this.voiceOutputMuted || this.voiceOutputVolume <= 0;
     });
   }
 
@@ -1635,6 +1769,20 @@ export class FirebaseRaceService {
       console.warn('Remote voice playback was blocked until the next tap:', error);
       this.queueRemoteAudioUnlock();
     });
+  }
+
+  renderRemoteAudio(remoteUid, stream) {
+    return this.attachRemoteAudio(remoteUid, stream);
+  }
+
+  removeRemoteAudio(remoteUid) {
+    const audio = this.remoteAudioElements.get(remoteUid);
+
+    if (audio) {
+      audio.srcObject = null;
+      audio.remove();
+      this.remoteAudioElements.delete(remoteUid);
+    }
   }
 
   queueRemoteAudioUnlock() {
@@ -1662,13 +1810,7 @@ export class FirebaseRaceService {
       this.peerConnections.delete(remoteUid);
     }
 
-    const audio = this.remoteAudioElements.get(remoteUid);
-
-    if (audio) {
-      audio.srcObject = null;
-      audio.remove();
-      this.remoteAudioElements.delete(remoteUid);
-    }
+    this.removeRemoteAudio(remoteUid);
   }
 
   getCurrentUser() {
