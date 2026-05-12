@@ -917,6 +917,7 @@ function finishRace(room) {
 
   stopRoomTimers(room);
   room.state = 'finished';
+  const raceFinishedAt = Date.now();
 
   const results = getRoomPlayers(room)
     .sort((a, b) => {
@@ -950,6 +951,9 @@ function finishRace(room) {
         mistakes: player.mistakes,
         totalKeys: player.totalKeys,
         correctKeys: player.correctKeys,
+        finishedAt: player.finishedAt,
+        durationMs: player.finishedAt && room.startTime ? Math.max(0, player.finishedAt - room.startTime) : Math.max(0, raceFinishedAt - (room.startTime || raceFinishedAt)),
+        finishTimeMs: player.finishedAt && room.startTime ? Math.max(0, player.finishedAt - room.startTime) : 0,
         longestStreak: player.longestStreak || 0,
         grip: Math.round((player.grip || GRIP_BASE) * 100),
         momentum: Math.round((player.momentum || MOMENTUM_BASE) * 100),
@@ -962,7 +966,11 @@ function finishRace(room) {
   room.standings = results;
 
   io.to(room.code).emit('raceFinished', {
+    roomCode: room.code,
+    mode: room.mode,
     results,
+    startedAt: room.startTime,
+    finishedAt: raceFinishedAt,
     lapCount: room.lapCount,
     circuit: room.circuitProfile
   });

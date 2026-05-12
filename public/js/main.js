@@ -1446,7 +1446,9 @@ class F1TypingBattleApp {
   renderAccount() {
     const user = this.firebase.getCurrentUser();
     const profile = this.accountData.profile || {};
-    const stats = this.accountData.stats || {};
+    const stats = this.accountData.stats && Object.keys(this.accountData.stats).length
+      ? this.accountData.stats
+      : this.calculateHistoryStats(this.accountData.history || []);
     const displayName = profile.displayName || user?.displayName || this.firebase.displayName || 'Driver';
     const username = profile.username ? `@${profile.username}` : user?.email || 'No username yet';
     const status = this.accountData.status?.state || (user ? 'online' : 'offline');
@@ -1504,20 +1506,48 @@ class F1TypingBattleApp {
     this.renderHistory();
   }
 
+  calculateHistoryStats(history = []) {
+    const matches = (Array.isArray(history) ? history : [])
+      .filter((match) => String(match?.mode || '').toLowerCase() === 'multiplayer');
+    const total = matches.length;
+    const sum = (field, items = matches) => items.reduce((value, match) => value + (Number(match?.[field]) || 0), 0);
+    const avg = (field, items = matches) => items.length ? sum(field, items) / items.length : 0;
+    const max = (field) => matches.reduce((best, match) => Math.max(best, Number(match?.[field]) || 0), 0);
+    const completed = matches.filter((match) => match.completed === true);
+    const wins = matches.filter((match) => Number(match.placement) === 1).length;
+
+    return {
+      matches: total,
+      wins,
+      podiums: matches.filter((match) => Number(match.placement) > 0 && Number(match.placement) <= 3).length,
+      winRate: total ? Math.round((wins / total) * 1000) / 10 : 0,
+      avgWpm: total ? Math.round(avg('wpm') * 10) / 10 : 0,
+      bestWpm: max('wpm'),
+      avgAccuracy: total ? Math.round(avg('accuracy') * 10) / 10 : 0,
+      bestAccuracy: max('accuracy'),
+      totalTyped: sum('typedChars'),
+      completed: completed.length,
+      p1: matches.filter((match) => Number(match.placement) === 1).length,
+      p2: matches.filter((match) => Number(match.placement) === 2).length,
+      p3: matches.filter((match) => Number(match.placement) === 3).length,
+      avgFinishMs: completed.length ? Math.round(avg('finishTimeMs', completed)) : 0
+    };
+  }
+
   renderStatCards(stats = {}) {
     const cards = [
-      ['Matches', stats.totalMatches || 0],
-      ['Wins', stats.totalWins || 0],
-      ['Podiums', stats.totalPodiums || 0],
-      ['Win Rate', `${stats.winRate || 0}%`],
-      ['Avg WPM', stats.averageWpm || 0],
+      ['Matches', stats.matches ?? stats.totalMatches ?? 0],
+      ['Wins', stats.wins ?? stats.totalWins ?? 0],
+      ['Podiums', stats.podiums ?? stats.totalPodiums ?? 0],
+      ['Win Rate', `${stats.winRate ?? 0}%`],
+      ['Avg WPM', stats.avgWpm ?? stats.averageWpm ?? 0],
       ['Best WPM', stats.bestWpm || 0],
-      ['Avg ACC', `${stats.averageAccuracy || 0}%`],
+      ['Avg ACC', `${stats.avgAccuracy ?? stats.averageAccuracy ?? 0}%`],
       ['Best ACC', `${stats.bestAccuracy || 0}%`],
-      ['Typed', stats.totalCharacters || 0],
-      ['Avg Finish', stats.averageFinishPosition || '-'],
-      ['P1/P2/P3', `${stats.firstPlaces || 0}/${stats.secondPlaces || 0}/${stats.thirdPlaces || 0}`],
-      ['Completed', stats.totalRaceCompleted || 0]
+      ['Typed', stats.totalTyped ?? stats.totalCharacters ?? 0],
+      ['Avg Finish', stats.avgFinishMs ? this.formatDuration(stats.avgFinishMs) : '0'],
+      ['P1/P2/P3', `${stats.p1 ?? stats.firstPlaces ?? 0}/${stats.p2 ?? stats.secondPlaces ?? 0}/${stats.p3 ?? stats.thirdPlaces ?? 0}`],
+      ['Completed', stats.completed ?? stats.totalRaceCompleted ?? 0]
     ];
 
     return cards.map(([label, value]) => `
@@ -1629,25 +1659,35 @@ class F1TypingBattleApp {
   }
 
   renderHistory() {
-    const history = this.accountData.history || [];
+    const history = (this.accountData.history || [])
+      .filter((match) => String(match?.mode || '').toLowerCase() === 'multiplayer');
 
     if (!this.elements.matchHistoryList) {
       return;
     }
 
     this.elements.matchHistoryList.innerHTML = history.length
-      ? history.map((match) => `
+      ? history.map((match) => {
+          const placement = Number(match.placement ?? match.position) || 0;
+          const resultLabel = match.isWinner || placement === 1
+            ? 'Winner'
+            : match.isPodium || (placement > 0 && placement <= 3)
+              ? 'Podium'
+              : 'Finished';
+          return `
           <div class="history-row">
-            <em>P${this.escapeHtml(match.position || '-')}</em>
+            <em>P${this.escapeHtml(placement || '-')}</em>
             <div>
-              <strong>${this.escapeHtml(match.roomCode || 'Room')}</strong>
-              <small>${this.escapeHtml(match.mode || 'multiplayer')} - ${this.formatFirebaseDate(match.createdAt)}</small>
+              <strong>${this.escapeHtml(resultLabel)} - ${this.escapeHtml(match.roomCode || 'Room')}</strong>
+              <small>Multiplayer - ${this.formatFirebaseDate(match.finishedAt || match.createdAt)}</small>
             </div>
             <span>WPM ${this.escapeHtml(match.wpm || 0)}</span>
             <span>ACC ${this.escapeHtml(match.accuracy || 0)}%</span>
             <span>${this.escapeHtml(match.totalPlayers || 1)} drivers</span>
+            <span>${this.escapeHtml(match.finishTimeMs ? this.formatDuration(match.finishTimeMs) : '0')}</span>
           </div>
-        `).join('')
+        `;
+        }).join('')
       : '<div class="account-list-empty">No multiplayer history yet.</div>';
   }
 
@@ -3684,7 +3724,7 @@ class F1TypingBattleApp {
 
   async handleRaceFinished(payload) {
     this.latestResults = payload.results;
-    this.recordLocalMatchHistory(payload.results || []);
+    this.recordLocalMatchHistory(payload);
     this.elements.gameMenuModal?.classList.add('hidden');
     this.isGameMenuOpen = false;
     this.wasPausedByMenu = false;
@@ -3705,7 +3745,15 @@ class F1TypingBattleApp {
     }, FINISH_REPLAY_DURATION_MS);
   }
 
-  recordLocalMatchHistory(results = []) {
+  recordLocalMatchHistory(payload = {}) {
+    const raceMode = String(payload.mode || this.network.mode || '').trim().toLowerCase();
+    if (raceMode !== 'multiplayer') {
+      console.log('[History] skipped because race mode is not multiplayer:', raceMode || 'unknown');
+      return;
+    }
+
+    const results = payload.results || [];
+
     if (!this.firebase.ready || !this.firebase.getCurrentUser() || !Array.isArray(results) || !results.length) {
       return;
     }
@@ -3717,21 +3765,36 @@ class F1TypingBattleApp {
       return;
     }
 
-    this.firebase.recordMatchResult({
+    const humanResults = results.filter((player) => !player.isGhost);
+    const finishedAtMs = Number(payload.finishedAt || Date.now()) || Date.now();
+    console.log('[History] race multiplayer selesai, preparing save:', {
+      roomCode: payload.roomCode || this.network.roomCode || this.getSavedRoomCode(),
+      localPlayerId,
+      placement: localResult.position,
+      totalPlayers: humanResults.length
+    });
+
+    this.firebase.saveMultiplayerRaceHistory(payload.roomCode || this.network.roomCode || this.getSavedRoomCode(), {
+      raceId: `${payload.roomCode || this.network.roomCode || this.getSavedRoomCode()}_${Math.round(finishedAtMs)}`,
       roomCode: this.network.roomCode || this.getSavedRoomCode(),
-      mode: this.network.mode || 'multiplayer',
-      position: localResult.position,
-      totalPlayers: results.filter((player) => !player.isGhost).length || results.length,
-      opponents: results
-        .filter((player) => player.id !== localPlayerId)
-        .map((player) => player.name || 'Driver'),
-      wpm: localResult.wpm,
-      accuracy: localResult.accuracy,
-      totalKeys: localResult.totalKeys,
-      mistakes: localResult.mistakes,
-      completed: Number(localResult.progress) >= 100
+      mode: raceMode,
+      trackName: payload.circuit?.id === 'track-glb' ? 'Track GLB Circuit' : 'TypeRace Circuit',
+      circuit: payload.circuit || this.network.circuitProfile,
+      results,
+      localResult: {
+        ...localResult,
+        placement: localResult.position,
+        typedChars: localResult.totalKeys,
+        correctChars: localResult.correctKeys,
+        durationMs: Number(localResult.durationMs) || 0,
+        finishTimeMs: Number(localResult.finishTimeMs || localResult.durationMs) || 0,
+        completed: Number(localResult.progress) >= 100
+      },
+      localPlayerId,
+      totalPlayers: humanResults.length || results.length,
+      finishedAtMs
     }).catch((error) => {
-      console.warn('Match history save failed:', error);
+      console.error('[History] Match history save failed:', error);
     });
   }
 

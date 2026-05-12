@@ -9,7 +9,6 @@ const SPEAKING_WRITE_INTERVAL_MS = 520;
 const SPEAKING_KEEPALIVE_INTERVAL_MS = 1800;
 const SPEAKING_METER_INTERVAL_MS = 160;
 const MAX_BIO_LENGTH = 120;
-const MAX_HISTORY_ITEMS = 24;
 const MAX_PHOTO_URL_LENGTH = 500;
 
 function normalizeRoomCode(roomCode = '') {
@@ -94,6 +93,28 @@ function snapshotList(snapshot) {
   return Object.entries(value)
     .map(([id, item]) => ({ id, ...(item || {}) }))
     .filter((item) => item.uid || item.id);
+}
+
+function snapshotRecordList(snapshot) {
+  const value = snapshot.val() || {};
+  return Object.entries(value)
+    .map(([id, item]) => ({ id, ...(item || {}) }))
+    .filter((item) => item.id || item.raceId);
+}
+
+function safeNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function roundNumber(value, digits = 0) {
+  const number = safeNumber(value);
+  const factor = 10 ** digits;
+  return Math.round(number * factor) / factor;
+}
+
+function normalizeRaceMode(mode = '') {
+  return String(mode || '').trim().toLowerCase();
 }
 
 function getProfileName(profile = {}, fallback = 'Driver') {
@@ -446,6 +467,10 @@ export class FirebaseRaceService {
       return profile;
     });
     bindValue(`users/${uid}/status`, 'status');
+    bindValue(`users/${uid}/stats`, 'stats');
+    bindValue(`users/${uid}/raceHistory`, 'history', (snapshot) => snapshotRecordList(snapshot)
+      .filter((match) => normalizeRaceMode(match.mode) === 'multiplayer')
+      .sort((a, b) => safeNumber(b.finishedAt || b.createdAt) - safeNumber(a.finishedAt || a.createdAt)));
     bindValue(`friends/${uid}`, 'friends', snapshotList);
     bindValue(`friendRequests/${uid}`, 'requests', snapshotList);
     bindValue(`sentFriendRequests/${uid}`, 'sentRequests', snapshotList);
@@ -746,8 +771,170 @@ export class FirebaseRaceService {
   }
 
   async recordMatchResult(match = {}) {
-    void match;
-    return false;
+    return this.saveMultiplayerRaceHistory(match.roomCode, match);
+  }
+
+  async saveMultiplayerRaceHistory(roomCode, raceResult = {}) {
+    const raceMode = normalizeRaceMode(raceResult.mode);
+    if (raceMode !== 'multiplayer') {
+      console.log('[History] skipped because race mode is not multiplayer:', raceMode || 'unknown');
+      return false;
+    }
+
+    this.ensureSignedIn();
+
+    const normalizedRoomCode = normalizeRoomCode(roomCode || raceResult.roomCode);
+    const localResult = raceResult.localResult || {};
+    const results = Array.isArray(raceResult.results) ? raceResult.results : [];
+    const humanResults = results.filter((player) => !player?.isGhost);
+    const totalPlayers = safeNumber(raceResult.totalPlayers, humanResults.length || results.length);
+    const placement = safeNumber(localResult.placement ?? localResult.position ?? raceResult.placement);
+    const wpm = safeNumber(localResult.wpm ?? raceResult.wpm);
+    const accuracy = safeNumber(localResult.accuracy ?? raceResult.accuracy);
+    const finishedAtMs = safeNumber(raceResult.finishedAtMs || raceResult.finishedAt || Date.now(), Date.now());
+    const durationMs = safeNumber(localResult.durationMs ?? raceResult.durationMs);
+    const finishTimeMs = safeNumber(localResult.finishTimeMs ?? localResult.durationMs ?? raceResult.finishTimeMs ?? durationMs);
+    const completed = Boolean(localResult.completed ?? raceResult.completed);
+
+    console.log('[History] multiplayer finish detected:', {
+      roomCode: normalizedRoomCode,
+      placement,
+      totalPlayers,
+      wpm,
+      accuracy,
+      completed
+    });
+
+    if (!normalizedRoomCode || !placement || !totalPlayers || !Number.isFinite(wpm) || !Number.isFinite(accuracy)) {
+      console.warn('[History] skipped because final race result is incomplete.', {
+        roomCode: normalizedRoomCode,
+        placement,
+        totalPlayers,
+        wpm,
+        accuracy
+      });
+      return false;
+    }
+
+    if (!humanResults.length && localResult.isGhost) {
+      console.log('[History] skipped because result only contains AI/bot participants.');
+      return false;
+    }
+
+    const uid = this.authUser.uid;
+    const raceId = String(raceResult.raceId || `${normalizedRoomCode}_${Math.round(finishedAtMs)}`);
+    const { ref, get, set, serverTimestamp } = this.modules;
+    const historyPath = `users/${uid}/raceHistory/${raceId}`;
+    const historyRef = ref(this.db, historyPath);
+    const existingSnapshot = await get(historyRef);
+
+    if (existingSnapshot.exists()) {
+      console.log('[History] duplicate skipped:', historyPath);
+      await this.recalculateUserStats();
+      return false;
+    }
+
+    const localPlayerId = String(localResult.id || raceResult.localPlayerId || this.playerId || '');
+    const presenceByPlayerId = new Map(
+      (this.latestRoomParticipants || [])
+        .filter((participant) => participant?.playerId)
+        .map((participant) => [String(participant.playerId), participant])
+    );
+    const opponents = results
+      .filter((player) => player && !player.isGhost && String(player.id || '') !== localPlayerId)
+      .map((player) => {
+        const presence = presenceByPlayerId.get(String(player.id || '')) || {};
+        return {
+          uid: String(presence.uid || player.uid || ''),
+          name: cleanDisplayName(presence.displayName || player.name || 'Driver'),
+          placement: safeNumber(player.placement ?? player.position),
+          wpm: safeNumber(player.wpm),
+          accuracy: safeNumber(player.accuracy)
+        };
+      });
+
+    const historyPayload = {
+      raceId,
+      roomCode: normalizedRoomCode,
+      mode: 'multiplayer',
+      trackName: String(raceResult.trackName || raceResult.circuit?.id || 'TypeRace Circuit').slice(0, 80),
+      createdAt: serverTimestamp(),
+      finishedAt: serverTimestamp(),
+
+      placement,
+      totalPlayers,
+      isWinner: placement === 1,
+      isPodium: placement <= 3,
+      completed,
+
+      wpm,
+      accuracy,
+      mistakes: safeNumber(localResult.mistakes ?? raceResult.mistakes),
+      typedChars: safeNumber(localResult.typedChars ?? localResult.totalKeys ?? raceResult.typedChars),
+      correctChars: safeNumber(localResult.correctChars ?? localResult.correctKeys ?? raceResult.correctChars),
+      durationMs,
+      finishTimeMs,
+
+      opponents
+    };
+
+    try {
+      await set(historyRef, historyPayload);
+      console.log('[History] saved:', historyPath);
+      await this.recalculateUserStats();
+      return true;
+    } catch (error) {
+      console.error('[History] failed to save at path:', historyPath, error);
+      throw error;
+    }
+  }
+
+  async recalculateUserStats() {
+    this.ensureSignedIn();
+
+    const uid = this.authUser.uid;
+    const { ref, get, set, serverTimestamp } = this.modules;
+    const historyPath = `users/${uid}/raceHistory`;
+    const statsPath = `users/${uid}/stats`;
+    const historySnapshot = await get(ref(this.db, historyPath));
+    const history = snapshotRecordList(historySnapshot)
+      .filter((match) => normalizeRaceMode(match.mode) === 'multiplayer');
+    const matches = history.length;
+    const wins = history.filter((match) => safeNumber(match.placement) === 1).length;
+    const podiums = history.filter((match) => {
+      const placement = safeNumber(match.placement);
+      return placement > 0 && placement <= 3;
+    }).length;
+    const completedHistory = history.filter((match) => match.completed === true);
+    const sum = (field, items = history) => items.reduce((total, match) => total + safeNumber(match[field]), 0);
+    const avg = (field, items = history) => items.length ? sum(field, items) / items.length : 0;
+    const max = (field) => history.reduce((best, match) => Math.max(best, safeNumber(match[field])), 0);
+    const stats = {
+      matches,
+      wins,
+      podiums,
+      winRate: matches ? roundNumber((wins / matches) * 100, 1) : 0,
+      avgWpm: matches ? roundNumber(avg('wpm'), 1) : 0,
+      bestWpm: max('wpm'),
+      avgAccuracy: matches ? roundNumber(avg('accuracy'), 1) : 0,
+      bestAccuracy: max('accuracy'),
+      totalTyped: sum('typedChars'),
+      completed: completedHistory.length,
+      p1: history.filter((match) => safeNumber(match.placement) === 1).length,
+      p2: history.filter((match) => safeNumber(match.placement) === 2).length,
+      p3: history.filter((match) => safeNumber(match.placement) === 3).length,
+      avgFinishMs: completedHistory.length ? Math.round(avg('finishTimeMs', completedHistory)) : 0,
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      await set(ref(this.db, statsPath), stats);
+      console.log('[History] stats recalculated:', statsPath, stats);
+      return stats;
+    } catch (error) {
+      console.error('[History] failed to write stats at path:', statsPath, error);
+      throw error;
+    }
   }
 
   startGlobalPresence() {
