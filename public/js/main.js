@@ -656,6 +656,8 @@ class F1TypingBattleApp {
       : 0;
 
     document.documentElement.style.setProperty('--mobile-keyboard-offset', `${keyboardOffset}px`);
+    document.documentElement.style.setProperty('--mobile-visual-height', `${Math.round(viewport?.height || window.innerHeight)}px`);
+    document.body.classList.toggle('mobile-keyboard-open', keyboardOffset > 80);
   }
 
   initFloatingCommsDocks() {
@@ -3909,6 +3911,11 @@ class F1TypingBattleApp {
     }
 
     this.scheduleVisualViewportUpdate();
+
+    window.setTimeout(() => {
+      input.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      this.scheduleVisualViewportUpdate();
+    }, 120);
   }
 
   resetTypingInputValue() {

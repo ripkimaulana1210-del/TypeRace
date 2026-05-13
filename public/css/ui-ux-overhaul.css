@@ -2558,3 +2558,558 @@ body {
     max-width: calc(100vw - 190px);
   }
 }
+
+@media (max-width: 768px) and (orientation: portrait) {
+  :root {
+    --ux-topbar: 54px;
+  }
+
+  html,
+  body {
+    width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    min-height: 100dvh;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .rotate-device-overlay {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  .app-topbar {
+    min-height: var(--ux-topbar);
+    padding:
+      calc(6px + env(safe-area-inset-top))
+      calc(8px + env(safe-area-inset-right))
+      6px
+      calc(8px + env(safe-area-inset-left));
+    gap: 8px;
+  }
+
+  .app-brand {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .brand-mark {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    padding: 4px;
+  }
+
+  .app-brand strong {
+    max-width: 112px;
+    overflow: hidden;
+    font-size: 0.82rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-brand small,
+  .status-pill,
+  .navbar-profile-copy small {
+    display: none;
+  }
+
+  .topbar-actions {
+    min-width: 0;
+    max-width: 56vw;
+    gap: 5px;
+  }
+
+  .topbar-btn,
+  .navbar-profile-btn {
+    min-width: 0;
+    min-height: 40px;
+    padding: 7px 8px;
+    font-size: 0.64rem;
+  }
+
+  .navbar-profile-btn {
+    max-width: 104px;
+  }
+
+  .navbar-profile-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.66rem;
+  }
+
+  .navbar-profile-copy strong {
+    max-width: 54px;
+    font-size: 0.7rem;
+  }
+
+  button,
+  input,
+  select,
+  textarea,
+  .btn,
+  .icon-btn,
+  .mini-btn,
+  .mode-card,
+  .setup-action-card,
+  .lap-option,
+  .difficulty-option,
+  .compact-lap-option,
+  .account-tabs button,
+  .camera-mode,
+  .chat-toggle-btn,
+  .floating-friends-toggle {
+    min-height: 40px;
+    touch-action: manipulation;
+  }
+
+  .screen,
+  body[data-screen="menu"] #menuScreen.screen.active,
+  body[data-screen="multiplayerSetup"] #multiplayerSetupScreen.screen.active,
+  body[data-screen="aiSetup"] #aiSetupScreen.screen.active,
+  body[data-screen="lobby"] #lobbyScreen.screen.active,
+  body[data-screen="results"] #resultsScreen.screen.active,
+  body[data-screen="loading"] #loadingScreen.screen.active {
+    min-height: 100dvh;
+    padding:
+      calc(var(--ux-topbar) + 8px + env(safe-area-inset-top))
+      calc(10px + env(safe-area-inset-right))
+      calc(10px + env(safe-area-inset-bottom))
+      calc(10px + env(safe-area-inset-left));
+    align-items: stretch;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body[data-screen="menu"] .start-dashboard,
+  body[data-screen="lobby"] .lobby-panel,
+  body[data-screen="results"] .results-panel,
+  .setup-panel,
+  .modal-panel {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body[data-screen="menu"] .start-dashboard,
+  body[data-screen="lobby"] .lobby-layout,
+  .setup-action-grid,
+  .mode-switch,
+  .auth-grid,
+  .email-actions,
+  .account-form-grid,
+  .account-search-row,
+  .account-list-wrap,
+  .side-status-grid,
+  .results-broadcast-head,
+  .podium-grid,
+  .classification-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .start-panel,
+  .start-side-panel,
+  .setup-panel,
+  body[data-screen="lobby"] .lobby-panel,
+  .results-panel,
+  .modal-panel {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  body[data-screen="menu"] .start-dashboard {
+    min-height: 0;
+    gap: 10px;
+  }
+
+  body[data-screen="menu"] .hero-copy h1 {
+    font-size: clamp(2.65rem, 16vw, 4rem);
+  }
+
+  body[data-screen="menu"] .start-side-panel {
+    display: grid;
+  }
+
+  body[data-screen="menu"] .quick-preview {
+    min-height: 118px;
+  }
+
+  .mode-card,
+  .setup-action-card {
+    min-height: 92px;
+    padding: 11px;
+  }
+
+  .difficulty-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compact-lap-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  body[data-screen="lobby"] #lobbyScreen.screen.active,
+  body.chat-open[data-screen="lobby"] #lobbyScreen.screen.active,
+  body.friends-open[data-screen="lobby"] #lobbyScreen.screen.active {
+    overflow-y: auto;
+  }
+
+  body[data-screen="lobby"] .lobby-panel {
+    height: auto;
+    min-height: calc(100dvh - var(--ux-topbar) - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: none;
+    overflow: visible;
+  }
+
+  body[data-screen="lobby"] .lobby-header,
+  body[data-screen="lobby"] .lap-settings-head,
+  .panel-header,
+  .modal-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  body[data-screen="lobby"] .lobby-state {
+    width: 100%;
+    max-width: none;
+    grid-template-columns: 1fr;
+  }
+
+  body[data-screen="lobby"] .lobby-state span {
+    min-height: 36px;
+  }
+
+  .room-code-row {
+    align-items: center;
+  }
+
+  .room-code-row h2 {
+    font-size: clamp(2rem, 13vw, 3rem);
+  }
+
+  body[data-screen="lobby"] .laps-panel,
+  body[data-screen="lobby"] .drivers-panel {
+    max-height: none;
+    padding: 10px;
+    overflow: visible;
+  }
+
+  body[data-screen="lobby"] .lap-options {
+    grid-template-columns: 1fr;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  body[data-screen="lobby"] .lap-card {
+    min-height: 54px;
+  }
+
+  body[data-screen="lobby"] .drivers-panel .players-list {
+    grid-template-columns: 1fr;
+    max-height: min(44dvh, 390px);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body[data-screen="lobby"] .bottom-actions,
+  .results-actions,
+  .results-pager {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .modal {
+    padding:
+      calc(8px + env(safe-area-inset-top))
+      calc(8px + env(safe-area-inset-right))
+      calc(8px + env(safe-area-inset-bottom))
+      calc(8px + env(safe-area-inset-left));
+  }
+
+  .modal-panel,
+  .auth-modal-panel,
+  .account-modal-panel,
+  .game-menu-panel {
+    width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    max-width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+
+  .account-modal-panel {
+    min-height: min(640px, calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  }
+
+  .modal-head {
+    position: sticky;
+    top: -12px;
+    z-index: 5;
+    background: rgba(12, 16, 14, 0.98);
+  }
+
+  .modal-head .icon-btn,
+  #accountCloseBtn,
+  #authCloseBtn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    z-index: 6;
+  }
+
+  .account-tabs {
+    position: sticky;
+    top: 40px;
+    z-index: 4;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    background: rgba(12, 16, 14, 0.98);
+  }
+
+  .account-tabs button {
+    padding-inline: 4px;
+    font-size: 0.62rem;
+  }
+
+  .account-panel.active {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .account-list,
+  .match-history-list,
+  .race-friends-panel .account-list {
+    max-height: 40dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .floating-chat-dock,
+  .floating-friends-dock {
+    right: calc(10px + env(safe-area-inset-right));
+    z-index: 430;
+  }
+
+  .floating-chat-dock {
+    bottom: calc(74px + env(safe-area-inset-bottom));
+  }
+
+  .floating-friends-dock {
+    bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .floating-comms-dock .race-comms-panel,
+  .floating-comms-dock .race-friends-panel,
+  .floating-comms-dock.is-panel-to-right .race-comms-panel,
+  .floating-comms-dock.is-panel-to-right .race-friends-panel,
+  .floating-comms-dock.is-panel-below .race-comms-panel,
+  .floating-comms-dock.is-panel-below .race-friends-panel,
+  body.chat-open.friends-open .floating-comms-dock .race-comms-panel {
+    inset: auto 0 calc(100% + 8px) auto;
+    width: min(340px, calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    max-width: calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  }
+
+  .floating-comms-dock .race-comms-panel {
+    height: min(380px, calc(100dvh - 112px));
+    min-height: 230px;
+    overflow: hidden;
+  }
+
+  .chat-messages {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .chat-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  body[data-screen="game"] .app-topbar {
+    transform: translateY(-100%);
+  }
+
+  body[data-screen="game"] #gameScreen.screen.active {
+    min-height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+
+  body[data-screen="game"] .game-shell,
+  body[data-screen="game"] #gameCanvas {
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+    touch-action: manipulation;
+  }
+
+  body[data-screen="game"] .scene-overlay {
+    inset: 0;
+    overflow: hidden;
+  }
+
+  body[data-screen="game"] .top-ribbon {
+    top: calc(8px + env(safe-area-inset-top));
+    left: calc(8px + env(safe-area-inset-left));
+    right: calc(58px + env(safe-area-inset-right));
+    gap: 6px;
+  }
+
+  body[data-screen="game"] .chip {
+    min-height: 28px;
+    padding: 5px 8px;
+    font-size: 0.58rem;
+  }
+
+  body[data-screen="game"] .corner-control-bar {
+    top: calc(8px + env(safe-area-inset-top));
+    right: calc(8px + env(safe-area-inset-right));
+  }
+
+  body[data-screen="game"] .hud-grid {
+    left: calc(8px + env(safe-area-inset-left));
+    right: calc(8px + env(safe-area-inset-right));
+    bottom: calc(8px + env(safe-area-inset-bottom) + var(--mobile-keyboard-offset, 0px));
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    max-width: none;
+    align-items: end;
+    z-index: 12;
+  }
+
+  body[data-screen="game"] .stats-card {
+    order: 1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+  }
+
+  body[data-screen="game"] .typing-card {
+    order: 2;
+    padding: 9px;
+  }
+
+  body[data-screen="game"] .stat {
+    min-height: 46px;
+    padding: 6px 5px;
+  }
+
+  body[data-screen="game"] .stat-label {
+    margin-bottom: 2px;
+    font-size: 0.54rem;
+  }
+
+  body[data-screen="game"] .stat-value {
+    font-size: 0.9rem;
+  }
+
+  body[data-screen="game"] .telemetry-grid {
+    display: none;
+  }
+
+  body[data-screen="game"] .text-to-type {
+    min-height: 86px;
+    max-height: 22dvh;
+    margin-bottom: 8px;
+    padding: 10px 10px 22px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.42;
+  }
+
+  body[data-screen="game"] .text-to-type::after {
+    right: 0;
+    bottom: 0;
+    max-width: 72%;
+    padding: 2px 7px;
+    font-size: 0.58rem;
+  }
+
+  body[data-screen="game"] .typing-input {
+    height: 46px;
+    min-height: 46px;
+    padding: 10px 12px;
+    font-size: 16px;
+  }
+
+  body[data-screen="game"] .input-feedback {
+    min-height: 20px;
+    padding-top: 5px;
+    font-size: 0.76rem;
+  }
+
+  body[data-screen="game"] .race-tools {
+    top: calc(44px + env(safe-area-inset-top));
+    right: calc(8px + env(safe-area-inset-right));
+    width: 96px;
+    opacity: 0.74;
+  }
+
+  body[data-screen="game"] .route-minimap {
+    width: 96px;
+    height: 64px;
+  }
+
+  body[data-screen="game"] .camera-mode-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  body[data-screen="game"] .camera-mode {
+    min-height: 32px;
+    padding: 4px;
+    font-size: 0.58rem;
+  }
+
+  body[data-screen="game"] .timing-tower {
+    top: calc(44px + env(safe-area-inset-top));
+    left: calc(8px + env(safe-area-inset-left));
+    width: min(168px, calc(100vw - 124px));
+    max-height: 138px;
+    overflow-y: auto;
+  }
+
+  body[data-screen="game"] .engineer-radio {
+    left: calc(8px + env(safe-area-inset-left));
+    right: calc(8px + env(safe-area-inset-right));
+    bottom: calc(250px + env(safe-area-inset-bottom) + var(--mobile-keyboard-offset, 0px));
+    max-width: none;
+    padding: 8px 10px;
+  }
+
+  body[data-screen="game"].mobile-keyboard-open .stats-card,
+  body[data-screen="game"].mobile-keyboard-open .race-tools,
+  body[data-screen="game"].mobile-keyboard-open .timing-tower,
+  body[data-screen="game"].mobile-keyboard-open .engineer-radio {
+    display: none;
+  }
+
+  body[data-screen="game"].mobile-keyboard-open .text-to-type {
+    min-height: 72px;
+    max-height: min(24dvh, 138px);
+  }
+
+  .results-list {
+    max-height: 40dvh;
+    overflow-y: auto;
+  }
+
+  .result-card {
+    grid-template-columns: 34px 42px minmax(0, 1fr);
+  }
+
+  .classification-metrics {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
