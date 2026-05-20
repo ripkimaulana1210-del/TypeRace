@@ -2916,6 +2916,8 @@ class F1TypingBattleApp {
 
     if (name === 'game') {
       requestAnimationFrame(() => {
+        this.game?.handleResize?.();
+
         if (this.typing?.text) {
           this.renderTyping();
         }

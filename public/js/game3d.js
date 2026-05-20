@@ -2325,7 +2325,7 @@ export class Game3D {
         powerPreference: this.performanceProfile.lite ? 'default' : 'high-performance'
       });
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.performanceProfile.maxPixelRatio));
-      this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+      this.renderer.setSize(this.getViewportWidth(), this.getViewportHeight(), false);
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.toneMappingExposure = 1.05;
@@ -2342,6 +2342,7 @@ export class Game3D {
 
       this.handleResize();
       window.addEventListener('resize', () => this.handleResize());
+      window.visualViewport?.addEventListener('resize', () => this.handleResize());
 
       this.animationFrameId = requestAnimationFrame(this.animate);
     } catch (error) {
@@ -3084,8 +3085,8 @@ export class Game3D {
         return;
       }
 
-      const width = this.canvas.clientWidth || window.innerWidth || 1;
-      const height = this.canvas.clientHeight || window.innerHeight || 1;
+      const width = this.getViewportWidth();
+      const height = this.getViewportHeight();
 
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
@@ -3094,6 +3095,14 @@ export class Game3D {
     } catch (error) {
       console.error('Resize handling failed:', error);
     }
+  }
+
+  getViewportWidth() {
+    return Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 1));
+  }
+
+  getViewportHeight() {
+    return Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 1));
   }
 
   getVisualSpeed(speed = 0) {
