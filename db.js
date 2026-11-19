@@ -114,16 +114,24 @@ async function initDatabase() {
   }
 }
 
-async function registerUser({ email, password, displayName }) {
+async function registerUser({ email, password, displayName, username }) {
   const cleanEmail = String(email || '').trim().toLowerCase();
   const cleanName = String(displayName || cleanEmail.split('@')[0] || 'Driver').trim().slice(0, 30);
+  const cleanUsername = String(username || cleanEmail.split('@')[0]).trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30);
   const uid = 'usr_' + crypto.randomBytes(12).toString('hex');
   const passwordHash = hashPassword(password);
 
   if (isConnected && pool) {
-    const existing = await pool.query('SELECT uid FROM users WHERE email = $1', [cleanEmail]);
+    const existing = await pool.query('SELECT uid FROM users WHERE LOWER(email) = $1', [cleanEmail]);
     if (existing.rows.length > 0) {
       throw new Error('Email already registered.');
+    }
+
+    if (cleanUsername) {
+      const existingUser = await pool.query('SELECT uid FROM user_profiles WHERE LOWER(username) = $1', [cleanUsername]);
+      if (existingUser.rows.length > 0) {
+        throw new Error('Username already taken.');
+      }
     }
 
     await pool.query(
@@ -138,10 +146,10 @@ async function registerUser({ email, password, displayName }) {
 
     await pool.query(
       'INSERT INTO user_profiles (uid, display_name, username, bio) VALUES ($1, $2, $3, $4)',
-      [uid, cleanName, cleanEmail.split('@')[0], 'F1 Racing Driver']
+      [uid, cleanName, cleanUsername || cleanEmail.split('@')[0], 'F1 Racing Driver']
     );
 
-    return { uid, email: cleanEmail, displayName: cleanName };
+    return { uid, email: cleanEmail, displayName: cleanName, username: cleanUsername };
   } else {
     if (memoryStore.users.has(cleanEmail)) {
       throw new Error('Email already registered.');
@@ -150,18 +158,24 @@ async function registerUser({ email, password, displayName }) {
     memoryStore.users.set(cleanEmail, user);
     memoryStore.usersByUid.set(uid, user);
     memoryStore.stats.set(uid, { races_played: 0, races_won: 0, avg_wpm: 0, best_wpm: 0, avg_accuracy: 0, total_typed: 0 });
-    memoryStore.profiles.set(uid, { displayName: cleanName, username: cleanEmail.split('@')[0], bio: 'F1 Racing Driver', avatar_url: '' });
-    return { uid, email: cleanEmail, displayName: cleanName };
+    memoryStore.profiles.set(uid, { displayName: cleanName, username: cleanUsername, bio: 'F1 Racing Driver', avatar_url: '' });
+    return { uid, email: cleanEmail, displayName: cleanName, username: cleanUsername };
   }
 }
 
 async function authenticateUser({ email, password }) {
-  const cleanEmail = String(email || '').trim().toLowerCase();
+  const identifier = String(email || '').trim().toLowerCase();
 
   if (isConnected && pool) {
-    const res = await pool.query('SELECT * FROM users WHERE email = $1', [cleanEmail]);
+    const res = await pool.query(
+      `SELECT u.* FROM users u
+       LEFT JOIN user_profiles p ON u.uid = p.uid
+       WHERE LOWER(u.email) = $1 OR LOWER(p.username) = $1
+       LIMIT 1`,
+      [identifier]
+    );
     if (res.rows.length === 0) {
-      throw new Error('User not found.');
+      throw new Error('User not found. Check email or username.');
     }
     const user = res.rows[0];
     if (!verifyPassword(password, user.password_hash)) {
@@ -169,15 +183,36 @@ async function authenticateUser({ email, password }) {
     }
     return { uid: user.uid, email: user.email, displayName: user.display_name };
   } else {
-    const user = memoryStore.users.get(cleanEmail);
+    let user = memoryStore.users.get(identifier);
     if (!user) {
-      throw new Error('User not found.');
+      for (const [uid, prof] of memoryStore.profiles.entries()) {
+        if (prof.username && prof.username.toLowerCase() === identifier) {
+          user = memoryStore.usersByUid.get(uid);
+          break;
+        }
+      }
+    }
+    if (!user) {
+      throw new Error('User not found. Check email or username.');
     }
     if (!verifyPassword(password, user.passwordHash)) {
       throw new Error('Invalid password.');
     }
     return { uid: user.uid, email: user.email, displayName: user.displayName };
   }
+}
+
+async function clearAllUsers() {
+  if (isConnected && pool) {
+    await pool.query('TRUNCATE TABLE match_history, user_stats, user_profiles, users CASCADE;');
+    console.log('[DB] PostgreSQL: All accounts, profiles, and match histories have been purged.');
+  }
+  memoryStore.users.clear();
+  memoryStore.usersByUid.clear();
+  memoryStore.stats.clear();
+  memoryStore.profiles.clear();
+  memoryStore.matches = [];
+  return { ok: true, message: 'All accounts wiped successfully.' };
 }
 
 async function getFullUserData(uid) {
@@ -396,6 +431,7 @@ module.exports = {
   initDatabase,
   registerUser,
   authenticateUser,
+  clearAllUsers,
   getFullUserData,
   updateUserProfile,
   recordMatchResult,

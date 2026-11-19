@@ -471,6 +471,17 @@ class F1TypingBattleApp {
       authLoginBtn: document.getElementById('authLoginBtn'),
       authRegisterBtn: document.getElementById('authRegisterBtn'),
       authLogoutBtn: document.getElementById('authLogoutBtn'),
+      tabAuthLogin: document.getElementById('tabAuthLogin'),
+      tabAuthRegister: document.getElementById('tabAuthRegister'),
+      authLoginSection: document.getElementById('authLoginSection'),
+      authRegisterSection: document.getElementById('authRegisterSection'),
+      authLoggedInSection: document.getElementById('authLoggedInSection'),
+      authFeedbackBanner: document.getElementById('authFeedbackBanner'),
+      authLoginEmailInput: document.getElementById('authLoginEmailInput'),
+      authLoginPasswordInput: document.getElementById('authLoginPasswordInput'),
+      authRegisterUsernameInput: document.getElementById('authRegisterUsernameInput'),
+      switchToRegisterLink: document.getElementById('switchToRegisterLink'),
+      switchToLoginLink: document.getElementById('switchToLoginLink'),
       firebaseStatusText: document.getElementById('firebaseStatusText'),
       authUserLabel: document.getElementById('authUserLabel'),
       onlineUsersList: document.getElementById('onlineUsersList'),
@@ -744,6 +755,49 @@ class F1TypingBattleApp {
 
   bindUI() {
     this.syncAudioSettingsUI();
+    this.elements.tabAuthLogin?.addEventListener('click', () => this.setAuthModalTab('login'));
+    this.elements.tabAuthRegister?.addEventListener('click', () => this.setAuthModalTab('register'));
+    this.elements.switchToRegisterLink?.addEventListener('click', () => this.setAuthModalTab('register'));
+    this.elements.switchToLoginLink?.addEventListener('click', () => this.setAuthModalTab('login'));
+
+    this.elements.authLoginEmailInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.elements.authLoginPasswordInput?.focus();
+      }
+    });
+    this.elements.authLoginPasswordInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.loginWithFirebase();
+      }
+    });
+
+    this.elements.authNameInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.elements.authRegisterUsernameInput?.focus();
+      }
+    });
+    this.elements.authRegisterUsernameInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.elements.authEmailInput?.focus();
+      }
+    });
+    this.elements.authEmailInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.elements.authPasswordInput?.focus();
+      }
+    });
+    this.elements.authPasswordInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.registerWithFirebase();
+      }
+    });
+
     this.elements.authEmailLoginBtn?.addEventListener('click', () => this.loginWithFirebase());
     this.elements.authRegisterBtn?.addEventListener('click', () => this.registerWithFirebase());
     this.elements.authLoginBtn?.addEventListener('click', () => this.loginWithGoogleFirebase());
@@ -1185,25 +1239,75 @@ class F1TypingBattleApp {
     this.updateFirebaseControls();
   }
 
+  setAuthModalTab(tab = 'login') {
+    const isLogin = tab === 'login';
+    this.elements.tabAuthLogin?.classList.toggle('active', isLogin);
+    this.elements.tabAuthRegister?.classList.toggle('active', !isLogin);
+    this.elements.authLoginSection?.classList.toggle('hidden', !isLogin);
+    this.elements.authRegisterSection?.classList.toggle('hidden', isLogin);
+    this.clearAuthFeedback();
+
+    requestAnimationFrame(() => {
+      if (isLogin) {
+        this.elements.authLoginEmailInput?.focus();
+      } else {
+        this.elements.authNameInput?.focus();
+      }
+    });
+  }
+
+  showAuthFeedback(message, type = 'error') {
+    const banner = this.elements.authFeedbackBanner;
+    if (!banner) return;
+    banner.className = `auth-feedback-banner ${type}`;
+    let icon = '⚠️';
+    if (type === 'success') icon = '✅';
+    if (type === 'loading') icon = '⚡';
+    banner.innerHTML = `<span>${icon}</span> <span>${this.escapeHtml(message)}</span>`;
+    banner.classList.remove('hidden');
+  }
+
+  clearAuthFeedback() {
+    const banner = this.elements.authFeedbackBanner;
+    if (!banner) return;
+    banner.className = 'auth-feedback-banner hidden';
+    banner.innerHTML = '';
+  }
+
   openAuthModal(message = '') {
+    this.clearAuthFeedback();
+    const isLoggedIn = Boolean(this.firebase.getCurrentUser());
+
+    if (this.elements.authLoggedInSection) {
+      this.elements.authLoggedInSection.classList.toggle('hidden', !isLoggedIn);
+    }
+    if (this.elements.authLoginSection) {
+      this.elements.authLoginSection.classList.toggle('hidden', isLoggedIn);
+    }
+    if (this.elements.authRegisterSection) {
+      this.elements.authRegisterSection.classList.add('hidden');
+    }
+    if (this.elements.tabAuthLogin) {
+      this.elements.tabAuthLogin.classList.toggle('active', true);
+    }
+    if (this.elements.tabAuthRegister) {
+      this.elements.tabAuthRegister.classList.toggle('active', false);
+    }
+
     if (message) {
       this.authPromptMessage = message;
-      if (this.elements.authStateLabel && !this.firebase.getCurrentUser()) {
+      if (this.elements.authStateLabel && !isLoggedIn) {
         this.elements.authStateLabel.textContent = message;
       }
     }
 
     this.elements.authModal?.classList.remove('hidden');
     requestAnimationFrame(() => {
-      if (this.firebase.getCurrentUser()) {
+      if (isLoggedIn) {
         this.elements.authLogoutBtn?.focus();
-        return;
+      } else {
+        this.elements.authLoginEmailInput?.focus();
       }
-
-      const target = this.elements.authEmailInput?.value
-        ? this.elements.authPasswordInput
-        : this.elements.authEmailInput;
-      target?.focus();
     });
   }
 
@@ -2124,33 +2228,67 @@ class F1TypingBattleApp {
 
   async loginWithFirebase() {
     try {
-      const values = this.getAuthFormValues();
-      const user = await this.firebase.login(values);
+      const email = (this.elements.authLoginEmailInput?.value || this.elements.authEmailInput?.value || '').trim();
+      const password = this.elements.authLoginPasswordInput?.value || this.elements.authPasswordInput?.value || '';
+
+      if (!email || !password) {
+        this.showAuthFeedback('Please enter your email or username and password.', 'error');
+        return;
+      }
+
+      this.showAuthFeedback('Verifying driver credentials in PostgreSQL...', 'loading');
+      const response = await this.firebase.login({ email, password });
+      const user = response?.user || response;
       this.applySignedInName({
-        displayName: values.displayName || user.displayName,
-        email: user.email
+        displayName: user?.displayName,
+        email: user?.email
       });
 
-      this.closeAuthModal();
+      this.showAuthFeedback('Welcome back, Driver! Logging into paddock...', 'success');
+      setTimeout(() => this.closeAuthModal(), 500);
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Email login failed.');
+      this.showAuthFeedback(error.message || 'Login failed. Check your email/username & password.', 'error');
     }
   }
 
   async registerWithFirebase() {
     try {
-      const values = this.getAuthFormValues();
-      const user = await this.firebase.register(values);
+      const displayName = this.elements.authNameInput?.value?.trim() || '';
+      const username = (this.elements.authRegisterUsernameInput?.value || '').trim();
+      const email = this.elements.authEmailInput?.value?.trim() || '';
+      const password = this.elements.authPasswordInput?.value || '';
+
+      if (!displayName) {
+        this.showAuthFeedback('Please enter your driver display name.', 'error');
+        return;
+      }
+      if (!email) {
+        this.showAuthFeedback('Please enter a valid email address.', 'error');
+        return;
+      }
+      if (!password) {
+        this.showAuthFeedback('Please enter a secure password.', 'error');
+        return;
+      }
+      if (password.length < 6) {
+        this.showAuthFeedback('Password must be at least 6 characters.', 'error');
+        return;
+      }
+
+      this.showAuthFeedback('Registering Superlicense in PostgreSQL...', 'loading');
+      const response = await this.firebase.register({ email, password, displayName, username });
+      const user = response?.user || response;
       this.applySignedInName({
-        displayName: values.displayName || user.displayName,
-        email: user.email
+        displayName: displayName || user?.displayName,
+        email: user?.email
       });
 
-      this.closeAuthModal();
+      this.showAuthFeedback('Superlicense registered! Welcome to the paddock.', 'success');
+      setTimeout(() => this.closeAuthModal(), 600);
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Registration failed.');
+      this.showAuthFeedback(error.message || 'Registration failed.', 'error');
     }
   }
 
@@ -2166,47 +2304,7 @@ class F1TypingBattleApp {
   }
 
   async loginWithGoogleFirebase() {
-    if (this.isAuthRequestActive) {
-      return;
-    }
-
-    this.isAuthRequestActive = true;
-    this.updateFirebaseControls({
-      configured: isFirebaseConfigured,
-      ready: this.firebase.ready,
-      message: 'Opening Google sign-in...'
-    });
-
-    try {
-      const user = await this.firebase.loginWithGoogle();
-      this.applySignedInName(user);
-
-      this.closeAuthModal();
-    } catch (error) {
-      if (this.firebase.getCurrentUser()) {
-        this.closeAuthModal();
-        return;
-      }
-
-      if (this.isGooglePopupCancelError(error)) {
-        console.warn('Google sign-in canceled:', error);
-        this.updateFirebaseControls({
-          configured: isFirebaseConfigured,
-          ready: this.firebase.ready,
-          message: 'Google sign-in canceled.'
-        });
-        return;
-      }
-
-      console.error(error);
-      const message = error?.code === 'auth/popup-blocked'
-        ? 'Google popup was blocked. Allow popups for this site, then try again.'
-        : error.message || 'Google login failed.';
-      alert(message);
-    } finally {
-      this.isAuthRequestActive = false;
-      this.updateFirebaseControls();
-    }
+    this.showAuthFeedback('Google login is currently disabled. Please sign in with your email or username.', 'error');
   }
 
   async logoutFromFirebase() {

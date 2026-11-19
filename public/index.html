@@ -116,40 +116,101 @@
   </div>
 
   <div id="authModal" class="modal hidden">
-    <div class="panel modal-panel auth-modal-panel">
+    <div class="panel modal-panel auth-modal-panel f1-auth-modal">
       <div class="modal-head">
         <div>
-          <p class="eyebrow">Account</p>
-          <h2>Sign in to Play</h2>
-          <p class="auth-copy">Login unlocks race rooms, saved sessions, realtime chat, and voice comms.</p>
+          <p class="eyebrow">FIA RACE CONTROL // SUPERLICENSE</p>
+          <h2 id="authModalTitle">Driver Access</h2>
+          <p class="auth-copy">Sign in with your Driver ID or register a new Superlicense to access multiplayer grids, telemetry, and squad channels.</p>
         </div>
-        <button id="authCloseBtn" class="icon-btn" type="button" title="Close login">X</button>
+        <button id="authCloseBtn" class="icon-btn" type="button" title="Close login">✕</button>
       </div>
+
+      <!-- Auth Switch Tabs -->
+      <div class="auth-mode-tabs" role="tablist">
+        <button type="button" id="tabAuthLogin" class="auth-mode-tab active" data-auth-mode="login">
+          <span>SIGN IN</span>
+        </button>
+        <button type="button" id="tabAuthRegister" class="auth-mode-tab" data-auth-mode="register">
+          <span>NEW DRIVER REGISTRATION</span>
+        </button>
+      </div>
+
+      <!-- Dynamic Feedback Banner (replaces alert popups) -->
+      <div id="authFeedbackBanner" class="auth-feedback-banner hidden" role="status" aria-live="polite"></div>
+
       <div class="auth-panel" aria-label="User account">
-        <div class="auth-panel-head">
-          <div>
-            <span class="field-label">Status</span>
-            <strong id="authStateLabel">Sign in to continue.</strong>
+        <!-- LOGIN SECTION -->
+        <div id="authLoginSection" class="auth-section-view">
+          <div class="auth-form-group">
+            <label for="authLoginEmailInput">
+              <span class="field-label">Email or Callsign Username</span>
+              <input id="authLoginEmailInput" class="input-field f1-input" type="text" autocomplete="username" placeholder="driver@f1.com or username" required>
+            </label>
           </div>
-          <button id="authLogoutBtn" class="btn btn-secondary hidden" type="button">Logout</button>
+          <div class="auth-form-group">
+            <label for="authLoginPasswordInput">
+              <span class="field-label">Access Key / Password</span>
+              <input id="authLoginPasswordInput" class="input-field f1-input" type="password" autocomplete="current-password" placeholder="••••••••" required>
+            </label>
+          </div>
+          <div class="auth-actions">
+            <button id="authEmailLoginBtn" class="btn btn-primary f1-btn-primary" type="button">
+              <span>⚡ LOGIN TO PADDOCK</span>
+            </button>
+          </div>
+          <div class="auth-switch-prompt">
+            <span>New to TypeRace GP?</span>
+            <button type="button" class="auth-link-btn" id="switchToRegisterLink">Register driver license &rarr;</button>
+          </div>
         </div>
-        <div class="auth-grid">
-          <input id="authNameInput" class="input-field" type="text" maxlength="32" placeholder="Account name">
-          <input id="authEmailInput" class="input-field" type="email" autocomplete="email" placeholder="Email">
-          <input id="authPasswordInput" class="input-field" type="password" autocomplete="current-password" placeholder="Password">
+
+        <!-- REGISTER SECTION -->
+        <div id="authRegisterSection" class="auth-section-view hidden">
+          <div class="auth-form-group">
+            <label for="authNameInput">
+              <span class="field-label">Driver Display Name</span>
+              <input id="authNameInput" class="input-field f1-input" type="text" maxlength="32" placeholder="e.g. Max Verstappen" required>
+            </label>
+          </div>
+          <div class="auth-form-group">
+            <label for="authRegisterUsernameInput">
+              <span class="field-label">Callsign / Username (Unique)</span>
+              <input id="authRegisterUsernameInput" class="input-field f1-input" type="text" maxlength="24" placeholder="e.g. maxv" required>
+            </label>
+          </div>
+          <div class="auth-form-group">
+            <label for="authEmailInput">
+              <span class="field-label">Driver Email Address</span>
+              <input id="authEmailInput" class="input-field f1-input" type="email" autocomplete="email" placeholder="driver@example.com" required>
+            </label>
+          </div>
+          <div class="auth-form-group">
+            <label for="authPasswordInput">
+              <span class="field-label">Password (Min 6 Characters)</span>
+              <input id="authPasswordInput" class="input-field f1-input" type="password" autocomplete="new-password" placeholder="••••••••" required>
+            </label>
+          </div>
+          <div class="auth-actions">
+            <button id="authRegisterBtn" class="btn btn-primary f1-btn-primary" type="button">
+              <span>🏁 REGISTER DRIVER LICENSE</span>
+            </button>
+          </div>
+          <div class="auth-switch-prompt">
+            <span>Already have a license?</span>
+            <button type="button" class="auth-link-btn" id="switchToLoginLink">Sign in here &rarr;</button>
+          </div>
         </div>
-        <div class="auth-actions email-actions">
-          <button id="authEmailLoginBtn" class="btn btn-primary" type="button">Login Email</button>
-          <button id="authRegisterBtn" class="btn btn-secondary" type="button">Register</button>
-        </div>
-        <div class="auth-divider"><span>or</span></div>
-        <div class="auth-actions">
-          <button id="authLoginBtn" class="btn btn-google" type="button">
-            <span class="google-mark" aria-hidden="true">
-              <img src="assets/google-logo.svg" alt="">
-            </span>
-            <span>Continue with Google</span>
-          </button>
+
+        <!-- Authenticated State (Hidden unless already signed in) -->
+        <div id="authLoggedInSection" class="auth-section-view hidden">
+          <div class="auth-panel-head">
+            <div>
+              <span class="field-label">Active License</span>
+              <strong id="authStateLabel">Signed in.</strong>
+            </div>
+            <button id="authLogoutBtn" class="btn btn-secondary" type="button">Logout</button>
+          </div>
         </div>
       </div>
     </div>
@@ -198,7 +259,7 @@
           <div>
             <span class="field-label">Preview</span>
             <strong id="profilePreviewName">Driver</strong>
-            <p class="room-context">Google sign-in uses your Google photo automatically.</p>
+            <p class="room-context">Custom avatar image URL or default initials badge.</p>
           </div>
         </div>
         <div class="account-form-grid">
@@ -214,9 +275,6 @@
             <span class="field-label">Avatar URL</span>
             <input id="profileAvatarInput" class="input-field" type="url" maxlength="500" placeholder="https://...">
           </label>
-          <div class="account-actions-row">
-            <button id="useGooglePhotoBtn" class="btn btn-secondary" type="button">Use Google Photo</button>
-          </div>
           <label class="account-field-wide">
             <span class="field-label">Bio / Status</span>
             <textarea id="profileBioInput" class="input-field account-textarea" maxlength="120" placeholder="Short racing status"></textarea>

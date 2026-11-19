@@ -744,6 +744,251 @@ body[data-screen="menu"] .start-side-panel.f1-showroom-panel::before {
 }
 
 /* --------------------------------------------------------------------------
+   F1 Modern Auth Modal (Login & Register)
+   -------------------------------------------------------------------------- */
+.modal-panel.auth-modal-panel.f1-auth-modal {
+  width: min(480px, calc(100vw - 32px)) !important;
+  max-width: 480px !important;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.04) 0%, transparent 40%),
+    rgba(12, 16, 23, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+  padding: 28px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.f1-auth-modal::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 3px !important;
+  background: linear-gradient(90deg, #ff8000, #ff1801 50%, #00d2be) !important;
+}
+
+.f1-auth-modal .modal-head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  margin-bottom: 20px !important;
+}
+
+.f1-auth-modal .modal-head .eyebrow {
+  font-size: 0.68rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  color: #ff8000 !important;
+  text-transform: uppercase !important;
+  margin-bottom: 4px !important;
+}
+
+.f1-auth-modal .modal-head h2 {
+  font-size: 1.6rem !important;
+  font-weight: 900 !important;
+  color: #f8fafc !important;
+  margin: 0 0 6px 0 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.f1-auth-modal .modal-head .auth-copy {
+  font-size: 0.82rem !important;
+  color: #94a3b8 !important;
+  line-height: 1.45 !important;
+  margin: 0 !important;
+}
+
+/* Auth Segmented Tabs */
+.auth-mode-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  padding: 4px !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  margin-bottom: 20px !important;
+}
+
+.auth-mode-tab {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 10px 14px !important;
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #94a3b8 !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.auth-mode-tab:hover {
+  color: #f1f5f9 !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.auth-mode-tab.active {
+  color: #ffffff !important;
+  background:
+    linear-gradient(145deg, rgba(255, 128, 0, 0.16), rgba(255, 24, 1, 0.1)),
+    rgba(22, 28, 38, 0.95) !important;
+  border-color: rgba(255, 128, 0, 0.35) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Feedback Banner */
+.auth-feedback-banner {
+  padding: 10px 14px !important;
+  border-radius: 8px !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  margin-bottom: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  animation: banner-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes banner-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-feedback-banner.error {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+.auth-feedback-banner.success {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border: 1px solid rgba(34, 197, 94, 0.35) !important;
+  color: #86efac !important;
+}
+
+.auth-feedback-banner.loading {
+  background: rgba(56, 189, 248, 0.12) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  color: #7dd3fc !important;
+}
+
+/* Form Groups & Inputs */
+.auth-form-group {
+  margin-bottom: 14px !important;
+}
+
+.auth-form-group label {
+  display: block !important;
+}
+
+.auth-form-group .field-label {
+  display: block !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #94a3b8 !important;
+  margin-bottom: 6px !important;
+}
+
+.input-field.f1-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 12px 14px !important;
+  font-size: 0.92rem !important;
+  color: #f8fafc !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+.input-field.f1-input:focus {
+  border-color: #ff8000 !important;
+  box-shadow: 0 0 14px rgba(255, 128, 0, 0.25) !important;
+}
+
+.input-field.f1-input::placeholder {
+  color: #475569 !important;
+}
+
+/* Primary Button */
+.btn.btn-primary.f1-btn-primary {
+  width: 100% !important;
+  padding: 14px 20px !important;
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #ff8000, #ff1801) !important;
+  border: none !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  box-shadow: 0 8px 24px rgba(255, 24, 1, 0.35) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  margin-top: 6px !important;
+}
+
+.btn.btn-primary.f1-btn-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 12px 30px rgba(255, 24, 1, 0.5) !important;
+}
+
+.btn.btn-primary.f1-btn-primary:active {
+  transform: translateY(1px) !important;
+}
+
+/* Switch Links */
+.auth-switch-prompt {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin-top: 18px !important;
+  font-size: 0.8rem !important;
+  color: #64748b !important;
+}
+
+.auth-link-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #ff8000 !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  transition: color 0.2s !important;
+}
+
+.auth-link-btn:hover {
+  color: #ffa142 !important;
+  text-decoration: underline !important;
+}
+
+/* Logged In Box */
+.f1-auth-modal .auth-panel.signed-in .auth-mode-tabs,
+.f1-auth-modal .auth-panel.signed-in .auth-section-view:not(#authLoggedInSection) {
+  display: none !important;
+}
+
+.f1-auth-modal .auth-panel.signed-in #authLoggedInSection {
+  display: block !important;
+}
+
+/* --------------------------------------------------------------------------
    Responsive Rules
    -------------------------------------------------------------------------- */
 @media (max-width: 1080px) {

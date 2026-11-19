@@ -256,11 +256,11 @@ app.get('/health', (_req, res) => {
 // REST API Autentikasi & Database Server (Pengganti Firebase)
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, displayName } = req.body;
+    const { email, password, displayName, username } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
-    const user = await db.registerUser({ email, password, displayName });
+    const user = await db.registerUser({ email, password, displayName, username });
     res.json({ ok: true, user });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -277,6 +277,24 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ ok: true, user });
   } catch (err) {
     res.status(401).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/reset-all-accounts', async (req, res) => {
+  try {
+    const result = await db.clearAllUsers();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/auth/reset-all-accounts', async (req, res) => {
+  try {
+    const result = await db.clearAllUsers();
+    res.send(`<html><body style="font-family:sans-serif;background:#0d1117;color:#f0f6fc;padding:40px;text-align:center;"><h2>✅ ${result.message}</h2><p>Seluruh akun, profil driver, dan data match history berhasil dihapus bersih dari database PostgreSQL.</p><a style="color:#58a6ff;text-decoration:none;font-weight:bold;" href="/">← Kembali ke TypeRace 3D</a></body></html>`);
+  } catch (err) {
+    res.status(500).send(`<h2>Error: ${err.message}</h2>`);
   }
 });
 

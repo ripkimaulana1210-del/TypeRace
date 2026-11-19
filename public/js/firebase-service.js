@@ -129,6 +129,11 @@ export class FirebaseRaceService {
     if (!this.authUser?.uid) return;
     try {
       const res = await fetch(`/api/users/${this.authUser.uid}/full`);
+      if (res.status === 404) {
+        // User was purged from database
+        await this.logout();
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
         if (json.ok && json.data) {
@@ -150,11 +155,11 @@ export class FirebaseRaceService {
     }
   }
 
-  async register({ email, password, displayName }) {
+  async register({ email, password, displayName, username }) {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, displayName })
+      body: JSON.stringify({ email, password, displayName, username })
     });
 
     const data = await res.json();
@@ -200,14 +205,7 @@ export class FirebaseRaceService {
   }
 
   async loginWithGoogle() {
-    // Mode offline/server: quick login pengemudi
-    const guestName = 'Driver_' + Math.floor(Math.random() * 899 + 100);
-    const guestEmail = `${guestName.toLowerCase()}@f1.server`;
-    return this.register({
-      email: guestEmail,
-      password: 'server_guest_password_123',
-      displayName: guestName
-    });
+    throw new Error('Google Sign-In is temporarily disabled. Please sign in with your email or username.');
   }
 
   async logout() {
