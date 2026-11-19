@@ -3,6 +3,7 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const { Server } = require('socket.io');
+const db = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const ROOM_CODE_LENGTH = 6;
@@ -238,6 +239,7 @@ const modelsDir = path.join(publicDir, 'models');
 const threeDir = path.join(__dirname, 'node_modules', 'three');
 
 app.use(cors({ origin: corsOrigin }));
+app.use(express.json());
 
 app.get('/', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
@@ -246,8 +248,63 @@ app.get('/', (_req, res) => {
 app.get('/health', (_req, res) => {
   res.json({
     ok: true,
-    service: 'typerace-backend'
+    service: 'typerace-backend',
+    database: db.isPostgresConnected() ? 'postgresql' : 'in-memory-fallback'
   });
+});
+
+// REST API Autentikasi & Database Server (Pengganti Firebase)
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, displayName } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+    const user = await db.registerUser({ email, password, displayName });
+    res.json({ ok: true, user });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+    const user = await db.authenticateUser({ email, password });
+    res.json({ ok: true, user });
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+});
+
+app.get('/api/users/:uid/stats', async (req, res) => {
+  try {
+    const stats = await db.getUserStats(req.params.uid);
+    res.json({ ok: true, stats });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/matches/record', async (req, res) => {
+  try {
+    await db.recordMatchResult(req.body);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/leaderboard', async (_req, res) => {
+  try {
+    const leaderboard = await db.getLeaderboard(15);
+    res.json({ ok: true, leaderboard });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.use('/vendor/three', express.static(threeDir));
@@ -1563,6 +1620,65 @@ io.on('connection', (socket) => {
     maybeFinishRace(room);
   });
 
+  // Fitur Chat Real-time per room via Socket.IO
+  socket.on('chat:send', (payload) => {
+    const { roomCode, text, displayName, uid } = payload || {};
+    if (!roomCode || !text) return;
+    const cleanCode = String(roomCode).trim().toUpperCase();
+    const cleanText = String(text).trim().slice(0, 300);
+    if (!cleanText) return;
+
+    const msg = {
+      id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      roomCode: cleanCode,
+      uid: uid || socket.id,
+      name: String(displayName || 'Driver').trim().slice(0, 30),
+      text: cleanText,
+      createdAt: Date.now()
+    };
+
+    io.to(cleanCode).emit('chat:message', msg);
+  });
+
+  // WebRTC Voice Signaling per room via Socket.IO
+  socket.on('voice:signal', (payload) => {
+    const { targetUid, roomCode, type, data, fromUid, name } = payload || {};
+    if (!roomCode) return;
+    const cleanCode = String(roomCode).trim().toUpperCase();
+
+    // Broadcast ke room kecuali pengirim
+    socket.to(cleanCode).emit('voice:signal', {
+      targetUid,
+      fromUid: fromUid || socket.id,
+      roomCode: cleanCode,
+      name: name || 'Driver',
+      type,
+      payload: data,
+      createdAt: Date.now()
+    });
+  });
+
+  socket.on('voice:speaking', (payload) => {
+    const { roomCode, speaking, voiceLevel, uid } = payload || {};
+    if (!roomCode) return;
+    const cleanCode = String(roomCode).trim().toUpperCase();
+    socket.to(cleanCode).emit('voice:speaking', {
+      uid: uid || socket.id,
+      speaking: Boolean(speaking),
+      voiceLevel: Number(voiceLevel) || 0
+    });
+  });
+
+  socket.on('voice:state', (payload) => {
+    const { roomCode, peerState, uid } = payload || {};
+    if (!roomCode) return;
+    const cleanCode = String(roomCode).trim().toUpperCase();
+    socket.to(cleanCode).emit('voice:state', {
+      uid: uid || socket.id,
+      peerState
+    });
+  });
+
   socket.on('leaveRoom', () => {
     const player = players.get(socket.id);
 
@@ -1586,7 +1702,8 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-function startServer(port = PORT) {
+async function startServer(port = PORT) {
+  await db.initDatabase();
   return server.listen(port, () => {
     console.log(`F1 Typing Battle 3D server running on http://localhost:${port}`);
   });

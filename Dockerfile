@@ -15,7 +15,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 # Salin seluruh berkas proyek yang diperlukan
-COPY server.js ./
+COPY db.js server.js ./
 COPY public/ ./public/
 
 # Ganti hak akses ke user non-root bawaan Node.js demi keamanan
