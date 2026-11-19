@@ -16,4 +16,6 @@ services:
       - "8080:3000"
     volumes:
       - ./public:/app/public
+      - ./server.js:/app/server.js
+      - ./db.js:/app/db.js
 
