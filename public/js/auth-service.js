@@ -1,14 +1,12 @@
-import { isFirebaseConfigured } from './firebase-config.js';
-
-export { isFirebaseConfigured };
-
 const LOCAL_STORAGE_USER_KEY = 'typerace_server_auth_user';
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' }
 ];
 
-export class FirebaseRaceService {
+export const isAuthConfigured = true;
+
+export class AuthService {
   constructor() {
     this.ready = true;
     this.configured = true;
@@ -130,7 +128,7 @@ export class FirebaseRaceService {
     try {
       const res = await fetch(`/api/users/${this.authUser.uid}/full`);
       if (res.status === 404) {
-        // User was purged from database
+        // User telah dihapus dari database
         await this.logout();
         return;
       }
@@ -202,10 +200,6 @@ export class FirebaseRaceService {
     await this.syncAccountData();
 
     return { user: this.authUser };
-  }
-
-  async loginWithGoogle() {
-    throw new Error('Google Sign-In is temporarily disabled. Please sign in with your email or username.');
   }
 
   async logout() {

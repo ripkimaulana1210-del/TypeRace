@@ -253,7 +253,7 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// REST API Autentikasi & Database Server (Pengganti Firebase)
+// REST API Autentikasi & Database Server (PostgreSQL)
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, displayName, username } = req.body;

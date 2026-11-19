@@ -1,6 +1,8 @@
 import { NetworkClient } from './network.js';
 import { TypingEngine } from './typing.js';
-import { FirebaseRaceService, isFirebaseConfigured } from './firebase-service.js';
+import { AuthService, isAuthConfigured } from './auth-service.js';
+
+const isFirebaseConfigured = isAuthConfigured;
 
 const FAST_INPUT_WINDOW_MS = 360;
 const SLOW_INPUT_WINDOW_MS = 1100;
@@ -354,7 +356,8 @@ class DraggableFloatingPanel {
 class F1TypingBattleApp {
   constructor() {
     this.network = new NetworkClient();
-    this.firebase = new FirebaseRaceService();
+    this.auth = new AuthService();
+    this.firebase = this.auth;
     this.typing = new TypingEngine();
     this.game = null;
     this.currentScreen = 'menu';
@@ -1072,15 +1075,15 @@ class F1TypingBattleApp {
     this.updateFirebaseControls({
       configured: isFirebaseConfigured,
       ready: false,
-      message: isFirebaseConfigured ? 'Connecting Firebase...' : 'Firebase is not configured.'
+      message: 'Connecting to Database...'
     });
 
     this.firebase.init().catch((error) => {
-      console.error(error);
+      console.warn('Database connection warning:', error);
       this.updateFirebaseControls({
         configured: isFirebaseConfigured,
         ready: false,
-        message: 'Firebase failed to load.'
+        message: 'Database connection failed.'
       });
     });
   }
@@ -1104,7 +1107,7 @@ class F1TypingBattleApp {
     this.updateFirebaseControls({
       configured: isFirebaseConfigured,
       ready: this.firebase.ready,
-      message: user ? 'Firebase online.' : 'Sign in for chat and voice.'
+      message: user ? 'Database online.' : 'Sign in for chat and voice.'
     });
     this.renderNavbarProfile();
 
@@ -1328,7 +1331,7 @@ class F1TypingBattleApp {
     const roomActive = Boolean(this.network.roomCode && isLoggedIn && isReady);
     const statusText = !isConfigured
       ? 'Config missing'
-      : payload.message || (isReady ? 'Firebase ready' : 'Firebase loading');
+      : payload.message || (isReady ? 'Database ready' : 'Database loading');
 
     if (this.elements.firebaseStatusText) {
       this.elements.firebaseStatusText.textContent = statusText;
@@ -2361,11 +2364,11 @@ class F1TypingBattleApp {
       this.updateFirebaseControls();
       return true;
     } catch (error) {
-      console.warn('Firebase room sync failed:', error);
+      console.warn('Comms room sync failed:', error);
       this.updateFirebaseControls({
         configured: isFirebaseConfigured,
         ready: this.firebase.ready,
-        message: 'Firebase room sync failed.'
+        message: 'Comms room sync failed.'
       });
       return this.firebase.currentRoomCode === normalizedRoomCode;
     }
