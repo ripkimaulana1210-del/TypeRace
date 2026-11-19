@@ -1,0 +1,15 @@
+services:
+  web1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: web1
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - CLIENT_ORIGIN=*
+    ports:
+      # Port 8080 host dipetakan ke port 3000 aplikasi TypeRace
+      - "8080:3000"
+
