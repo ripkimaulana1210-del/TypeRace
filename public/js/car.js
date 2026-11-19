@@ -10,7 +10,7 @@ const NGROK_REQUEST_HEADERS = {
 
 let sharedCarModelPromise = null;
 
-function createFallbackMesh(color) {
+export function createFallbackMesh(color) {
   const group = new THREE.Group();
   group.name = 'McLarenFallbackCar';
 
@@ -244,6 +244,29 @@ export class Car3D {
         console.error('GLB ERROR:', error);
         this.fallbackMesh.visible = true;
       });
+  }
+
+  setColor(color) {
+    this.color = typeof color === 'string' && color.startsWith('#')
+      ? parseInt(color.replace('#', '0x'), 16)
+      : Number(color);
+
+    if (this.modelRoot) {
+      prepareVisibleMaterials(this.modelRoot, this.color);
+    }
+
+    if (this.fallbackMesh) {
+      const wasInGroup = this.fallbackMesh.parent === this.group;
+      const isVisible = this.fallbackMesh.visible;
+      if (wasInGroup) {
+        this.group.remove(this.fallbackMesh);
+      }
+      this.fallbackMesh = createFallbackMesh(this.color);
+      this.fallbackMesh.visible = isVisible;
+      if (wasInGroup && !this.modelRoot) {
+        this.group.add(this.fallbackMesh);
+      }
+    }
   }
 
   updateVisuals(_deltaTime) {

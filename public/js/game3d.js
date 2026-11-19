@@ -2672,9 +2672,11 @@ export class Game3D {
 
   addCar() {
     try {
-      this.localCar = new Car3D(0xff5533);
+      const savedHex = localStorage.getItem('typerace_car_color');
+      const carColor = savedHex ? parseInt(savedHex.replace('#', '0x'), 16) : 0xff5533;
+      this.localCar = new Car3D(carColor);
       this.localCar.finished = false;
-      this.localCarVisibilityMarker = createCarVisibilityMarker(0xff5533, true);
+      this.localCarVisibilityMarker = createCarVisibilityMarker(carColor, true);
       this.localCar.group.add(this.localCarVisibilityMarker);
       this.scene.add(this.localCar.group);
       this.snapLocalCarToProgress(0);

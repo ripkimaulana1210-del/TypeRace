@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/f1-theme.css">
   <link rel="stylesheet" href="css/race-control-redesign.css">
   <link rel="stylesheet" href="css/ui-ux-overhaul.css">
+  <link rel="stylesheet" href="css/menu-redesign.css">
   <script src="/socket.io/socket.io.js"></script>
   <script type="importmap">
     {
@@ -259,58 +260,179 @@
   </div>
 
   <div id="menuScreen" class="screen active">
-    <div class="start-dashboard">
-      <section class="start-panel">
+    <div class="start-dashboard f1-paddock-dashboard">
+      <!-- LEFT PANEL: Command & Mode Selection -->
+      <section class="start-panel f1-command-panel">
         <div class="hero-copy">
-          <p class="eyebrow">Formula Typing Grand Prix</p>
-          <h1>Start Race</h1>
-          <p class="subtitle">Choose a grid and chase your fastest lap.</p>
-          <div class="hero-telemetry" aria-label="Race highlights">
-            <span><strong>3D</strong> Circuit</span>
-            <span><strong>Live</strong> Rooms</span>
-            <span><strong>WPM</strong> Timing</span>
+          <div class="f1-badge-cluster">
+            <span class="f1-live-badge"><span class="pulse-dot"></span> PVE CLOUD NODE ONLINE</span>
+            <span class="f1-edition-badge">SEASON 2026</span>
+          </div>
+          <h1 class="f1-hero-title">TYPERACE <span class="accent-text">3D</span></h1>
+          <p class="subtitle">High-speed competitive typing Grand Prix. Master apex accuracy, outpace rivals in real-time rooms, and record your fastest sector pace.</p>
+
+          <div class="f1-telemetry-strip" aria-label="Race highlights">
+            <div class="telemetry-pill">
+              <span class="pill-icon">⚡</span>
+              <div>
+                <strong>3D WebGL</strong>
+                <small>Physics Circuit</small>
+              </div>
+            </div>
+            <div class="telemetry-pill">
+              <span class="pill-icon">🌐</span>
+              <div>
+                <strong>Live Rooms</strong>
+                <small>Multiplayer Grid</small>
+              </div>
+            </div>
+            <div class="telemetry-pill">
+              <span class="pill-icon">⏱️</span>
+              <div>
+                <strong>WPM Splits</strong>
+                <small>Precision Timing</small>
+              </div>
+            </div>
+            <div class="telemetry-pill">
+              <span class="pill-icon">🗄️</span>
+              <div>
+                <strong>Postgres 16</strong>
+                <small>Driver Stats</small>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="menu-controls">
+          <div class="f1-section-label">
+            <span>SELECT GAME MODE</span>
+            <span class="label-line"></span>
+          </div>
           <div class="mode-switch" aria-label="Mode game">
-            <button type="button" class="mode-card active" data-mode="multiplayer">
-              <span class="mode-kicker"><i>01</i><em>Online Grid</em></span>
-              <strong>Multiplayer</strong>
-              <small>Race friends in a shared room.</small>
+            <button type="button" class="mode-card f1-mode-card active" data-mode="multiplayer">
+              <div class="mode-card-header">
+                <span class="mode-kicker"><i>01</i><em>ONLINE GRID</em></span>
+                <span class="mode-badge-live">LIVE SYNC</span>
+              </div>
+              <div class="mode-card-body">
+                <strong>Multiplayer Grand Prix</strong>
+                <small>Host or join private race rooms. Battle live opponents with real-time slipstream typing, audio comms, and instant podium ceremony.</small>
+              </div>
+              <div class="mode-card-footer">
+                <div class="mode-features">
+                  <span>2-8 Drivers</span>
+                  <span>Voice & Chat</span>
+                  <span>Podium</span>
+                </div>
+                <span class="mode-action-arrow">ENTER GRID &rarr;</span>
+              </div>
             </button>
-            <button type="button" class="mode-card" data-mode="ai">
-              <span class="mode-kicker"><i>02</i><em>Solo Sprint</em></span>
-              <strong>VS AI</strong>
-              <small>Train pace against bots.</small>
+
+            <button type="button" class="mode-card f1-mode-card" data-mode="ai">
+              <div class="mode-card-header">
+                <span class="mode-kicker"><i>02</i><em>SOLO SPRINT</em></span>
+                <span class="mode-badge-practice">PRACTICE</span>
+              </div>
+              <div class="mode-card-body">
+                <strong>VS AI & Time Attack</strong>
+                <small>Train pace against adaptive bots. Hone precision, conquer multi-lap stints, and set personal ghost benchmarks.</small>
+              </div>
+              <div class="mode-card-footer">
+                <div class="mode-features">
+                  <span>Adaptive Bots</span>
+                  <span>1-10 Laps</span>
+                  <span>Solo Ghost</span>
+                </div>
+                <span class="mode-action-arrow">START SOLO &rarr;</span>
+              </div>
             </button>
+          </div>
+        </div>
+
+        <!-- Infrastructure Status Bar (Shows real Proxmox CT architecture) -->
+        <div class="pve-node-status-bar">
+          <div class="node-pill">
+            <span class="node-dot green"></span>
+            <span>CT 101: <strong>Node.js Engine</strong></span>
+          </div>
+          <span class="node-divider">/</span>
+          <div class="node-pill">
+            <span class="node-dot green"></span>
+            <span>CT 102: <strong>PostgreSQL 16</strong></span>
+          </div>
+          <span class="node-divider">/</span>
+          <div class="node-pill">
+            <span class="node-dot cyan"></span>
+            <span>Edge: <strong>Cloudflare SSL</strong></span>
           </div>
         </div>
       </section>
 
-      <aside class="start-side-panel" aria-label="Race preview">
-        <div class="quick-preview" aria-hidden="true">
-          <div class="preview-hud">
-            <span>Live Circuit</span>
-            <strong>TypeRace GP</strong>
+      <!-- RIGHT PANEL: 3D Paddock Showroom & Turntable Garage -->
+      <aside class="start-side-panel f1-showroom-panel" aria-label="Paddock Garage Showroom">
+        <div class="showroom-wrapper">
+          <div class="showroom-header">
+            <div class="showroom-meta">
+              <span class="showroom-tag">PADDOCK GARAGE</span>
+              <strong id="garageTeamLabel">McLaren Racing</strong>
+              <small id="garageLiveryLabel">Papaya Orange</small>
+            </div>
+            <div class="showroom-hint">
+              <span class="drag-icon">⟳</span> Drag to Orbit 360°
+            </div>
           </div>
-          <div class="preview-track">
-            <span class="preview-car"></span>
-            <span class="preview-dot dot-green"></span>
-            <span class="preview-dot dot-yellow"></span>
-            <span class="preview-dot dot-blue"></span>
+
+          <!-- 3D Turntable Container -->
+          <div id="menuGarageContainer" class="menu-garage-container">
+            <!-- Three.js Canvas will be inserted here -->
+          </div>
+
+          <!-- Specs HUD Overlay -->
+          <div class="vehicle-specs-bar">
+            <div class="spec-item">
+              <span class="spec-label">POWER UNIT</span>
+              <strong class="spec-val">1.6L V6 TURBO</strong>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">TOP SPEED</span>
+              <strong class="spec-val">340 KM/H</strong>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">DOWNFORCE</span>
+              <strong class="spec-val">GROUND EFFECT</strong>
+            </div>
+          </div>
+
+          <!-- Interactive Livery Swatch Palette -->
+          <div class="livery-picker-bar">
+            <span class="picker-label">TEAM LIVERY:</span>
+            <div class="livery-swatches" role="radiogroup" aria-label="Select Car Livery">
+              <button type="button" class="livery-swatch active" data-color="#ff6600" title="McLaren Papaya" style="--swatch-color: #ff6600;"></button>
+              <button type="button" class="livery-swatch" data-color="#ef1a2d" title="Scuderia Ferrari" style="--swatch-color: #ef1a2d;"></button>
+              <button type="button" class="livery-swatch" data-color="#00d2be" title="Mercedes-AMG Cyan" style="--swatch-color: #00d2be;"></button>
+              <button type="button" class="livery-swatch" data-color="#1e40af" title="Oracle Red Bull" style="--swatch-color: #1e40af;"></button>
+              <button type="button" class="livery-swatch" data-color="#047857" title="Aston Martin Racing" style="--swatch-color: #047857;"></button>
+              <button type="button" class="livery-swatch" data-color="#8b5cf6" title="Alpine Cyber" style="--swatch-color: #8b5cf6;"></button>
+            </div>
           </div>
         </div>
+
         <div class="side-status-grid">
-          <div class="side-status-card">
-            <span>Grid</span>
-            <strong>Room Race</strong>
-            <small>Host or join from multiplayer.</small>
+          <div class="side-status-card f1-status-card">
+            <div class="status-card-icon">🎙️</div>
+            <div>
+              <span>Comms Grid</span>
+              <strong>Real-time Voice & Chat</strong>
+              <small>WebRTC spatial audio & squad channels.</small>
+            </div>
           </div>
-          <div class="side-status-card">
-            <span>Comms</span>
-            <strong>Chat & Voice</strong>
-            <small>Realtime squad channel.</small>
+          <div class="side-status-card f1-status-card">
+            <div class="status-card-icon">📊</div>
+            <div>
+              <span>Cloud Telemetry</span>
+              <strong>PostgreSQL Stats</strong>
+              <small>Persistent WPM, accuracy & match history.</small>
+            </div>
           </div>
         </div>
       </aside>

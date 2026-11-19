@@ -591,6 +591,7 @@ class F1TypingBattleApp {
         this.elements.appConnectionLabel.classList.add('online');
       }
       await this.initGame();
+      this.initMenuGarage();
       this.updateSavedRoomUI();
       this.showScreen('menu');
     } catch (error) {
@@ -623,6 +624,16 @@ class F1TypingBattleApp {
       this.elements.raceStatusLabel.textContent = 'Mode Typing';
       this.updateRoomActions();
       console.warn('3D scene disabled:', error);
+    }
+  }
+
+  async initMenuGarage() {
+    try {
+      const { MenuGarage } = await import('./menu-garage.js');
+      this.menuGarage = new MenuGarage();
+      this.menuGarage.init('menuGarageContainer');
+    } catch (err) {
+      console.warn('MenuGarage init error:', err);
     }
   }
 
@@ -2923,6 +2934,12 @@ class F1TypingBattleApp {
         }
 
         this.focusTypingInput();
+      });
+    }
+
+    if (name === 'menu' && this.menuGarage) {
+      requestAnimationFrame(() => {
+        this.menuGarage?.handleResize?.();
       });
     }
   }

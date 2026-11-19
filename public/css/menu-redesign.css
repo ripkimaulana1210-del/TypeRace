@@ -1,0 +1,774 @@
+/* ==========================================================================
+   TypeRace 3D - Modern Minimalist Initial Screen (Tampilan Awal) Overhaul
+   Inspired by Formula 1 2026 Broadcast Graphics & Modern Esports Dashboards
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Menu Layout & Dashboard Container
+   -------------------------------------------------------------------------- */
+body[data-screen="menu"] {
+  background:
+    radial-gradient(circle at 80% 20%, rgba(255, 102, 0, 0.07), transparent 45%),
+    radial-gradient(circle at 20% 80%, rgba(0, 210, 190, 0.06), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(13, 17, 23, 0.8), #07090c 85%);
+}
+
+/* Remove awkward harsh lines/strips on menu */
+body[data-screen="menu"]::after {
+  height: 4px;
+  background: linear-gradient(90deg, #ff1801, #ff8000, #00d2be, #ff1801);
+  box-shadow: 0 0 16px rgba(255, 102, 0, 0.4);
+}
+
+body[data-screen="menu"] .start-dashboard.f1-paddock-dashboard {
+  width: min(1280px, calc(100vw - 48px));
+  max-width: 1340px;
+  min-height: min(680px, calc(100dvh - 100px));
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(360px, 0.88fr);
+  gap: 24px;
+  align-items: stretch;
+  margin: auto;
+}
+
+/* --------------------------------------------------------------------------
+   Panels Base Style
+   -------------------------------------------------------------------------- */
+body[data-screen="menu"] .start-panel.f1-command-panel,
+body[data-screen="menu"] .start-side-panel.f1-showroom-panel {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.035) 0%, transparent 40%),
+    rgba(12, 16, 22, 0.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  padding: clamp(20px, 2.5vw, 32px);
+  overflow: hidden;
+}
+
+/* Clean laser-sharp top border accent */
+body[data-screen="menu"] .start-panel.f1-command-panel::before,
+body[data-screen="menu"] .start-side-panel.f1-showroom-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ff6600, #ff1801 40%, transparent 90%);
+  border-radius: 14px 14px 0 0;
+}
+
+body[data-screen="menu"] .start-side-panel.f1-showroom-panel::before {
+  background: linear-gradient(90deg, #00d2be, #38bdf8 50%, transparent 95%);
+}
+
+/* --------------------------------------------------------------------------
+   Left Panel: Hero Header & Branding
+   -------------------------------------------------------------------------- */
+.f1-command-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.f1-badge-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.f1-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: 999px;
+}
+
+.f1-live-badge .pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: pulse-dot-anim 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-dot-anim {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.f1-edition-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.f1-hero-title {
+  margin: 0 0 10px 0;
+  font-size: clamp(2.4rem, 4.2vw, 3.6rem);
+  font-weight: 900;
+  line-height: 0.96;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+  text-transform: uppercase;
+}
+
+.f1-hero-title .accent-text {
+  background: linear-gradient(135deg, #ff8000, #ff1801);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+  padding-left: 2px;
+}
+
+.f1-command-panel .subtitle {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  max-width: 540px;
+  margin: 0;
+}
+
+/* Feature Telemetry Bar */
+.f1-telemetry-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.telemetry-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.telemetry-pill:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.telemetry-pill .pill-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.telemetry-pill strong {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.2;
+}
+
+.telemetry-pill small {
+  display: block;
+  font-size: 0.68rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* --------------------------------------------------------------------------
+   Game Mode Selector
+   -------------------------------------------------------------------------- */
+.f1-section-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.f1-section-label span:first-child {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.f1-section-label .label-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent);
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.mode-card.f1-mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 165px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(170deg, rgba(255, 255, 255, 0.03) 0%, transparent 60%),
+    rgba(15, 20, 28, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.mode-card.f1-mode-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background 0.24s, box-shadow 0.24s;
+}
+
+.mode-card.f1-mode-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+  background:
+    linear-gradient(170deg, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
+    rgba(20, 26, 36, 0.9);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.mode-card.f1-mode-card.active,
+.mode-switch .mode-card.f1-mode-card.active {
+  border-color: rgba(255, 102, 0, 0.45);
+  background:
+    linear-gradient(150deg, rgba(255, 102, 0, 0.12) 0%, transparent 55%),
+    rgba(18, 24, 34, 0.92);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    0 0 20px rgba(255, 102, 0, 0.12);
+}
+
+.mode-card.f1-mode-card[data-mode="multiplayer"].active::before {
+  background: #ff6600;
+  box-shadow: 0 0 10px #ff6600;
+}
+
+.mode-card.f1-mode-card[data-mode="ai"].active::before {
+  background: #00d2be;
+  box-shadow: 0 0 10px #00d2be;
+}
+
+.mode-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mode-card .mode-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mode-card .mode-kicker i {
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-family: monospace;
+  color: #ff8000;
+  padding: 2px 6px;
+  background: rgba(255, 128, 0, 0.12);
+  border-radius: 4px;
+}
+
+.mode-card[data-mode="ai"] .mode-kicker i {
+  color: #00d2be;
+  background: rgba(0, 210, 190, 0.12);
+}
+
+.mode-card .mode-kicker em {
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.mode-badge-live,
+.mode-badge-practice {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mode-badge-live {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+}
+
+.mode-badge-practice {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.mode-card-body strong {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin-bottom: 6px;
+  line-height: 1.25;
+}
+
+.mode-card-body small {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #94a3b8;
+  max-width: 95%;
+}
+
+.mode-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mode-features {
+  display: flex;
+  gap: 6px;
+}
+
+.mode-features span {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mode-action-arrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ff8000;
+  transition: transform 0.2s;
+}
+
+.mode-card[data-mode="ai"] .mode-action-arrow {
+  color: #00d2be;
+}
+
+.mode-card:hover .mode-action-arrow {
+  transform: translateX(4px);
+}
+
+/* --------------------------------------------------------------------------
+   Infrastructure Telemetry Ticker (Proxmox Cloud)
+   -------------------------------------------------------------------------- */
+.pve-node-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 0.74rem;
+  color: #64748b;
+  overflow-x: auto;
+}
+
+.pve-node-status-bar .node-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.pve-node-status-bar .node-pill strong {
+  color: #cbd5e1;
+}
+
+.pve-node-status-bar .node-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.pve-node-status-bar .node-dot.green {
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.pve-node-status-bar .node-dot.cyan {
+  background: #06b6d4;
+  box-shadow: 0 0 6px #06b6d4;
+}
+
+.pve-node-status-bar .node-divider {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   Right Panel: 3D Paddock Garage & Showroom
+   -------------------------------------------------------------------------- */
+.f1-showroom-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.showroom-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(30, 41, 59, 0.4), transparent 70%),
+    rgba(8, 12, 16, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.showroom-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  z-index: 10;
+}
+
+.showroom-meta .showroom-tag {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #ff8000;
+  text-transform: uppercase;
+}
+
+.showroom-meta strong {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #f8fafc;
+  line-height: 1.2;
+}
+
+.showroom-meta small {
+  display: block;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.showroom-hint {
+  font-size: 0.7rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.showroom-hint .drag-icon {
+  font-size: 0.9rem;
+  color: #38bdf8;
+}
+
+/* Three.js Canvas Container */
+.menu-garage-container {
+  position: relative;
+  width: 100%;
+  height: 250px;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.menu-garage-container:active {
+  cursor: grabbing;
+}
+
+.garage-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  outline: none;
+}
+
+/* Specs Bar */
+.vehicle-specs-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-top: 6px;
+}
+
+.spec-item {
+  text-align: center;
+}
+
+.spec-item .spec-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.spec-item .spec-val {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 800;
+  font-family: monospace;
+  color: #f1f5f9;
+}
+
+/* Livery Picker */
+.livery-picker-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.picker-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.livery-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.livery-swatch {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--swatch-color, #ff6600);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.livery-swatch:hover {
+  transform: scale(1.15);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.livery-swatch.active {
+  transform: scale(1.2);
+  border-color: #ffffff;
+  box-shadow: 0 0 12px var(--swatch-color, #ff6600);
+}
+
+.livery-swatch.active::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+/* Side Status Cards below Showroom */
+.side-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.side-status-card.f1-status-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 80px;
+  padding: 12px 14px;
+  background:
+    linear-gradient(170deg, rgba(255, 255, 255, 0.02) 0%, transparent 60%),
+    rgba(15, 20, 28, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.side-status-card .status-card-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  padding-top: 2px;
+}
+
+.side-status-card span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ff8000;
+  text-transform: uppercase;
+}
+
+.side-status-card strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 2px 0;
+}
+
+.side-status-card small {
+  display: block;
+  font-size: 0.74rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+/* --------------------------------------------------------------------------
+   App Topbar Polish
+   -------------------------------------------------------------------------- */
+.app-topbar {
+  background: rgba(8, 12, 16, 0.82) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.app-brand strong {
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #f8fafc;
+}
+
+.status-pill.online {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  color: #4ade80 !important;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.22) !important;
+  font-weight: 700 !important;
+}
+
+.navbar-profile-btn {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 999px !important;
+  padding: 4px 12px 4px 4px !important;
+  transition: all 0.2s ease !important;
+}
+
+.navbar-profile-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 102, 0, 0.4) !important;
+  box-shadow: 0 0 16px rgba(255, 102, 0, 0.15) !important;
+}
+
+.topbar-btn {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  color: #cbd5e1 !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  transition: all 0.2s ease !important;
+}
+
+.topbar-btn:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Rules
+   -------------------------------------------------------------------------- */
+@media (max-width: 1080px) {
+  body[data-screen="menu"] .start-dashboard.f1-paddock-dashboard {
+    grid-template-columns: 1fr;
+    max-height: none;
+    overflow-y: auto;
+    padding-bottom: 24px;
+  }
+
+  .menu-garage-container {
+    height: 220px;
+  }
+}
+
+@media (max-width: 680px) {
+  .mode-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .f1-telemetry-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .side-status-grid {
+    grid-template-columns: 1fr;
+  }
+}
