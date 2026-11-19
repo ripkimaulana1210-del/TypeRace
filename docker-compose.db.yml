@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: typerace-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: typerace_user
+      POSTGRES_PASSWORD: typerace_password
+      POSTGRES_DB: typerace_db
+    ports:
+      # Expose port 5432 ke subnet internal Proxmox (CT 101 dapat mengakses)
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+    driver: local
