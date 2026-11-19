@@ -319,7 +319,7 @@ app.use('/models', express.static(modelsDir, {
   setHeaders(res, filePath) {
     if (path.extname(filePath).toLowerCase() === '.glb') {
       res.setHeader('Content-Type', 'model/gltf-binary');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
     }
   }
 }));
