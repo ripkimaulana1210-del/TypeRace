@@ -67,9 +67,16 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS user_profiles (
         uid VARCHAR(64) PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,
         display_name VARCHAR(100),
+        username VARCHAR(50),
+        bio TEXT DEFAULT 'F1 Racing Driver',
+        avatar_url TEXT DEFAULT '',
         status VARCHAR(255) DEFAULT 'Ready to race',
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT 'F1 Racing Driver';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS username VARCHAR(50);
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
 
       CREATE TABLE IF NOT EXISTS user_stats (
         uid VARCHAR(64) PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,
@@ -78,8 +85,11 @@ async function initDatabase() {
         avg_wpm NUMERIC(6,2) DEFAULT 0,
         best_wpm NUMERIC(6,2) DEFAULT 0,
         avg_accuracy NUMERIC(5,2) DEFAULT 0,
+        total_typed INT DEFAULT 0,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS total_typed INT DEFAULT 0;
 
       CREATE TABLE IF NOT EXISTS match_history (
         id SERIAL PRIMARY KEY,
@@ -89,8 +99,11 @@ async function initDatabase() {
         wpm NUMERIC(6,2),
         accuracy NUMERIC(5,2),
         finish_position INT,
+        mode VARCHAR(32) DEFAULT 'multiplayer',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE match_history ADD COLUMN IF NOT EXISTS mode VARCHAR(32) DEFAULT 'multiplayer';
     `);
 
     client.release();
@@ -119,13 +132,13 @@ async function registerUser({ email, password, displayName }) {
     );
 
     await pool.query(
-      'INSERT INTO user_stats (uid, races_played, races_won, avg_wpm, best_wpm, avg_accuracy) VALUES ($1, 0, 0, 0, 0, 0)',
+      'INSERT INTO user_stats (uid, races_played, races_won, avg_wpm, best_wpm, avg_accuracy, total_typed) VALUES ($1, 0, 0, 0, 0, 0, 0)',
       [uid]
     );
 
     await pool.query(
-      'INSERT INTO user_profiles (uid, display_name) VALUES ($1, $2)',
-      [uid, cleanName]
+      'INSERT INTO user_profiles (uid, display_name, username, bio) VALUES ($1, $2, $3, $4)',
+      [uid, cleanName, cleanEmail.split('@')[0], 'F1 Racing Driver']
     );
 
     return { uid, email: cleanEmail, displayName: cleanName };
@@ -136,8 +149,8 @@ async function registerUser({ email, password, displayName }) {
     const user = { uid, email: cleanEmail, passwordHash, displayName: cleanName };
     memoryStore.users.set(cleanEmail, user);
     memoryStore.usersByUid.set(uid, user);
-    memoryStore.stats.set(uid, { races_played: 0, races_won: 0, avg_wpm: 0, best_wpm: 0, avg_accuracy: 0 });
-    memoryStore.profiles.set(uid, { displayName: cleanName, status: 'Ready to race' });
+    memoryStore.stats.set(uid, { races_played: 0, races_won: 0, avg_wpm: 0, best_wpm: 0, avg_accuracy: 0, total_typed: 0 });
+    memoryStore.profiles.set(uid, { displayName: cleanName, username: cleanEmail.split('@')[0], bio: 'F1 Racing Driver', avatar_url: '' });
     return { uid, email: cleanEmail, displayName: cleanName };
   }
 }
@@ -167,36 +180,125 @@ async function authenticateUser({ email, password }) {
   }
 }
 
-async function getUserByUid(uid) {
+async function getFullUserData(uid) {
   if (isConnected && pool) {
-    const res = await pool.query('SELECT uid, email, display_name, avatar_url, created_at FROM users WHERE uid = $1', [uid]);
-    return res.rows[0] || null;
+    const userRes = await pool.query('SELECT uid, email, display_name, avatar_url, created_at FROM users WHERE uid = $1', [uid]);
+    const user = userRes.rows[0] || null;
+    if (!user) return null;
+
+    const profileRes = await pool.query('SELECT display_name, username, bio, avatar_url, status FROM user_profiles WHERE uid = $1', [uid]);
+    const profile = profileRes.rows[0] || { display_name: user.display_name, bio: 'F1 Racing Driver', avatar_url: '' };
+
+    const statsRes = await pool.query('SELECT * FROM user_stats WHERE uid = $1', [uid]);
+    const stats = statsRes.rows[0] || { races_played: 0, races_won: 0, avg_wpm: 0, best_wpm: 0, avg_accuracy: 0, total_typed: 0 };
+
+    const historyRes = await pool.query(
+      'SELECT room_code, wpm, accuracy, finish_position, mode, created_at FROM match_history WHERE uid = $1 ORDER BY created_at DESC LIMIT 20',
+      [uid]
+    );
+
+    return {
+      user: { uid: user.uid, email: user.email, displayName: user.display_name },
+      profile: {
+        displayName: profile.display_name || user.display_name,
+        username: profile.username || user.email.split('@')[0],
+        bio: profile.bio || 'F1 Racing Driver',
+        photoURL: profile.avatar_url || ''
+      },
+      stats: {
+        matches: stats.races_played || 0,
+        wins: stats.races_won || 0,
+        podiums: stats.races_won || 0,
+        winRate: stats.races_played ? Math.round((stats.races_won / stats.races_played) * 100) : 0,
+        avgWpm: parseFloat(stats.avg_wpm) || 0,
+        bestWpm: parseFloat(stats.best_wpm) || 0,
+        avgAccuracy: parseFloat(stats.avg_accuracy) || 0,
+        bestAccuracy: parseFloat(stats.best_wpm ? 98 : 0),
+        totalTyped: stats.total_typed || 0,
+        completed: stats.races_played || 0,
+        p1: stats.races_won || 0,
+        p2: 0,
+        p3: 0
+      },
+      history: historyRes.rows.map((r) => ({
+        mode: r.mode || 'multiplayer',
+        wpm: parseFloat(r.wpm) || 0,
+        accuracy: parseFloat(r.accuracy) || 0,
+        placement: r.finish_position || 1,
+        completed: true,
+        roomCode: r.room_code,
+        createdAt: r.created_at
+      }))
+    };
   } else {
     const user = memoryStore.usersByUid.get(uid);
     if (!user) return null;
-    return { uid: user.uid, email: user.email, display_name: user.displayName, avatar_url: '' };
+    const prof = memoryStore.profiles.get(uid) || { displayName: user.displayName, bio: 'F1 Racing Driver' };
+    const stat = memoryStore.stats.get(uid) || { races_played: 0, races_won: 0, avg_wpm: 0, best_wpm: 0, avg_accuracy: 0, total_typed: 0 };
+    return {
+      user: { uid: user.uid, email: user.email, displayName: user.displayName },
+      profile: { displayName: prof.displayName || user.displayName, bio: prof.bio || 'F1 Racing Driver', photoURL: '' },
+      stats: {
+        matches: stat.races_played || 0,
+        wins: stat.races_won || 0,
+        podiums: stat.races_won || 0,
+        winRate: stat.races_played ? Math.round((stat.races_won / stat.races_played) * 100) : 0,
+        avgWpm: stat.avg_wpm || 0,
+        bestWpm: stat.best_wpm || 0,
+        avgAccuracy: stat.avg_accuracy || 0,
+        bestAccuracy: 98,
+        totalTyped: stat.total_typed || 0,
+        completed: stat.races_played || 0,
+        p1: stat.races_won || 0,
+        p2: 0,
+        p3: 0
+      },
+      history: []
+    };
   }
 }
 
-async function getUserStats(uid) {
+async function updateUserProfile(uid, { displayName, username, bio, photoURL }) {
+  const cleanName = String(displayName || '').trim().slice(0, 30);
+  const cleanBio = String(bio || '').trim().slice(0, 200);
+  const cleanUser = String(username || '').trim().slice(0, 30);
+  const cleanAvatar = String(photoURL || '').trim();
+
   if (isConnected && pool) {
-    const res = await pool.query('SELECT * FROM user_stats WHERE uid = $1', [uid]);
-    return res.rows[0] || { races_played: 0, races_won: 0, avg_wpm: 0, best_wpm: 0, avg_accuracy: 0 };
+    if (cleanName) {
+      await pool.query('UPDATE users SET display_name = $1 WHERE uid = $2', [cleanName, uid]);
+    }
+    await pool.query(
+      `INSERT INTO user_profiles (uid, display_name, username, bio, avatar_url, updated_at)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+       ON CONFLICT (uid) DO UPDATE
+       SET display_name = EXCLUDED.display_name,
+           username = EXCLUDED.username,
+           bio = EXCLUDED.bio,
+           avatar_url = EXCLUDED.avatar_url,
+           updated_at = CURRENT_TIMESTAMP`,
+      [uid, cleanName, cleanUser, cleanBio, cleanAvatar]
+    );
+    return getFullUserData(uid);
   } else {
-    return memoryStore.stats.get(uid) || { races_played: 0, races_won: 0, avg_wpm: 0, best_wpm: 0, avg_accuracy: 0 };
+    const user = memoryStore.usersByUid.get(uid);
+    if (user && cleanName) user.displayName = cleanName;
+    memoryStore.profiles.set(uid, { displayName: cleanName, username: cleanUser, bio: cleanBio, avatar_url: cleanAvatar });
+    return getFullUserData(uid);
   }
 }
 
-async function recordMatchResult({ uid, roomCode, displayName, wpm, accuracy, finishPosition }) {
+async function recordMatchResult({ uid, roomCode, displayName, wpm, accuracy, finishPosition, charsTyped }) {
   const numWpm = parseFloat(wpm) || 0;
   const numAccuracy = parseFloat(accuracy) || 0;
   const pos = parseInt(finishPosition, 10) || 1;
   const isWon = pos === 1 ? 1 : 0;
+  const typed = parseInt(charsTyped, 10) || Math.round(numWpm * 5);
 
   if (isConnected && pool) {
     await pool.query(
-      `INSERT INTO match_history (room_code, uid, display_name, wpm, accuracy, finish_position)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO match_history (room_code, uid, display_name, wpm, accuracy, finish_position, mode)
+       VALUES ($1, $2, $3, $4, $5, $6, 'multiplayer')`,
       [roomCode || 'SOLO', uid || null, displayName, numWpm, numAccuracy, pos]
     );
 
@@ -208,9 +310,10 @@ async function recordMatchResult({ uid, roomCode, displayName, wpm, accuracy, fi
              best_wpm = GREATEST(best_wpm, $2),
              avg_wpm = ROUND(((avg_wpm * races_played) + $2) / (races_played + 1), 2),
              avg_accuracy = ROUND(((avg_accuracy * races_played) + $3) / (races_played + 1), 2),
+             total_typed = total_typed + $4,
              updated_at = CURRENT_TIMESTAMP
-         WHERE uid = $4`,
-        [isWon, numWpm, numAccuracy, uid]
+         WHERE uid = $5`,
+        [isWon, numWpm, numAccuracy, typed, uid]
       );
     }
   } else {
@@ -222,8 +325,41 @@ async function recordMatchResult({ uid, roomCode, displayName, wpm, accuracy, fi
       s.best_wpm = Math.max(s.best_wpm, numWpm);
       s.avg_wpm = Math.round(((s.avg_wpm * s.races_played) + numWpm) / played);
       s.avg_accuracy = Math.round(((s.avg_accuracy * s.races_played) + numAccuracy) / played);
+      s.total_typed = (s.total_typed || 0) + typed;
       s.races_played = played;
     }
+  }
+}
+
+async function searchUsers(term = '', limit = 10) {
+  const cleanTerm = `%${String(term || '').trim().toLowerCase()}%`;
+  if (isConnected && pool) {
+    const res = await pool.query(
+      `SELECT u.uid, u.display_name, u.email, p.bio, p.avatar_url, s.best_wpm, s.races_won
+       FROM users u
+       LEFT JOIN user_profiles p ON u.uid = p.uid
+       LEFT JOIN user_stats s ON u.uid = s.uid
+       WHERE LOWER(u.display_name) LIKE $1 OR LOWER(u.email) LIKE $1
+       LIMIT $2`,
+      [cleanTerm, limit]
+    );
+    return res.rows.map((r) => ({
+      uid: r.uid,
+      displayName: r.display_name,
+      email: r.email,
+      bio: r.bio || 'F1 Racing Driver',
+      photoURL: r.avatar_url || '',
+      bestWpm: parseFloat(r.best_wpm) || 0,
+      racesWon: r.races_won || 0
+    }));
+  } else {
+    const list = [];
+    for (const [email, u] of memoryStore.users.entries()) {
+      if (email.includes(term.toLowerCase()) || u.displayName.toLowerCase().includes(term.toLowerCase())) {
+        list.push({ uid: u.uid, displayName: u.displayName, email, bio: 'F1 Racing Driver', photoURL: '', bestWpm: 0, racesWon: 0 });
+      }
+    }
+    return list.slice(0, limit);
   }
 }
 
@@ -260,9 +396,10 @@ module.exports = {
   initDatabase,
   registerUser,
   authenticateUser,
-  getUserByUid,
-  getUserStats,
+  getFullUserData,
+  updateUserProfile,
   recordMatchResult,
+  searchUsers,
   getLeaderboard,
   isPostgresConnected: () => isConnected
 };

@@ -93,6 +93,11 @@ export class FirebaseRaceService {
     this.emitStatus('Database Server (PostgreSQL) Ready.');
     this.emitLocal('authChanged', { user: this.authUser });
 
+    // 3. Tarik data profil dan statistik driver dari PostgreSQL
+    if (this.authUser?.uid) {
+      this.syncAccountData();
+    }
+
     return { enabled: true };
   }
 
@@ -120,6 +125,31 @@ export class FirebaseRaceService {
     return this.authUser;
   }
 
+  async syncAccountData() {
+    if (!this.authUser?.uid) return;
+    try {
+      const res = await fetch(`/api/users/${this.authUser.uid}/full`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.ok && json.data) {
+          const { profile, stats, history } = json.data;
+          this.emitLocal('accountDataChanged', {
+            profile: {
+              displayName: profile.displayName || this.displayName,
+              username: profile.username || this.authUser.email?.split('@')[0],
+              bio: profile.bio || 'F1 Racing Driver',
+              photoURL: profile.photoURL || ''
+            },
+            stats,
+            history
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Sync account data failed:', err);
+    }
+  }
+
   async register({ email, password, displayName }) {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
@@ -137,6 +167,8 @@ export class FirebaseRaceService {
     localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(data.user));
 
     this.emitLocal('authChanged', { user: this.authUser });
+    await this.syncAccountData();
+
     return { user: this.authUser };
   }
 
@@ -162,13 +194,15 @@ export class FirebaseRaceService {
     localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(this.authUser));
 
     this.emitLocal('authChanged', { user: this.authUser });
+    await this.syncAccountData();
+
     return { user: this.authUser };
   }
 
   async loginWithGoogle() {
     // Mode offline/server: quick login pengemudi
     const guestName = 'Driver_' + Math.floor(Math.random() * 899 + 100);
-    const guestEmail = `${guestName.toLowerCase()}@local.server`;
+    const guestEmail = `${guestName.toLowerCase()}@f1.server`;
     return this.register({
       email: guestEmail,
       password: 'server_guest_password_123',
@@ -181,6 +215,11 @@ export class FirebaseRaceService {
     this.displayName = 'Driver';
     localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
     this.emitLocal('authChanged', { user: null });
+    this.emitLocal('accountDataChanged', {
+      profile: { displayName: 'Driver', bio: 'No bio yet.' },
+      stats: {},
+      history: []
+    });
   }
 
   async setDisplayName(name) {
@@ -189,14 +228,33 @@ export class FirebaseRaceService {
     if (this.authUser) {
       this.authUser.displayName = this.displayName;
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(this.authUser));
-      this.emitLocal('authChanged', { user: this.authUser });
+      await this.updateProfileData({ displayName: this.displayName });
     }
   }
 
   async updateProfileData(profile = {}) {
-    if (profile.displayName) {
-      await this.setDisplayName(profile.displayName);
+    if (!this.authUser?.uid) return profile;
+    try {
+      const res = await fetch(`/api/users/${this.authUser.uid}/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile)
+      });
+      const data = await res.json();
+      if (data.ok && data.data) {
+        if (profile.displayName) {
+          this.displayName = profile.displayName;
+          this.authUser.displayName = profile.displayName;
+          localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(this.authUser));
+          this.emitLocal('authChanged', { user: this.authUser });
+        }
+        await this.syncAccountData();
+        return data.data.profile;
+      }
+    } catch (err) {
+      console.error('Update profile error:', err);
     }
+    return profile;
   }
 
   async recordMatchResult(match = {}) {
@@ -210,6 +268,8 @@ export class FirebaseRaceService {
           displayName: this.displayName
         })
       });
+      // Sinkronkan kembali statistik balapan terbaru ke profil driver
+      await this.syncAccountData();
     } catch (err) {
       console.warn('Record match result to server failed:', err);
     }
@@ -220,7 +280,8 @@ export class FirebaseRaceService {
       roomCode,
       wpm: raceResult.wpm || 0,
       accuracy: raceResult.accuracy || 0,
-      finishPosition: raceResult.finishPosition || 1
+      finishPosition: raceResult.finishPosition || 1,
+      charsTyped: raceResult.charsTyped || 0
     });
   }
 
@@ -348,7 +409,6 @@ export class FirebaseRaceService {
     if (!fromUid || fromUid === (this.authUser?.uid || this.socket?.id)) return;
 
     if (type === 'join' && this.voiceActive) {
-      // Buat RTCPeerConnection baru dan kirim offer
       const pc = this.createPeerConnection(fromUid, name);
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -426,8 +486,21 @@ export class FirebaseRaceService {
     return pc;
   }
 
-  // --- Stubs untuk Friends & Invites ---
-  async searchUsers() { return []; }
+  // --- Cari Pembalap / Daftar User di Database PostgreSQL ---
+  async searchUsers(term = '') {
+    try {
+      const res = await fetch(`/api/users/search?term=${encodeURIComponent(term)}`);
+      if (res.ok) {
+        const json = await res.json();
+        return json.results || [];
+      }
+    } catch (err) {
+      console.warn('Search users failed:', err);
+    }
+    return [];
+  }
+
+  // Stubs friends & invites
   async sendFriendRequest() { return false; }
   async cancelFriendRequest() { return false; }
   async respondFriendRequest() { return false; }

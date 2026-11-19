@@ -280,6 +280,34 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+app.get('/api/users/:uid/full', async (req, res) => {
+  try {
+    const data = await db.getFullUserData(req.params.uid);
+    if (!data) return res.status(404).json({ error: 'User not found' });
+    res.json({ ok: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/users/:uid/profile', async (req, res) => {
+  try {
+    const data = await db.updateUserProfile(req.params.uid, req.body);
+    res.json({ ok: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/users/search', async (req, res) => {
+  try {
+    const results = await db.searchUsers(req.query.term || '');
+    res.json({ ok: true, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/users/:uid/stats', async (req, res) => {
   try {
     const stats = await db.getUserStats(req.params.uid);
