@@ -7,12 +7,578 @@
   <title>F1 Typing Battle 3D</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Rajdhani:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=6.0">
-  <link rel="stylesheet" href="css/f1-theme.css?v=6.0">
-  <link rel="stylesheet" href="css/race-control-redesign.css?v=6.0">
-  <link rel="stylesheet" href="css/ui-ux-overhaul.css?v=6.0">
-  <link rel="stylesheet" href="css/menu-redesign.css?v=6.0">
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Rajdhani:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=20261119_v7">
+  <link rel="stylesheet" href="css/f1-theme.css?v=20261119_v7">
+  <link rel="stylesheet" href="css/race-control-redesign.css?v=20261119_v7">
+  <link rel="stylesheet" href="css/ui-ux-overhaul.css?v=20261119_v7">
+  <link rel="stylesheet" href="css/menu-redesign.css?v=20261119_v7">
+  <style id="f1LobbyExactStyles">
+    /* ==========================================================================
+       TypeRace 3D - Exact Pixel-for-Pixel Lobby Screen & Topbar Styling
+       Guaranteed instant render without CDN cache delays
+       ========================================================================== */
+    body[data-screen="menu"] {
+      height: 100vh !important;
+      height: 100dvh !important;
+      width: 100vw !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      position: relative !important;
+      background:
+        linear-gradient(90deg, rgba(6, 9, 15, 0.88) 0%, rgba(6, 9, 15, 0.55) 38%, rgba(6, 9, 15, 0.05) 68%, transparent 100%),
+        linear-gradient(0deg, rgba(6, 9, 15, 0.92) 0%, rgba(6, 9, 15, 0.35) 22%, transparent 45%),
+        url('assets/home-bg.jpg?v=7.0') no-repeat center center fixed !important;
+      background-size: cover !important;
+    }
+
+    body[data-screen="menu"]::after {
+      display: none !important;
+    }
+
+    body[data-screen="menu"] #menuScreen.screen.active {
+      display: block !important;
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+      background: transparent !important;
+      z-index: 10 !important;
+    }
+
+    .f1-lobby-viewport {
+      position: relative !important;
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Top Navigation Bar */
+    body[data-screen="menu"] .app-topbar {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 100 !important;
+      height: 80px !important;
+      padding: 0 clamp(20px, 3.5vw, 40px) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      background: rgba(7, 10, 16, 0.75) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+      box-sizing: border-box !important;
+    }
+
+    .app-brand {
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+    }
+
+    .app-brand .brand-mark {
+      width: 48px !important;
+      height: 48px !important;
+      background: #FFFFFF !important;
+      border-radius: 12px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+      flex-shrink: 0 !important;
+    }
+
+    .app-brand .brand-mark img {
+      width: 30px !important;
+      height: 30px !important;
+      object-fit: contain !important;
+    }
+
+    .app-brand .brand-copy {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 2px !important;
+    }
+
+    .app-brand .brand-title {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 20px !important;
+      font-weight: 800 !important;
+      color: #FFFFFF !important;
+      letter-spacing: -0.02em !important;
+      line-height: 1.1 !important;
+    }
+
+    .app-brand .brand-subtitle {
+      font-family: 'Rajdhani', monospace !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      color: #D8A85A !important;
+      letter-spacing: 0.12em !important;
+      text-transform: uppercase !important;
+      line-height: 1 !important;
+    }
+
+    .topbar-actions {
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+    }
+
+    /* Status Pill: SERVER ONLINE */
+    #appConnectionLabel.status-pill {
+      height: 46px !important;
+      padding: 0 20px !important;
+      border-radius: 12px !important;
+      background: rgba(11, 46, 30, 0.75) !important;
+      border: 1px solid rgba(34, 197, 94, 0.40) !important;
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.22) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.06em !important;
+      color: #6EE7B7 !important;
+      text-transform: uppercase !important;
+      box-sizing: border-box !important;
+      user-select: none !important;
+    }
+
+    #appConnectionLabel.status-pill::before {
+      content: "" !important;
+      display: inline-block !important;
+      width: 10px !important;
+      height: 10px !important;
+      border-radius: 50% !important;
+      background: #22C55E !important;
+      box-shadow: 0 0 8px #22C55E !important;
+      flex-shrink: 0 !important;
+      animation: f1PulseDot 2s infinite ease-in-out !important;
+    }
+
+    #appConnectionLabel.status-pill:not(.online) {
+      background: rgba(50, 15, 15, 0.75) !important;
+      border-color: rgba(239, 68, 68, 0.40) !important;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.22) !important;
+      color: #FCA5A5 !important;
+    }
+
+    #appConnectionLabel.status-pill:not(.online)::before {
+      background: #EF4444 !important;
+      box-shadow: 0 0 8px #EF4444 !important;
+      animation: none !important;
+    }
+
+    @keyframes f1PulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* DRIVER LOGIN Button */
+    #authLoginNavBtn.topbar-btn {
+      height: 46px !important;
+      padding: 0 24px !important;
+      border-radius: 12px !important;
+      background: rgba(12, 16, 24, 0.75) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.06em !important;
+      color: #E2E8F0 !important;
+      text-transform: uppercase !important;
+      cursor: pointer !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: all 0.2s ease !important;
+      box-sizing: border-box !important;
+      outline: none !important;
+    }
+
+    #authLoginNavBtn.topbar-btn:hover {
+      border-color: rgba(255, 255, 255, 0.35) !important;
+      background: rgba(255, 255, 255, 0.10) !important;
+      color: #FFFFFF !important;
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.08) !important;
+    }
+
+    #authLoginNavBtn.hidden {
+      display: none !important;
+    }
+
+    /* Profile button when logged in */
+    .navbar-profile-wrap {
+      display: inline-flex !important;
+      align-items: center !important;
+    }
+
+    .navbar-profile-wrap.hidden {
+      display: none !important;
+    }
+
+    .navbar-profile-btn {
+      height: 46px !important;
+      padding: 0 16px !important;
+      border-radius: 12px !important;
+      background: rgba(12, 16, 24, 0.75) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+      color: #FFFFFF !important;
+      box-sizing: border-box !important;
+      outline: none !important;
+    }
+
+    .navbar-profile-btn:hover {
+      border-color: rgba(255, 255, 255, 0.35) !important;
+      background: rgba(255, 255, 255, 0.10) !important;
+    }
+
+    .navbar-profile-avatar {
+      width: 28px !important;
+      height: 28px !important;
+      border-radius: 50% !important;
+      background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+      color: #0F172A !important;
+      font-weight: 800 !important;
+      font-size: 0.75rem !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-transform: uppercase !important;
+    }
+
+    .navbar-profile-copy {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 1px !important;
+      text-align: left !important;
+    }
+
+    .navbar-profile-copy small {
+      font-size: 9px !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.08em !important;
+      color: #94A3B8 !important;
+      line-height: 1 !important;
+    }
+
+    .navbar-profile-copy strong {
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      color: #FFFFFF !important;
+      line-height: 1 !important;
+    }
+
+    /* Mid-Left Floating Hero Title */
+    .f1-lobby-hero {
+      position: absolute !important;
+      left: clamp(24px, 4vw, 48px) !important;
+      top: calc(50% - 24px) !important;
+      transform: translateY(-50%) !important;
+      max-width: 580px !important;
+      z-index: 20 !important;
+      pointer-events: auto !important;
+    }
+
+    .f1-hero-title {
+      font-family: 'Rajdhani', 'Chakra Petch', -apple-system, sans-serif !important;
+      font-size: clamp(52px, 5.5vw, 78px) !important;
+      font-weight: 900 !important;
+      letter-spacing: -0.01em !important;
+      line-height: 0.95 !important;
+      color: #FFFFFF !important;
+      margin: 0 !important;
+      text-transform: uppercase !important;
+      white-space: nowrap !important;
+    }
+
+    .f1-title-3d {
+      color: #EB260C !important;
+      text-shadow: 0 0 24px rgba(235, 38, 12, 0.45) !important;
+      filter: drop-shadow(0 0 24px rgba(235, 38, 12, 0.45)) !important;
+      font-weight: 900 !important;
+      display: inline-block !important;
+    }
+
+    .f1-hero-subtitle {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 16px !important;
+      line-height: 1.6 !important;
+      color: rgba(203, 213, 225, 0.90) !important;
+      max-width: 540px !important;
+      margin: 20px 0 0 0 !important;
+      font-weight: 400 !important;
+    }
+
+    /* Bottom HUD Action Bar */
+    .f1-lobby-hud-bar {
+      position: absolute !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      padding: 0 clamp(24px, 4vw, 48px) 36px clamp(24px, 4vw, 48px) !important;
+      display: flex !important;
+      align-items: flex-end !important;
+      justify-content: space-between !important;
+      gap: 20px !important;
+      z-index: 30 !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Bottom-Left 3-Card Glassmorphic Dock */
+    .f1-dock-cards {
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+      flex: 1 1 auto !important;
+      max-width: 820px !important;
+    }
+
+    .f1-dock-card {
+      height: 76px !important;
+      min-width: 200px !important;
+      flex: 1 1 0 !important;
+      padding: 0 18px !important;
+      border-radius: 14px !important;
+      background: rgba(16, 21, 31, 0.80) !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+      cursor: pointer !important;
+      text-align: left !important;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      box-sizing: border-box !important;
+      outline: none !important;
+      color: inherit !important;
+    }
+
+    .f1-dock-card:hover {
+      border-color: rgba(255, 255, 255, 0.30) !important;
+      background: rgba(21, 28, 42, 0.85) !important;
+      transform: translateY(-2px) !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40) !important;
+    }
+
+    .f1-dock-card:active {
+      transform: translateY(1px) !important;
+    }
+
+    .f1-dock-icon {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+      width: 24px !important;
+      height: 24px !important;
+    }
+
+    .f1-dock-labels {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 3px !important;
+      white-space: nowrap !important;
+      min-width: 0 !important;
+    }
+
+    .f1-dock-labels strong {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 13px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.04em !important;
+      color: #FFFFFF !important;
+      text-transform: uppercase !important;
+      line-height: 1.1 !important;
+    }
+
+    .f1-dock-labels small {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      color: #94A3B8 !important;
+      line-height: 1.1 !important;
+    }
+
+    /* Bottom-Right Primary CTA PLAY RACE */
+    .f1-play-race-cta {
+      height: 76px !important;
+      min-width: 360px !important;
+      max-width: 420px !important;
+      flex-shrink: 0 !important;
+      padding: 0 24px !important;
+      border-radius: 14px !important;
+      background: linear-gradient(90deg, #E0190A 0%, #D92708 50%, #B82A0A 100%) !important;
+      border: 1px solid rgba(255, 107, 74, 0.50) !important;
+      box-shadow:
+        0 0 32px rgba(230, 30, 10, 0.48),
+        0 10px 24px rgba(0, 0, 0, 0.40) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 16px !important;
+      cursor: pointer !important;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      user-select: none !important;
+      box-sizing: border-box !important;
+      outline: none !important;
+    }
+
+    .f1-play-race-cta:hover {
+      transform: translateY(-2px) !important;
+      box-shadow:
+        0 0 46px rgba(255, 40, 15, 0.68),
+        0 14px 30px rgba(0, 0, 0, 0.50) !important;
+      border-color: rgba(255, 120, 80, 0.70) !important;
+    }
+
+    .f1-play-race-cta:active {
+      transform: translateY(1px) !important;
+    }
+
+    .f1-play-icon-wrap {
+      width: 44px !important;
+      height: 44px !important;
+      border-radius: 10px !important;
+      background: rgba(0, 0, 0, 0.20) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+    }
+
+    .f1-play-labels {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 3px !important;
+      text-align: left !important;
+      white-space: nowrap !important;
+    }
+
+    .f1-play-title {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 20px !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.05em !important;
+      color: #FFFFFF !important;
+      text-transform: uppercase !important;
+      line-height: 1 !important;
+    }
+
+    .f1-play-sub {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      color: rgba(255, 255, 255, 0.90) !important;
+      line-height: 1.1 !important;
+    }
+
+    .f1-play-arrow {
+      font-size: 22px !important;
+      color: #FFFFFF !important;
+      font-weight: 800 !important;
+      transition: transform 0.2s ease !important;
+      flex-shrink: 0 !important;
+      line-height: 1 !important;
+      margin-left: 6px !important;
+    }
+
+    .f1-play-race-cta:hover .f1-play-arrow {
+      transform: translateX(5px) !important;
+    }
+
+    @media (min-width: 1280px) {
+      .f1-dock-card {
+        min-width: 235px !important;
+      }
+      .f1-play-race-cta {
+        min-width: 385px !important;
+      }
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 900px) {
+      body[data-screen="menu"] {
+        overflow-y: auto !important;
+        height: auto !important;
+        min-height: 100dvh !important;
+      }
+      body[data-screen="menu"] .app-topbar {
+        padding: 0 20px !important;
+      }
+      body[data-screen="menu"] #menuScreen.screen.active {
+        position: relative !important;
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow-y: auto !important;
+      }
+      .f1-lobby-viewport {
+        height: auto !important;
+        min-height: 100dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        padding-top: 96px !important;
+        padding-bottom: 24px !important;
+      }
+      .f1-lobby-hero {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        transform: none !important;
+        margin: 16px 20px 28px 20px !important;
+        max-width: 100% !important;
+      }
+      .f1-hero-title {
+        font-size: 2.6rem !important;
+        white-space: normal !important;
+      }
+      .f1-lobby-hud-bar {
+        position: relative !important;
+        padding: 0 20px !important;
+        flex-direction: column-reverse !important;
+        gap: 16px !important;
+        align-items: stretch !important;
+      }
+      .f1-dock-cards {
+        flex-direction: column !important;
+        gap: 10px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .f1-dock-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 64px !important;
+      }
+      .f1-play-race-cta {
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 68px !important;
+      }
+    }
+  </style>
   <script src="/socket.io/socket.io.js"></script>
   <script type="importmap">
     {
