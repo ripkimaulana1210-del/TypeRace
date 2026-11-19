@@ -1485,3 +1485,512 @@ body[data-screen="menu"] .start-side-panel.f1-showroom-panel::before {
   border: 1px solid rgba(59, 130, 246, 0.35) !important;
   color: #93c5fd !important;
 }
+
+
+/* ==========================================================================
+   HIGH-CRAFT F1 ESPORTS DRIVER ACCESS MODAL (SIGN IN & REGISTER REDESIGN)
+   ========================================================================== */
+
+.auth-backdrop-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: rgba(8, 10, 15, 0.82) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+.auth-backdrop-overlay.hidden {
+  display: none !important;
+}
+
+.f1-auth-card {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 440px !important;
+  max-height: calc(100dvh - 36px) !important;
+  overflow-y: auto !important;
+  background: rgba(13, 17, 23, 0.95) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  padding: 24px 28px !important;
+  box-sizing: border-box !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* Crisp Top Racing Stripe */
+.f1-auth-racing-stripe {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 3px !important;
+  background: linear-gradient(90deg, #FF1E00 0%, #FF8A00 50%, #00E5FF 100%) !important;
+  border-radius: 18px 18px 0 0 !important;
+}
+
+/* Modal Header */
+.f1-auth-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  margin-top: 4px !important;
+}
+
+.f1-auth-header-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+.f1-eyebrow-pill {
+  display: inline-block !important;
+  font-family: "Cascadia Mono", Consolas, monospace !important;
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  color: #F59E0B !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  border: 1px solid rgba(245, 158, 11, 0.28) !important;
+  border-radius: 6px !important;
+  padding: 3px 8px !important;
+  margin-bottom: 8px !important;
+  text-transform: uppercase !important;
+}
+
+.f1-auth-heading {
+  font-family: 'Rajdhani', 'Chakra Petch', sans-serif !important;
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #FFFFFF !important;
+  margin: 0 0 4px 0 !important;
+  line-height: 1.1 !important;
+}
+
+.f1-auth-subtitle {
+  font-size: 0.8rem !important;
+  color: #94A3B8 !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+}
+
+.f1-auth-close-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #94A3B8 !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  font-size: 0.9rem !important;
+  flex-shrink: 0 !important;
+}
+
+.f1-auth-close-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #FFFFFF !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Nav Tabs */
+.f1-auth-nav-tabs {
+  display: flex !important;
+  gap: 28px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  margin: 18px 0 18px 0 !important;
+  position: relative !important;
+}
+
+.f1-tab-btn {
+  background: none !important;
+  border: none !important;
+  padding: 8px 0 10px 0 !important;
+  font-family: 'Rajdhani', sans-serif !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  color: #64748B !important;
+  position: relative !important;
+  transition: color 0.2s ease !important;
+}
+
+.f1-tab-btn:hover {
+  color: #94A3B8 !important;
+}
+
+.f1-tab-btn.active {
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+}
+
+.f1-tab-indicator {
+  display: none !important;
+  position: absolute !important;
+  bottom: -1px !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 2.5px !important;
+  background: linear-gradient(90deg, #FF7A00, #FF2E00) !important;
+  box-shadow: 0 0 10px rgba(255, 122, 0, 0.6) !important;
+  border-radius: 2px !important;
+}
+
+.f1-tab-btn.active .f1-tab-indicator {
+  display: block !important;
+}
+
+/* Form Views */
+.f1-auth-view {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+
+.f1-auth-view.hidden {
+  display: none !important;
+}
+
+.f1-field-group {
+  margin-bottom: 14px !important;
+  text-align: left !important;
+}
+
+.f1-field-label {
+  display: block !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #94A3B8 !important;
+  margin-bottom: 6px !important;
+}
+
+.f1-label-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 6px !important;
+}
+
+.f1-label-row .f1-field-label {
+  margin-bottom: 0 !important;
+}
+
+.f1-forgot-link {
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  color: #38BDF8 !important;
+  text-decoration: none !important;
+  transition: color 0.15s ease !important;
+}
+
+.f1-forgot-link:hover {
+  color: #7DD3FC !important;
+  text-decoration: underline !important;
+}
+
+.f1-input-wrap {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+.f1-input-icon {
+  position: absolute !important;
+  left: 12px !important;
+  color: #64748B !important;
+  display: flex !important;
+  align-items: center !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+
+.f1-auth-input {
+  width: 100% !important;
+  height: 44px !important;
+  box-sizing: border-box !important;
+  background: #12161F !important;
+  border: 1px solid #232A38 !important;
+  border-radius: 8px !important;
+  padding: 0 14px 0 40px !important;
+  font-size: 0.88rem !important;
+  color: #F8FAFC !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.f1-auth-input:focus {
+  border-color: #FF8A00 !important;
+  box-shadow: 0 0 12px rgba(255, 138, 0, 0.25) !important;
+  background: #151A24 !important;
+}
+
+.f1-auth-input.with-toggle {
+  padding-right: 40px !important;
+}
+
+.f1-pwd-toggle-btn {
+  position: absolute !important;
+  right: 10px !important;
+  background: none !important;
+  border: none !important;
+  color: #64748B !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color 0.15s ease !important;
+  z-index: 2 !important;
+}
+
+.f1-pwd-toggle-btn:hover {
+  color: #CBD5E1 !important;
+}
+
+/* 2-Column Grid (Callsign & Driver No.) */
+.f1-grid-2col {
+  display: grid !important;
+  grid-template-columns: 1.8fr 1fr !important;
+  gap: 12px !important;
+}
+
+.prefix-wrap .f1-input-prefix {
+  position: absolute !important;
+  left: 14px !important;
+  color: #64748B !important;
+  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+
+.f1-auth-input.prefixed {
+  padding-left: 30px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* F1 RPM Password Strength Meter */
+.f1-strength-badge {
+  font-family: 'Rajdhani', sans-serif !important;
+  font-size: 0.74rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.f1-strength-badge.weak { color: #EF4444 !important; }
+.f1-strength-badge.fair { color: #F59E0B !important; }
+.f1-strength-badge.good { color: #10B981 !important; }
+.f1-strength-badge.strong { color: #00E5FF !important; }
+
+.f1-rpm-meter {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 6px !important;
+  margin-top: 8px !important;
+}
+
+.rpm-bar {
+  height: 5px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-radius: 2px !important;
+  transform: skewX(-18deg) !important;
+  transition: all 0.25s ease !important;
+}
+
+.rpm-bar.active-weak { background: #EF4444 !important; box-shadow: 0 0 8px rgba(239, 68, 68, 0.5) !important; }
+.rpm-bar.active-fair { background: #F59E0B !important; box-shadow: 0 0 8px rgba(245, 158, 11, 0.5) !important; }
+.rpm-bar.active-good { background: #10B981 !important; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5) !important; }
+.rpm-bar.active-strong { background: #00E5FF !important; box-shadow: 0 0 8px rgba(0, 229, 255, 0.6) !important; }
+
+/* Custom Checkbox */
+.f1-checkbox-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 8px 0 16px 0 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+.f1-checkbox {
+  width: 16px !important;
+  height: 16px !important;
+  accent-color: #FF8A00 !important;
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  margin: 0 !important;
+}
+
+.f1-checkbox-text {
+  font-size: 0.78rem !important;
+  color: #94A3B8 !important;
+}
+
+/* Primary CTA Submit Button */
+.f1-auth-submit-btn {
+  width: 100% !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: linear-gradient(135deg, #FF8A00 0%, #FF1E3C 100%) !important;
+  color: #FFFFFF !important;
+  font-family: 'Rajdhani', sans-serif !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border: none !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  box-shadow: 0 8px 24px rgba(255, 30, 60, 0.35) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.f1-auth-submit-btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 12px 30px rgba(255, 30, 60, 0.5) !important;
+}
+
+.f1-auth-submit-btn:active {
+  transform: translateY(1px) !important;
+}
+
+.f1-auth-submit-btn:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Quick Auth */
+.f1-quick-divider {
+  display: flex !important;
+  align-items: center !important;
+  margin: 16px 0 12px 0 !important;
+  font-size: 0.66rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  color: #475569 !important;
+  text-transform: uppercase !important;
+}
+
+.f1-quick-divider::before,
+.f1-quick-divider::after {
+  content: "" !important;
+  flex: 1 !important;
+  height: 1px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.f1-quick-divider span {
+  padding: 0 12px !important;
+}
+
+.f1-quick-oauth-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
+  margin-bottom: 16px !important;
+}
+
+.f1-quick-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 40px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  color: #E2E8F0 !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.f1-quick-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Footer Link Prompts */
+.f1-auth-footer-prompt {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  font-size: 0.78rem !important;
+  color: #64748B !important;
+  margin-top: 4px !important;
+}
+
+.f1-text-link {
+  background: none !important;
+  border: none !important;
+  color: #F8FAFC !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  transition: color 0.15s ease !important;
+}
+
+.f1-text-link:hover {
+  color: #38BDF8 !important;
+  text-decoration: underline !important;
+}
+
+/* Signed In State Box */
+.f1-signedin-box {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 20px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  text-align: center !important;
+}
+
+.f1-logout-btn {
+  padding: 8px 18px !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: #F87171 !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.f1-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+}

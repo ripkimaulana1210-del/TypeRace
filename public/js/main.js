@@ -483,6 +483,14 @@ class F1TypingBattleApp {
       authLoginEmailInput: document.getElementById('authLoginEmailInput'),
       authLoginPasswordInput: document.getElementById('authLoginPasswordInput'),
       authRegisterUsernameInput: document.getElementById('authRegisterUsernameInput'),
+      authCarNumberInput: document.getElementById('authCarNumberInput'),
+      authTermsCheckbox: document.getElementById('authTermsCheckbox'),
+      authRememberCheckbox: document.getElementById('authRememberCheckbox'),
+      passwordStrengthLabel: document.getElementById('passwordStrengthLabel'),
+      f1RpmMeter: document.getElementById('f1RpmMeter'),
+      authGoogleQuickBtn: document.getElementById('authGoogleQuickBtn'),
+      authDiscordQuickBtn: document.getElementById('authDiscordQuickBtn'),
+      authForgotKeyBtn: document.getElementById('authForgotKeyBtn'),
       switchToRegisterLink: document.getElementById('switchToRegisterLink'),
       switchToLoginLink: document.getElementById('switchToLoginLink'),
       firebaseStatusText: document.getElementById('firebaseStatusText'),
@@ -816,6 +824,46 @@ class F1TypingBattleApp {
     this.elements.authRegisterBtn?.addEventListener('click', () => this.registerWithFirebase());
     this.elements.authLoginBtn?.addEventListener('click', () => this.loginWithGoogleFirebase());
     this.elements.authLogoutBtn?.addEventListener('click', () => this.logoutFromFirebase());
+
+    // Password visibility eye toggles
+    document.querySelectorAll('.f1-pwd-toggle-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = btn.dataset.target;
+        const input = document.getElementById(targetId);
+        if (!input) return;
+        const isPwd = input.type === 'password';
+        input.type = isPwd ? 'text' : 'password';
+        btn.querySelector('.eye-open')?.classList.toggle('hidden', isPwd);
+        btn.querySelector('.eye-closed')?.classList.toggle('hidden', !isPwd);
+      });
+    });
+
+    // Car number restriction to 1-99
+    this.elements.authCarNumberInput?.addEventListener('input', () => {
+      let val = this.elements.authCarNumberInput.value.replace(/[^0-9]/g, '');
+      if (val.length > 2) val = val.slice(0, 2);
+      if (val !== '' && parseInt(val, 10) > 99) val = '99';
+      if (val === '0') val = '1';
+      this.elements.authCarNumberInput.value = val;
+    });
+
+    // Live password strength indicator (F1 RPM meter)
+    this.elements.authPasswordInput?.addEventListener('input', () => {
+      this.updatePasswordStrengthMeter(this.elements.authPasswordInput.value);
+    });
+
+    // Quick OAuth buttons & Forgot key link
+    this.elements.authGoogleQuickBtn?.addEventListener('click', () => {
+      this.showAuthFeedback('Google login is currently disabled on this server.', 'info');
+    });
+    this.elements.authDiscordQuickBtn?.addEventListener('click', () => {
+      this.showAuthFeedback('Discord login is currently disabled on this server.', 'info');
+    });
+    this.elements.authForgotKeyBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.showAuthFeedback('Please contact Race Control to reset your driver access key.', 'info');
+    });
     this.elements.authOpenBtn?.addEventListener('click', () => this.handleAuthButtonClick());
     this.elements.authLoginNavBtn?.addEventListener('click', () => this.openAuthModal());
     this.elements.authCloseBtn?.addEventListener('click', () => this.closeAuthModal());
@@ -1345,13 +1393,21 @@ class F1TypingBattleApp {
     this.elements.tabAuthRegister?.classList.toggle('active', !isLogin);
     this.elements.authLoginSection?.classList.toggle('hidden', !isLogin);
     this.elements.authRegisterSection?.classList.toggle('hidden', isLogin);
+    
+    const subtitle = document.getElementById('authSubtitle');
+    if (subtitle) {
+      subtitle.textContent = isLogin
+        ? 'Sign in to access multiplayer grids and live telemetry.'
+        : 'Register your Superlicense to secure your grid slot.';
+    }
+
     this.clearAuthFeedback();
 
     requestAnimationFrame(() => {
       if (isLogin) {
         this.elements.authLoginEmailInput?.focus();
       } else {
-        this.elements.authNameInput?.focus();
+        this.elements.authRegisterUsernameInput?.focus();
       }
     });
   }
@@ -2350,15 +2406,45 @@ class F1TypingBattleApp {
     }
   }
 
+  updatePasswordStrengthMeter(password = '') {
+    const label = this.elements.passwordStrengthLabel;
+    const bars = this.elements.f1RpmMeter?.querySelectorAll('.rpm-bar') || [];
+    if (!label) return;
+
+    let score = 1;
+    if (password.length >= 6) score = 2;
+    if (password.length >= 8 && /[0-9]/.test(password)) score = 3;
+    if (password.length >= 10 && /[A-Z]/.test(password) && /[^A-Za-z0-9]/.test(password)) score = 4;
+    if (password.length === 0) score = 1;
+
+    const tiers = {
+      1: { text: 'WEAK', cls: 'weak', activeCls: 'active-weak' },
+      2: { text: 'FAIR', cls: 'fair', activeCls: 'active-fair' },
+      3: { text: 'GOOD', cls: 'good', activeCls: 'active-good' },
+      4: { text: 'STRONG', cls: 'strong', activeCls: 'active-strong' }
+    };
+
+    const current = tiers[score] || tiers[1];
+    label.textContent = current.text;
+    label.className = `f1-strength-badge ${current.cls}`;
+
+    bars.forEach((bar, index) => {
+      bar.className = 'rpm-bar';
+      if (index < score) {
+        bar.classList.add(current.activeCls);
+      }
+    });
+  }
+
   async registerWithFirebase() {
     try {
-      const displayName = this.elements.authNameInput?.value?.trim() || '';
       const username = (this.elements.authRegisterUsernameInput?.value || '').trim();
+      const displayName = this.elements.authNameInput?.value?.trim() || username || 'Driver';
       const email = this.elements.authEmailInput?.value?.trim() || '';
       const password = this.elements.authPasswordInput?.value || '';
 
-      if (!displayName) {
-        this.showAuthFeedback('Please enter your driver display name.', 'error');
+      if (!username) {
+        this.showAuthFeedback('Please enter your callsign username.', 'error');
         return;
       }
       if (!email) {
@@ -2373,8 +2459,16 @@ class F1TypingBattleApp {
         this.showAuthFeedback('Password must be at least 6 characters.', 'error');
         return;
       }
+      if (this.elements.authTermsCheckbox && !this.elements.authTermsCheckbox.checked) {
+        this.showAuthFeedback('Please agree to Race Control Rules & Terms.', 'error');
+        return;
+      }
 
-      this.showAuthFeedback('Registering Superlicense in PostgreSQL...', 'loading');
+      // Save chosen driver/car number
+      const carNumber = this.elements.authCarNumberInput?.value || '44';
+      localStorage.setItem('typerace_driver_car_number', carNumber);
+
+      this.showAuthFeedback('Issuing Superlicense in PostgreSQL...', 'loading');
       const response = await this.firebase.register({ email, password, displayName, username });
       const user = response?.user || response;
       this.applySignedInName({
@@ -2382,7 +2476,7 @@ class F1TypingBattleApp {
         email: user?.email
       });
 
-      this.showAuthFeedback('Superlicense registered! Welcome to the paddock.', 'success');
+      this.showAuthFeedback('Superlicense issued! Welcome to the paddock.', 'success');
       setTimeout(() => this.closeAuthModal(), 600);
     } catch (error) {
       console.error(error);
