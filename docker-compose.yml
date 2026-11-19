@@ -6,11 +6,11 @@ services:
     container_name: web1
     restart: unless-stopped
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - CLIENT_ORIGIN=*
-      # Koneksi ke CT 102 (Database PostgreSQL). Ganti IP dengan IP CT 102 Anda jika berbeda
-      - DATABASE_URL=postgres://typerace_user:typerace_password@192.168.44.132:5432/typerace_db
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3000}
+      - CLIENT_ORIGIN=${CLIENT_ORIGIN:-*}
+      # Koneksi ke CT 102 (Database PostgreSQL). Menggunakan nilai .env jika ada
+      - DATABASE_URL=${DATABASE_URL:-postgres://typerace_user:typerace_password@192.168.44.132:5432/typerace_db}
     ports:
       # Port 8080 host dipetakan ke port 3000 aplikasi TypeRace
       - "8080:3000"
