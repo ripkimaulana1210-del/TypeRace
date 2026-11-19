@@ -1451,13 +1451,16 @@ class F1TypingBattleApp {
       this.elements.tabAuthRegister.classList.toggle('active', false);
     }
 
+    // Reset subtitle for sign in
+    const subtitle = document.getElementById('authSubtitle');
+    if (subtitle) {
+      subtitle.textContent = 'Sign in to access multiplayer grids and live telemetry.';
+    }
+
     if (message) {
       this.authPromptMessage = message;
       if (this.elements.authStateLabel && !isLoggedIn) {
         this.elements.authStateLabel.textContent = message;
-      }
-      if (!isLoggedIn) {
-        this.showAuthFeedback(message, 'info');
       }
     }
 
