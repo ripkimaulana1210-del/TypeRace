@@ -340,12 +340,12 @@ async function recordMatchResult({ uid, roomCode, displayName, wpm, accuracy, fi
     if (uid) {
       await pool.query(
         `UPDATE user_stats
-         SET races_played = races_played + 1,
-             races_won = races_won + $1,
-             best_wpm = GREATEST(best_wpm, $2),
-             avg_wpm = ROUND(((avg_wpm * races_played) + $2) / (races_played + 1), 2),
-             avg_accuracy = ROUND(((avg_accuracy * races_played) + $3) / (races_played + 1), 2),
-             total_typed = total_typed + $4,
+         SET races_played = COALESCE(races_played, 0) + 1,
+             races_won = COALESCE(races_won, 0) + $1,
+             best_wpm = GREATEST(COALESCE(best_wpm, 0), $2),
+             avg_wpm = ROUND(((COALESCE(avg_wpm, 0) * COALESCE(races_played, 0)) + $2) / (COALESCE(races_played, 0) + 1), 2),
+             avg_accuracy = ROUND(((COALESCE(avg_accuracy, 0) * COALESCE(races_played, 0)) + $3) / (COALESCE(races_played, 0) + 1), 2),
+             total_typed = COALESCE(total_typed, 0) + $4,
              updated_at = CURRENT_TIMESTAMP
          WHERE uid = $5`,
         [isWon, numWpm, numAccuracy, typed, uid]
@@ -366,21 +366,40 @@ async function recordMatchResult({ uid, roomCode, displayName, wpm, accuracy, fi
   }
 }
 
+async function getUserStats(uid) {
+  if (isConnected && pool) {
+    const res = await pool.query('SELECT * FROM user_stats WHERE uid = $1', [uid]);
+    if (res.rows.length === 0) return null;
+    const r = res.rows[0];
+    return {
+      races_played: parseInt(r.races_played, 10) || 0,
+      races_won: parseInt(r.races_won, 10) || 0,
+      avg_wpm: parseFloat(r.avg_wpm) || 0,
+      best_wpm: parseFloat(r.best_wpm) || 0,
+      avg_accuracy: parseFloat(r.avg_accuracy) || 0,
+      total_typed: parseInt(r.total_typed, 10) || 0
+    };
+  } else {
+    return memoryStore.stats.get(uid) || null;
+  }
+}
+
 async function searchUsers(term = '', limit = 10) {
   const cleanTerm = `%${String(term || '').trim().toLowerCase()}%`;
   if (isConnected && pool) {
     const res = await pool.query(
-      `SELECT u.uid, u.display_name, u.email, p.bio, p.avatar_url, s.best_wpm, s.races_won
+      `SELECT u.uid, u.display_name, u.email, p.username, p.bio, p.avatar_url, s.best_wpm, s.races_won
        FROM users u
        LEFT JOIN user_profiles p ON u.uid = p.uid
        LEFT JOIN user_stats s ON u.uid = s.uid
-       WHERE LOWER(u.display_name) LIKE $1 OR LOWER(u.email) LIKE $1
+       WHERE LOWER(u.display_name) LIKE $1 OR LOWER(u.email) LIKE $1 OR LOWER(COALESCE(p.username, '')) LIKE $1
        LIMIT $2`,
       [cleanTerm, limit]
     );
     return res.rows.map((r) => ({
       uid: r.uid,
       displayName: r.display_name,
+      username: r.username || '',
       email: r.email,
       bio: r.bio || 'F1 Racing Driver',
       photoURL: r.avatar_url || '',
@@ -390,8 +409,9 @@ async function searchUsers(term = '', limit = 10) {
   } else {
     const list = [];
     for (const [email, u] of memoryStore.users.entries()) {
-      if (email.includes(term.toLowerCase()) || u.displayName.toLowerCase().includes(term.toLowerCase())) {
-        list.push({ uid: u.uid, displayName: u.displayName, email, bio: 'F1 Racing Driver', photoURL: '', bestWpm: 0, racesWon: 0 });
+      const prof = memoryStore.profiles.get(u.uid) || {};
+      if (email.includes(term.toLowerCase()) || u.displayName.toLowerCase().includes(term.toLowerCase()) || (prof.username && prof.username.toLowerCase().includes(term.toLowerCase()))) {
+        list.push({ uid: u.uid, displayName: u.displayName, username: prof.username || '', email, bio: 'F1 Racing Driver', photoURL: '', bestWpm: 0, racesWon: 0 });
       }
     }
     return list.slice(0, limit);
@@ -433,6 +453,7 @@ module.exports = {
   authenticateUser,
   clearAllUsers,
   getFullUserData,
+  getUserStats,
   updateUserProfile,
   recordMatchResult,
   searchUsers,

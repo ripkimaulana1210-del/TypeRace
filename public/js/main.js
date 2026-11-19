@@ -908,8 +908,14 @@ class F1TypingBattleApp {
       this.elements.aiLapCountSelect.value = button.dataset.lap || '1';
       this.updateAiLapSelect();
     });
-    this.elements.confirmJoinBtn.addEventListener('click', () => this.joinRoom());
-    this.elements.cancelJoinBtn.addEventListener('click', () => this.closeJoinModal());
+    this.elements.confirmJoinBtn?.addEventListener('click', () => this.joinRoom());
+    this.elements.cancelJoinBtn?.addEventListener('click', () => this.closeJoinModal());
+    this.elements.roomCodeInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.joinRoom();
+      }
+    });
     this.elements.lapOptionGroup?.addEventListener('click', (event) => {
       const button = event.target.closest('.lap-option');
 
@@ -944,10 +950,10 @@ class F1TypingBattleApp {
       this.network.startRace();
     });
 
-    this.elements.leaveLobbyBtn.addEventListener('click', () => this.leaveLobby());
-    this.elements.backToRoomBtn.addEventListener('click', () => this.returnToRoom());
-    this.elements.playAgainBtn.addEventListener('click', async () => this.playAgain());
-    this.elements.backToMenuBtn.addEventListener('click', () => this.leaveLobby());
+    this.elements.leaveLobbyBtn?.addEventListener('click', () => this.leaveLobby());
+    this.elements.backToRoomBtn?.addEventListener('click', () => this.returnToRoom());
+    this.elements.playAgainBtn?.addEventListener('click', async () => this.playAgain());
+    this.elements.backToMenuBtn?.addEventListener('click', () => this.leaveLobby());
     this.elements.resultsPrevBtn?.addEventListener('click', () => this.changeResultsPage(-1));
     this.elements.resultsNextBtn?.addEventListener('click', () => this.changeResultsPage(1));
     this.elements.typingInput.addEventListener('keydown', (event) => this.handleTyping(event));
@@ -1394,7 +1400,7 @@ class F1TypingBattleApp {
     if (this.elements.chatMessages) {
       this.elements.chatMessages.dataset.emptyLabel = roomActive
         ? 'No messages in this room yet.'
-        : isLoggedIn ? 'Join a room to use chat.' : 'Sign in with Firebase for chat and voice.';
+        : isLoggedIn ? 'Join a room to use chat.' : 'Sign in to use chat and squad voice.';
     }
 
     if (this.elements.voiceToggleBtn) {
@@ -1990,8 +1996,7 @@ class F1TypingBattleApp {
     const originalLabel = saveButton?.textContent || 'Save Profile';
 
     try {
-      const googlePhotoURL = this.getGoogleProfilePhotoURL(this.firebase.getCurrentUser());
-      const photoURL = googlePhotoURL || String(this.elements.profileAvatarInput?.value || '').trim();
+      const photoURL = String(this.elements.profileAvatarInput?.value || '').trim();
       if (photoURL && !this.isSafeImageUrl(photoURL)) {
         throw new Error('Avatar URL must start with http:// or https://.');
       }
@@ -3343,6 +3348,7 @@ class F1TypingBattleApp {
 
     this.elements.roomCodeInput.value = '';
     this.elements.joinModal.classList.remove('hidden');
+    requestAnimationFrame(() => this.elements.roomCodeInput?.focus());
   }
 
   closeJoinModal() {
