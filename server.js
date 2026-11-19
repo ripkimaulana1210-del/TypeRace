@@ -269,11 +269,12 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required.' });
+    const { email, identifier, password } = req.body;
+    const loginId = String(email || identifier || '').trim();
+    if (!loginId || !password) {
+      return res.status(400).json({ error: 'Email or username and password are required.' });
     }
-    const user = await db.authenticateUser({ email, password });
+    const user = await db.authenticateUser({ identifier: loginId, password });
     res.json({ ok: true, user });
   } catch (err) {
     res.status(401).json({ error: err.message });

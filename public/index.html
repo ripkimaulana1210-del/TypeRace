@@ -5,11 +5,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>F1 Typing Battle 3D</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/f1-theme.css">
-  <link rel="stylesheet" href="css/race-control-redesign.css">
-  <link rel="stylesheet" href="css/ui-ux-overhaul.css">
-  <link rel="stylesheet" href="css/menu-redesign.css">
+  <link rel="stylesheet" href="css/style.css?v=4.0">
+  <link rel="stylesheet" href="css/f1-theme.css?v=4.0">
+  <link rel="stylesheet" href="css/race-control-redesign.css?v=4.0">
+  <link rel="stylesheet" href="css/ui-ux-overhaul.css?v=4.0">
+  <link rel="stylesheet" href="css/menu-redesign.css?v=4.0">
   <script src="/socket.io/socket.io.js"></script>
   <script type="importmap">
     {
@@ -318,182 +318,178 @@
   </div>
 
   <div id="menuScreen" class="screen active">
-    <div class="start-dashboard f1-paddock-dashboard">
-      <!-- LEFT PANEL: Command & Mode Selection -->
-      <section class="start-panel f1-command-panel">
-        <div class="hero-copy">
-          <div class="f1-badge-cluster">
-            <span class="f1-live-badge"><span class="pulse-dot"></span> PVE CLOUD NODE ONLINE</span>
-            <span class="f1-edition-badge">SEASON 2026</span>
-          </div>
-          <h1 class="f1-hero-title">TYPERACE <span class="accent-text">3D</span></h1>
-          <p class="subtitle">High-speed competitive typing Grand Prix. Master apex accuracy, outpace rivals in real-time rooms, and record your fastest sector pace.</p>
-
-          <div class="f1-telemetry-strip" aria-label="Race highlights">
-            <div class="telemetry-pill">
-              <span class="pill-icon">⚡</span>
-              <div>
-                <strong>3D WebGL</strong>
-                <small>Physics Circuit</small>
-              </div>
-            </div>
-            <div class="telemetry-pill">
-              <span class="pill-icon">🌐</span>
-              <div>
-                <strong>Live Rooms</strong>
-                <small>Multiplayer Grid</small>
-              </div>
-            </div>
-            <div class="telemetry-pill">
-              <span class="pill-icon">⏱️</span>
-              <div>
-                <strong>WPM Splits</strong>
-                <small>Precision Timing</small>
-              </div>
-            </div>
-            <div class="telemetry-pill">
-              <span class="pill-icon">🗄️</span>
-              <div>
-                <strong>Postgres 16</strong>
-                <small>Driver Stats</small>
-              </div>
-            </div>
-          </div>
+    <div class="f1-minimal-menu">
+      <div class="f1-hero-center">
+        <div class="f1-league-tag">
+          <span class="pulse-dot"></span> FORMULA 1 // VIRTUAL GRAND PRIX 2026
         </div>
+        <h1 class="f1-game-logo">TYPERACE <span class="f1-red-tag">3D</span></h1>
+        <p class="f1-game-tagline">Master high-speed precision typing on 3D physics tracks. Compete in live multiplayer grids, draft in slipstreams, and climb the championship leaderboard.</p>
 
-        <div class="menu-controls">
-          <div class="f1-section-label">
-            <span>SELECT GAME MODE</span>
-            <span class="label-line"></span>
-          </div>
-          <div class="mode-switch" aria-label="Mode game">
-            <button type="button" class="mode-card f1-mode-card active" data-mode="multiplayer">
-              <div class="mode-card-header">
-                <span class="mode-kicker"><i>01</i><em>ONLINE GRID</em></span>
-                <span class="mode-badge-live">LIVE SYNC</span>
-              </div>
-              <div class="mode-card-body">
-                <strong>Multiplayer Grand Prix</strong>
-                <small>Host or join private race rooms. Battle live opponents with real-time slipstream typing, audio comms, and instant podium ceremony.</small>
-              </div>
-              <div class="mode-card-footer">
-                <div class="mode-features">
-                  <span>2-8 Drivers</span>
-                  <span>Voice & Chat</span>
-                  <span>Podium</span>
-                </div>
-                <span class="mode-action-arrow">ENTER GRID &rarr;</span>
+        <!-- Centered Clean Action Buttons Stack -->
+        <div class="f1-main-actions">
+          <button type="button" id="mainPlayBtn" class="f1-action-btn primary-play-btn">
+            <span class="btn-glow-pulse"></span>
+            <span class="btn-icon">▶</span>
+            <div class="btn-labels">
+              <strong class="btn-title">PLAY RACE</strong>
+              <small class="btn-sub">Multiplayer Grand Prix & Solo Sprint</small>
+            </div>
+            <span class="btn-arrow">&rarr;</span>
+          </button>
+
+          <div class="f1-sub-actions-grid">
+            <button type="button" id="mainGarageBtn" class="f1-sub-btn">
+              <span class="sub-icon">🏎️</span>
+              <div class="sub-labels">
+                <strong>Paddock Garage</strong>
+                <small>3D Showroom & Liveries</small>
               </div>
             </button>
 
-            <button type="button" class="mode-card f1-mode-card" data-mode="ai">
-              <div class="mode-card-header">
-                <span class="mode-kicker"><i>02</i><em>SOLO SPRINT</em></span>
-                <span class="mode-badge-practice">PRACTICE</span>
+            <button type="button" id="mainStatsBtn" class="f1-sub-btn">
+              <span class="sub-icon">📊</span>
+              <div class="sub-labels">
+                <strong>Driver Stats</strong>
+                <small>Telemetry & Leaderboard</small>
               </div>
-              <div class="mode-card-body">
-                <strong>VS AI & Time Attack</strong>
-                <small>Train pace against adaptive bots. Hone precision, conquer multi-lap stints, and set personal ghost benchmarks.</small>
-              </div>
-              <div class="mode-card-footer">
-                <div class="mode-features">
-                  <span>Adaptive Bots</span>
-                  <span>1-10 Laps</span>
-                  <span>Solo Ghost</span>
-                </div>
-                <span class="mode-action-arrow">START SOLO &rarr;</span>
+            </button>
+
+            <button type="button" id="mainSettingsBtn" class="f1-sub-btn">
+              <span class="sub-icon">⚙️</span>
+              <div class="sub-labels">
+                <strong>Settings</strong>
+                <small>Audio & Display</small>
               </div>
             </button>
           </div>
         </div>
 
-        <!-- Infrastructure Status Bar (Shows real Proxmox CT architecture) -->
-        <div class="pve-node-status-bar">
-          <div class="node-pill">
-            <span class="node-dot green"></span>
-            <span>CT 101: <strong>Node.js Engine</strong></span>
-          </div>
-          <span class="node-divider">/</span>
-          <div class="node-pill">
-            <span class="node-dot green"></span>
-            <span>CT 102: <strong>PostgreSQL 16</strong></span>
-          </div>
-          <span class="node-divider">/</span>
-          <div class="node-pill">
-            <span class="node-dot cyan"></span>
-            <span>Edge: <strong>Cloudflare SSL</strong></span>
-          </div>
+        <!-- Infrastructure status ticker -->
+        <div class="f1-menu-footer-pills">
+          <span class="f1-footer-chip"><span class="chip-dot green"></span> CT 101 Node.js Engine</span>
+          <span class="chip-sep">/</span>
+          <span class="f1-footer-chip"><span class="chip-dot green"></span> CT 102 PostgreSQL 16</span>
+          <span class="chip-sep">/</span>
+          <span class="f1-footer-chip"><span class="chip-dot cyan"></span> Cloudflare SSL Edge</span>
         </div>
-      </section>
+      </div>
+    </div>
+  </div>
 
-      <!-- RIGHT PANEL: 3D Paddock Showroom & Turntable Garage -->
-      <aside class="start-side-panel f1-showroom-panel" aria-label="Paddock Garage Showroom">
-        <div class="showroom-wrapper">
-          <div class="showroom-header">
-            <div class="showroom-meta">
-              <span class="showroom-tag">PADDOCK GARAGE</span>
-              <strong id="garageTeamLabel">McLaren Racing</strong>
-              <small id="garageLiveryLabel">Papaya Orange</small>
-            </div>
-            <div class="showroom-hint">
-              <span class="drag-icon">⟳</span> Drag to Orbit 360°
-            </div>
-          </div>
+  <!-- RACE MODE SELECT MODAL (Opens when clicking PLAY RACE) -->
+  <div id="raceSelectModal" class="modal hidden">
+    <div class="panel modal-panel race-select-modal-panel">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">FIA RACE CONTROL // GRID SELECTION</p>
+          <h2>Select Race Mode</h2>
+          <p class="auth-copy">Choose your race format to start competing on the track.</p>
+        </div>
+        <button id="raceSelectCloseBtn" class="icon-btn" type="button" title="Close">✕</button>
+      </div>
 
-          <!-- 3D Turntable Container -->
-          <div id="menuGarageContainer" class="menu-garage-container">
-            <!-- Three.js Canvas will be inserted here -->
-          </div>
-
-          <!-- Specs HUD Overlay -->
-          <div class="vehicle-specs-bar">
-            <div class="spec-item">
-              <span class="spec-label">POWER UNIT</span>
-              <strong class="spec-val">1.6L V6 TURBO</strong>
-            </div>
-            <div class="spec-item">
-              <span class="spec-label">TOP SPEED</span>
-              <strong class="spec-val">340 KM/H</strong>
-            </div>
-            <div class="spec-item">
-              <span class="spec-label">DOWNFORCE</span>
-              <strong class="spec-val">GROUND EFFECT</strong>
-            </div>
-          </div>
-
-          <!-- Interactive Livery Swatch Palette -->
-          <div class="livery-picker-bar">
-            <span class="picker-label">TEAM LIVERY:</span>
-            <div class="livery-swatches" role="radiogroup" aria-label="Select Car Livery">
-              <button type="button" class="livery-swatch active" data-color="#ff6600" title="McLaren Papaya" style="--swatch-color: #ff6600;"></button>
-              <button type="button" class="livery-swatch" data-color="#ef1a2d" title="Scuderia Ferrari" style="--swatch-color: #ef1a2d;"></button>
-              <button type="button" class="livery-swatch" data-color="#00d2be" title="Mercedes-AMG Cyan" style="--swatch-color: #00d2be;"></button>
-              <button type="button" class="livery-swatch" data-color="#1e40af" title="Oracle Red Bull" style="--swatch-color: #1e40af;"></button>
-              <button type="button" class="livery-swatch" data-color="#047857" title="Aston Martin Racing" style="--swatch-color: #047857;"></button>
-              <button type="button" class="livery-swatch" data-color="#8b5cf6" title="Alpine Cyber" style="--swatch-color: #8b5cf6;"></button>
-            </div>
+      <div class="race-mode-cards-grid">
+        <!-- Multiplayer Card -->
+        <div class="race-mode-modal-card">
+          <div class="card-top-tag live">🏁 LIVE MULTIPLAYER</div>
+          <h3>Multiplayer Grand Prix</h3>
+          <p class="card-desc">Race head-to-head with up to 8 live players. Experience real-time slipstream draft, live squad voice comms, and instant podium ceremony.</p>
+          <div class="card-actions-stack">
+            <button type="button" id="playModalCreateRoomBtn" class="btn btn-primary f1-btn-primary full-width">
+              <span>➕ CREATE ROOM</span>
+            </button>
+            <button type="button" id="playModalJoinRoomBtn" class="btn btn-secondary f1-btn-secondary full-width">
+              <span>🔗 JOIN WITH CODE</span>
+            </button>
           </div>
         </div>
 
-        <div class="side-status-grid">
-          <div class="side-status-card f1-status-card">
-            <div class="status-card-icon">🎙️</div>
-            <div>
-              <span>Comms Grid</span>
-              <strong>Real-time Voice & Chat</strong>
-              <small>WebRTC spatial audio & squad channels.</small>
+        <!-- Solo / VS AI Card -->
+        <div class="race-mode-modal-card">
+          <div class="card-top-tag solo">⚡ SOLO SPRINT</div>
+          <h3>VS AI & Time Attack</h3>
+          <p class="card-desc">Hone your typing speed and apex accuracy against adaptive bot drivers with customizable laps and pacing.</p>
+          
+          <div class="card-quick-config">
+            <div class="config-row">
+              <span class="config-label">Bot Pace:</span>
+              <div id="quickDifficultyGroup" class="quick-chip-group">
+                <button type="button" class="quick-chip" data-difficulty="easy">Easy</button>
+                <button type="button" class="quick-chip active" data-difficulty="medium">Medium</button>
+                <button type="button" class="quick-chip" data-difficulty="hard">Hard</button>
+              </div>
+            </div>
+            <div class="config-row">
+              <span class="config-label">Laps:</span>
+              <div id="quickLapGroup" class="quick-chip-group">
+                <button type="button" class="quick-chip active" data-lap="1">1 Lap</button>
+                <button type="button" class="quick-chip" data-lap="3">3 Laps</button>
+                <button type="button" class="quick-chip" data-lap="5">5 Laps</button>
+              </div>
             </div>
           </div>
-          <div class="side-status-card f1-status-card">
-            <div class="status-card-icon">📊</div>
-            <div>
-              <span>Cloud Telemetry</span>
-              <strong>PostgreSQL Stats</strong>
-              <small>Persistent WPM, accuracy & match history.</small>
-            </div>
+
+          <div class="card-actions-stack">
+            <button type="button" id="playModalStartAiBtn" class="btn btn-primary f1-btn-primary full-width">
+              <span>🚀 START SOLO RACE</span>
+            </button>
           </div>
         </div>
-      </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- GARAGE SHOWROOM MODAL (Opens when clicking PADDOCK GARAGE) -->
+  <div id="garageModal" class="modal hidden">
+    <div class="panel modal-panel garage-modal-panel">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">PADDOCK GARAGE // 3D TURNTABLE</p>
+          <h2 id="garageTeamLabel">McLaren Racing</h2>
+          <p id="garageLiveryLabel" class="auth-copy">Papaya Orange — 360° Interactive Showroom</p>
+        </div>
+        <button id="garageCloseBtn" class="icon-btn" type="button" title="Close garage">✕</button>
+      </div>
+
+      <!-- 3D Turntable Container -->
+      <div class="garage-viewport-wrapper">
+        <div id="menuGarageContainer" class="menu-garage-container">
+          <!-- Three.js Canvas inserted here -->
+        </div>
+        <div class="showroom-hint">
+          <span class="drag-icon">⟳</span> Drag to Orbit 360°
+        </div>
+      </div>
+
+      <!-- Vehicle Specs -->
+      <div class="vehicle-specs-bar">
+        <div class="spec-item">
+          <span class="spec-label">POWER UNIT</span>
+          <strong class="spec-val">1.6L V6 TURBO</strong>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">TOP SPEED</span>
+          <strong class="spec-val">350 KM/H</strong>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">DOWNFORCE</span>
+          <strong class="spec-val">GROUND EFFECT</strong>
+        </div>
+      </div>
+
+      <!-- Livery Selector -->
+      <div class="livery-picker-bar">
+        <span class="picker-label">TEAM LIVERY:</span>
+        <div class="livery-swatches" role="radiogroup" aria-label="Select Car Livery">
+          <button type="button" class="livery-swatch active" data-color="#ff6600" title="McLaren Papaya" style="--swatch-color: #ff6600;"><span>McLaren</span></button>
+          <button type="button" class="livery-swatch" data-color="#ef1a2d" title="Scuderia Ferrari" style="--swatch-color: #ef1a2d;"><span>Ferrari</span></button>
+          <button type="button" class="livery-swatch" data-color="#00d2be" title="Mercedes-AMG Cyan" style="--swatch-color: #00d2be;"><span>Mercedes</span></button>
+          <button type="button" class="livery-swatch" data-color="#1e40af" title="Oracle Red Bull" style="--swatch-color: #1e40af;"><span>Red Bull</span></button>
+          <button type="button" class="livery-swatch" data-color="#047857" title="Aston Martin Racing" style="--swatch-color: #047857;"><span>Aston Martin</span></button>
+          <button type="button" class="livery-swatch" data-color="#8b5cf6" title="Alpine Cyber" style="--swatch-color: #8b5cf6;"><span>Alpine</span></button>
+        </div>
+      </div>
     </div>
   </div>
 

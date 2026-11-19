@@ -574,6 +574,17 @@ class F1TypingBattleApp {
       createRoomBtn: document.getElementById('createRoomBtn'),
       joinRoomBtn: document.getElementById('joinRoomBtn'),
       startAiBtn: document.getElementById('startAiBtn'),
+      mainPlayBtn: document.getElementById('mainPlayBtn'),
+      mainGarageBtn: document.getElementById('mainGarageBtn'),
+      mainStatsBtn: document.getElementById('mainStatsBtn'),
+      mainSettingsBtn: document.getElementById('mainSettingsBtn'),
+      raceSelectModal: document.getElementById('raceSelectModal'),
+      raceSelectCloseBtn: document.getElementById('raceSelectCloseBtn'),
+      playModalCreateRoomBtn: document.getElementById('playModalCreateRoomBtn'),
+      playModalJoinRoomBtn: document.getElementById('playModalJoinRoomBtn'),
+      playModalStartAiBtn: document.getElementById('playModalStartAiBtn'),
+      garageModal: document.getElementById('garageModal'),
+      garageCloseBtn: document.getElementById('garageCloseBtn'),
       backFromMultiplayerBtn: document.getElementById('backFromMultiplayerBtn'),
       backFromAiBtn: document.getElementById('backFromAiBtn'),
       confirmJoinBtn: document.getElementById('confirmJoinBtn'),
@@ -871,6 +882,86 @@ class F1TypingBattleApp {
     this.elements.createRoomBtn?.addEventListener('click', () => this.createRoom());
     this.elements.joinRoomBtn?.addEventListener('click', () => this.openJoinModal());
     this.elements.startAiBtn?.addEventListener('click', () => this.createVsAiRace());
+
+    // Main Minimalist Menu Handlers
+    this.elements.mainPlayBtn?.addEventListener('click', () => {
+      if (!this.requireSignedIn('Sign in to enter race control.')) return;
+      this.elements.raceSelectModal?.classList.remove('hidden');
+    });
+
+    this.elements.raceSelectCloseBtn?.addEventListener('click', () => {
+      this.elements.raceSelectModal?.classList.add('hidden');
+    });
+
+    this.elements.raceSelectModal?.addEventListener('click', (e) => {
+      if (e.target === this.elements.raceSelectModal) {
+        this.elements.raceSelectModal.classList.add('hidden');
+      }
+    });
+
+    this.elements.playModalCreateRoomBtn?.addEventListener('click', () => {
+      this.elements.raceSelectModal?.classList.add('hidden');
+      this.createRoom();
+    });
+
+    this.elements.playModalJoinRoomBtn?.addEventListener('click', () => {
+      this.elements.raceSelectModal?.classList.add('hidden');
+      this.openJoinModal();
+    });
+
+    this.elements.playModalStartAiBtn?.addEventListener('click', () => {
+      this.elements.raceSelectModal?.classList.add('hidden');
+      this.createVsAiRace();
+    });
+
+    // Quick AI chips in Play Modal
+    document.querySelectorAll('#quickDifficultyGroup .quick-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#quickDifficultyGroup .quick-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.selectedBotDifficulty = btn.dataset.difficulty || 'medium';
+        this.updateDifficultySelect();
+      });
+    });
+
+    document.querySelectorAll('#quickLapGroup .quick-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#quickLapGroup .quick-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (this.elements.aiLapCountSelect) {
+          this.elements.aiLapCountSelect.value = btn.dataset.lap || '1';
+          this.updateAiLapSelect();
+        }
+      });
+    });
+
+    // Garage Modal Handlers
+    this.elements.mainGarageBtn?.addEventListener('click', () => {
+      this.elements.garageModal?.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        this.menuGarage?.handleResize?.();
+      });
+    });
+
+    this.elements.garageCloseBtn?.addEventListener('click', () => {
+      this.elements.garageModal?.classList.add('hidden');
+    });
+
+    this.elements.garageModal?.addEventListener('click', (e) => {
+      if (e.target === this.elements.garageModal) {
+        this.elements.garageModal.classList.add('hidden');
+      }
+    });
+
+    // Stats & Settings Buttons
+    this.elements.mainStatsBtn?.addEventListener('click', () => {
+      if (!this.requireSignedIn('Sign in to view your telemetry stats.')) return;
+      this.openAccountModal();
+    });
+
+    this.elements.mainSettingsBtn?.addEventListener('click', () => {
+      this.openAudioMenu();
+    });
     this.elements.modeButtons.forEach((button) => {
       button.addEventListener('click', () => this.openModeSetup(button.dataset.mode));
     });
@@ -1272,6 +1363,7 @@ class F1TypingBattleApp {
     let icon = '⚠️';
     if (type === 'success') icon = '✅';
     if (type === 'loading') icon = '⚡';
+    if (type === 'info') icon = 'ℹ️';
     banner.innerHTML = `<span>${icon}</span> <span>${this.escapeHtml(message)}</span>`;
     banner.classList.remove('hidden');
   }
@@ -1307,6 +1399,9 @@ class F1TypingBattleApp {
       this.authPromptMessage = message;
       if (this.elements.authStateLabel && !isLoggedIn) {
         this.elements.authStateLabel.textContent = message;
+      }
+      if (!isLoggedIn) {
+        this.showAuthFeedback(message, 'info');
       }
     }
 
@@ -2203,12 +2298,7 @@ class F1TypingBattleApp {
   }
 
   requireSignedIn(message = 'Sign in to continue.') {
-    if (!isFirebaseConfigured) {
-      alert('Firebase config is required before playing.');
-      return false;
-    }
-
-    if (!this.firebase.ready || !this.firebase.getCurrentUser()) {
+    if (!this.firebase.getCurrentUser()) {
       this.openAuthModal(message);
       return false;
     }

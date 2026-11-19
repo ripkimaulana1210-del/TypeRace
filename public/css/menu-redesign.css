@@ -1017,3 +1017,460 @@ body[data-screen="menu"] .start-side-panel.f1-showroom-panel::before {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ==========================================================================
+   MINIMALIST POLOS & SIMPEL F1 REDESIGN (Hero Menu & On-Demand Modals)
+   ========================================================================== */
+
+.f1-minimal-menu {
+  width: 100%;
+  min-height: calc(100dvh - 84px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 3vw, 40px);
+  box-sizing: border-box;
+}
+
+.f1-hero-center {
+  max-width: 640px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: auto;
+}
+
+.f1-league-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ff1801;
+  background: rgba(255, 24, 1, 0.08);
+  border: 1px solid rgba(255, 24, 1, 0.28);
+  border-radius: 999px;
+  padding: 6px 16px;
+  margin-bottom: 16px;
+}
+
+.f1-game-logo {
+  font-size: clamp(2.4rem, 6vw, 4.2rem) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em !important;
+  color: #ffffff !important;
+  line-height: 1.05 !important;
+  margin: 0 0 14px 0 !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+.f1-red-tag {
+  color: #ff1801;
+  text-shadow: 0 0 32px rgba(255, 24, 1, 0.6);
+}
+
+.f1-game-tagline {
+  font-size: clamp(0.88rem, 1.3vw, 1.02rem);
+  color: #94a3b8;
+  line-height: 1.6;
+  max-width: 520px;
+  margin: 0 0 36px 0;
+}
+
+/* Actions Stack */
+.f1-main-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.f1-action-btn.primary-play-btn {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, #e10600 0%, #b30400 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(225, 6, 0, 0.38);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.f1-action-btn.primary-play-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 44px rgba(225, 6, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.f1-action-btn.primary-play-btn:active {
+  transform: translateY(1px);
+}
+
+.f1-action-btn .btn-icon {
+  font-size: 1.6rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+}
+
+.f1-action-btn .btn-labels {
+  flex: 1;
+  text-align: left;
+  margin-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.f1-action-btn .btn-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+}
+
+.f1-action-btn .btn-sub {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+}
+
+.f1-action-btn .btn-arrow {
+  font-size: 1.4rem;
+  color: #ffffff;
+  transition: transform 0.2s ease;
+}
+
+.f1-action-btn:hover .btn-arrow {
+  transform: translateX(4px);
+}
+
+/* Sub-actions Row */
+.f1-sub-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.f1-sub-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(18, 24, 34, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.f1-sub-btn:hover {
+  background: rgba(26, 35, 50, 0.95);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.f1-sub-btn:active {
+  transform: translateY(1px);
+}
+
+.f1-sub-btn .sub-icon {
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.f1-sub-btn .sub-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.f1-sub-btn strong {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.f1-sub-btn small {
+  font-size: 0.7rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Footer Ticker */
+.f1-menu-footer-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.f1-footer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.chip-dot.green {
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+.chip-dot.cyan {
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+.chip-sep {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   Race Mode Select Modal (On-Demand Mode Picker)
+   -------------------------------------------------------------------------- */
+.race-select-modal-panel {
+  max-width: 760px !important;
+  width: 92% !important;
+  background: rgba(13, 17, 24, 0.97) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 18px !important;
+  padding: 28px !important;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.85) !important;
+}
+
+.race-mode-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.race-mode-modal-card {
+  background: rgba(20, 27, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.race-mode-modal-card:hover {
+  border-color: rgba(225, 6, 0, 0.45);
+  background: rgba(24, 33, 46, 0.9);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.card-top-tag {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.card-top-tag.live {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.card-top-tag.solo {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.race-mode-modal-card h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+}
+
+.card-desc {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.card-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.full-width {
+  width: 100% !important;
+}
+
+/* Quick config chips in modal */
+.card-quick-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.config-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.quick-chip-group {
+  display: flex;
+  gap: 6px;
+}
+
+.quick-chip {
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-chip:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.quick-chip.active {
+  background: #e10600 !important;
+  color: #ffffff !important;
+  border-color: #e10600 !important;
+  box-shadow: 0 2px 8px rgba(225, 6, 0, 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   Garage Showroom Modal
+   -------------------------------------------------------------------------- */
+.garage-modal-panel {
+  max-width: 860px !important;
+  width: 94% !important;
+  max-height: 90dvh !important;
+  overflow-y: auto !important;
+  background: rgba(11, 14, 20, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 18px !important;
+  padding: 26px !important;
+}
+
+.garage-viewport-wrapper {
+  position: relative;
+  width: 100%;
+  height: clamp(280px, 42vh, 400px);
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 102, 0, 0.08), #07090d 80%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 16px 0;
+  overflow: hidden;
+}
+
+.garage-viewport-wrapper .menu-garage-container {
+  width: 100%;
+  height: 100%;
+}
+
+.garage-viewport-wrapper .showroom-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 640px) {
+  .f1-sub-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .f1-game-logo {
+    font-size: 2.2rem !important;
+  }
+
+  .race-mode-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auth-feedback-banner.info {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  color: #93c5fd !important;
+}

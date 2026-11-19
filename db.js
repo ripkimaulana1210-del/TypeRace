@@ -58,11 +58,15 @@ async function initDatabase() {
         id SERIAL PRIMARY KEY,
         uid VARCHAR(64) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        display_name VARCHAR(100) NOT NULL,
+        password_hash VARCHAR(255) DEFAULT '',
+        display_name VARCHAR(100) DEFAULT 'Driver',
         avatar_url TEXT DEFAULT '',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) DEFAULT '';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100) DEFAULT 'Driver';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
 
       CREATE TABLE IF NOT EXISTS user_profiles (
         uid VARCHAR(64) PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,
@@ -163,16 +167,16 @@ async function registerUser({ email, password, displayName, username }) {
   }
 }
 
-async function authenticateUser({ email, password }) {
-  const identifier = String(email || '').trim().toLowerCase();
+async function authenticateUser({ email, identifier, password }) {
+  const cleanId = String(identifier || email || '').trim().toLowerCase();
 
   if (isConnected && pool) {
     const res = await pool.query(
       `SELECT u.* FROM users u
        LEFT JOIN user_profiles p ON u.uid = p.uid
-       WHERE LOWER(u.email) = $1 OR LOWER(p.username) = $1
+       WHERE LOWER(u.email) = $1 OR LOWER(COALESCE(p.username, '')) = $1
        LIMIT 1`,
-      [identifier]
+      [cleanId]
     );
     if (res.rows.length === 0) {
       throw new Error('User not found. Check email or username.');
@@ -183,10 +187,10 @@ async function authenticateUser({ email, password }) {
     }
     return { uid: user.uid, email: user.email, displayName: user.display_name };
   } else {
-    let user = memoryStore.users.get(identifier);
+    let user = memoryStore.users.get(cleanId);
     if (!user) {
       for (const [uid, prof] of memoryStore.profiles.entries()) {
-        if (prof.username && prof.username.toLowerCase() === identifier) {
+        if (prof.username && prof.username.toLowerCase() === cleanId) {
           user = memoryStore.usersByUid.get(uid);
           break;
         }
