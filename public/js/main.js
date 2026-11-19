@@ -620,7 +620,7 @@ class F1TypingBattleApp {
     try {
       await this.network.connect();
       if (this.elements.appConnectionLabel) {
-        this.elements.appConnectionLabel.textContent = 'Server online';
+        this.elements.appConnectionLabel.textContent = 'SERVER ONLINE';
         this.elements.appConnectionLabel.classList.add('online');
       }
       await this.initGame();
@@ -630,7 +630,7 @@ class F1TypingBattleApp {
     } catch (error) {
       this.elements.loadingText.textContent = 'Connection failed. Reload to try again.';
       if (this.elements.appConnectionLabel) {
-        this.elements.appConnectionLabel.textContent = 'Server offline';
+        this.elements.appConnectionLabel.textContent = 'SERVER OFFLINE';
         this.elements.appConnectionLabel.classList.remove('online');
       }
       console.error(error);
@@ -1585,10 +1585,8 @@ class F1TypingBattleApp {
       button.title = shouldLock ? 'Sign in to play' : '';
     });
 
-    if (shouldLock && this.currentScreen === 'menu' && !this.hasShownInitialAuthPrompt) {
-      this.hasShownInitialAuthPrompt = true;
-      this.openAuthModal('Sign in to unlock race control.');
-    }
+    // Initial auth prompt on boot is disabled so landing screen remains clean and unobstructed.
+    this.hasShownInitialAuthPrompt = true;
   }
 
   isSafeImageUrl(url = '') {
@@ -1671,7 +1669,7 @@ class F1TypingBattleApp {
 
     if (!isSignedIn) {
       if (this.elements.authLoginNavBtn) {
-        this.elements.authLoginNavBtn.textContent = 'Login';
+        this.elements.authLoginNavBtn.textContent = 'DRIVER LOGIN';
       }
       return;
     }

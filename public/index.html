@@ -34,15 +34,15 @@
   <header class="app-topbar" aria-label="TypeRace controls">
     <div class="app-brand">
       <span class="brand-mark" aria-hidden="true">
-        <img src="assets/typerace-logo.svg" alt="">
+        <img src="assets/typerace-logo.svg" alt="TR Logo">
       </span>
-      <div>
-        <strong>TypeRace 3D</strong>
-        <small>Race Control</small>
+      <div class="brand-copy">
+        <strong class="brand-title">TypeRace 3D</strong>
+        <small class="brand-subtitle">RACE CONTROL</small>
       </div>
     </div>
     <div class="topbar-actions">
-      <span id="appConnectionLabel" class="status-pill">Connecting</span>
+      <span id="appConnectionLabel" class="status-pill online">SERVER ONLINE</span>
 
       <div id="navbarProfileWrap" class="navbar-profile-wrap hidden">
         <button id="authOpenBtn" class="navbar-profile-btn" type="button" title="Open profile menu">
@@ -54,8 +54,7 @@
         </button>
       </div>
 
-      <button id="authLoginNavBtn" class="topbar-btn" type="button">Login</button>
-      <button id="settingsBtn" class="topbar-btn" type="button">Settings</button>
+      <button id="authLoginNavBtn" class="topbar-btn" type="button">DRIVER LOGIN</button>
     </div>
   </header>
 
@@ -433,61 +432,73 @@
   </div>
 
   <div id="menuScreen" class="screen active">
-    <div class="f1-minimal-menu">
-      <div class="f1-hero-center">
-        <div class="f1-league-tag">
-          <span class="pulse-dot"></span> FORMULA 1 // VIRTUAL GRAND PRIX 2026
-        </div>
-        <h1 class="f1-game-logo">TYPERACE <span class="f1-red-tag">3D</span></h1>
-        <p class="f1-game-tagline">Master high-speed precision typing on 3D physics tracks. Compete in live multiplayer grids, draft in slipstreams, and climb the championship leaderboard.</p>
+    <div class="f1-lobby-viewport">
+      <!-- Mid-Left Floating Hero Title (No Container Box, No Eyebrow Badge Above It) -->
+      <div class="f1-lobby-hero">
+        <h1 class="f1-hero-title">TYPERACE <span class="f1-title-3d">3D</span></h1>
+        <p class="f1-hero-subtitle">Master high-speed precision typing on 3D physics tracks. Compete in live multiplayer grids, draft in slipstreams, and climb the leaderboard.</p>
+      </div>
 
-        <!-- Centered Clean Action Buttons Stack -->
-        <div class="f1-main-actions">
-          <button type="button" id="mainPlayBtn" class="f1-action-btn primary-play-btn">
-            <span class="btn-glow-pulse"></span>
-            <span class="btn-icon">▶</span>
-            <div class="btn-labels">
-              <strong class="btn-title">PLAY RACE</strong>
-              <small class="btn-sub">Multiplayer Grand Prix & Solo Sprint</small>
+      <!-- Bottom HUD Action Bar (Bottom-Left 3-Card Dock + Bottom-Right Primary CTA) -->
+      <div class="f1-lobby-hud-bar">
+        <!-- Bottom-Left (3-Card Glassmorphic Dock, Aligned Flush with PLAY RACE Bottom Edge) -->
+        <div class="f1-dock-cards" role="navigation" aria-label="Quick Access">
+          <button type="button" id="mainGarageBtn" class="f1-dock-card" title="Open Paddock Garage">
+            <span class="f1-dock-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 13l2-5h14l2 5v4a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H5v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-4z"/>
+                <circle cx="6.5" cy="14.5" r="1.5" fill="#EF4444"/>
+                <circle cx="17.5" cy="14.5" r="1.5" fill="#EF4444"/>
+                <line x1="5" y1="11" x2="19" y2="11"/>
+              </svg>
+            </span>
+            <div class="f1-dock-labels">
+              <strong>PADDOCK GARAGE</strong>
+              <small>3D Showroom & Livery</small>
             </div>
-            <span class="btn-arrow">&rarr;</span>
           </button>
 
-          <div class="f1-sub-actions-grid">
-            <button type="button" id="mainGarageBtn" class="f1-sub-btn">
-              <span class="sub-icon">🏎️</span>
-              <div class="sub-labels">
-                <strong>Paddock Garage</strong>
-                <small>3D Showroom & Liveries</small>
-              </div>
-            </button>
+          <button type="button" id="mainStatsBtn" class="f1-dock-card" title="Open Driver Stats">
+            <span class="f1-dock-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect x="3.5" y="11" width="4" height="10" rx="1.5" fill="#10B981"/>
+                <rect x="10" y="4" width="4" height="17" rx="1.5" fill="#38BDF8"/>
+                <rect x="16.5" y="8" width="4" height="13" rx="1.5" fill="#F59E0B"/>
+              </svg>
+            </span>
+            <div class="f1-dock-labels">
+              <strong>DRIVER STATS</strong>
+              <small>Telemetry & Leaderboard</small>
+            </div>
+          </button>
 
-            <button type="button" id="mainStatsBtn" class="f1-sub-btn">
-              <span class="sub-icon">📊</span>
-              <div class="sub-labels">
-                <strong>Driver Stats</strong>
-                <small>Telemetry & Leaderboard</small>
-              </div>
-            </button>
+          <button type="button" id="mainSettingsBtn" class="f1-dock-card" title="Open Audio & Display Settings">
+            <span class="f1-dock-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </span>
+            <div class="f1-dock-labels">
+              <strong>SETTINGS</strong>
+              <small>Audio & Display</small>
+            </div>
+          </button>
+        </div>
 
-            <button type="button" id="mainSettingsBtn" class="f1-sub-btn">
-              <span class="sub-icon">⚙️</span>
-              <div class="sub-labels">
-                <strong>Settings</strong>
-                <small>Audio & Display</small>
-              </div>
-            </button>
+        <!-- Bottom-Right (Primary CTA PLAY RACE) -->
+        <button type="button" id="mainPlayBtn" class="f1-play-race-cta" title="Launch Race Grid">
+          <span class="f1-play-icon-wrap">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#FFFFFF">
+              <polygon points="6 4 20 12 6 20 6 4"/>
+            </svg>
+          </span>
+          <div class="f1-play-labels">
+            <strong class="f1-play-title">PLAY RACE</strong>
+            <small class="f1-play-sub">Multiplayer Grand Prix & Solo Sprint</small>
           </div>
-        </div>
-
-        <!-- Infrastructure status ticker -->
-        <div class="f1-menu-footer-pills">
-          <span class="f1-footer-chip"><span class="chip-dot green"></span> CT 101 Node.js Engine</span>
-          <span class="chip-sep">/</span>
-          <span class="f1-footer-chip"><span class="chip-dot green"></span> CT 102 PostgreSQL 16</span>
-          <span class="chip-sep">/</span>
-          <span class="f1-footer-chip"><span class="chip-dot cyan"></span> Cloudflare SSL Edge</span>
-        </div>
+          <span class="f1-play-arrow">&rarr;</span>
+        </button>
       </div>
     </div>
   </div>

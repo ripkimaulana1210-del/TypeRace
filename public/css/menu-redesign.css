@@ -7,18 +7,23 @@
    Menu Layout & Dashboard Container
    -------------------------------------------------------------------------- */
 body[data-screen="menu"] {
+  height: 100vh !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  position: relative !important;
   background:
-    radial-gradient(circle at 50% 30%, rgba(225, 6, 0, 0.2), transparent 60%),
-    linear-gradient(180deg, rgba(8, 11, 16, 0.62) 0%, rgba(8, 11, 16, 0.76) 50%, rgba(8, 11, 16, 0.92) 100%),
+    linear-gradient(90deg, rgba(7, 9, 14, 0.92) 0%, rgba(7, 9, 14, 0.48) 36%, rgba(7, 9, 14, 0.10) 58%, transparent 75%),
+    linear-gradient(0deg, rgba(7, 9, 14, 0.96) 0%, rgba(7, 9, 14, 0.58) 22%, rgba(7, 9, 14, 0.12) 42%, transparent 62%),
+    linear-gradient(180deg, rgba(7, 9, 14, 0.85) 0%, rgba(7, 9, 14, 0.30) 12%, transparent 26%),
     url('../assets/home-bg.jpg') no-repeat center center fixed !important;
   background-size: cover !important;
 }
 
 /* Remove awkward harsh lines/strips on menu */
 body[data-screen="menu"]::after {
-  height: 4px;
-  background: linear-gradient(90deg, #ff1801, #ff8000, #00d2be, #ff1801);
-  box-shadow: 0 0 16px rgba(255, 102, 0, 0.4);
+  display: none !important;
 }
 
 body[data-screen="menu"] .start-dashboard.f1-paddock-dashboard {
@@ -690,58 +695,164 @@ body[data-screen="menu"] .start-side-panel.f1-showroom-panel::before {
 }
 
 /* --------------------------------------------------------------------------
-   App Topbar Polish
+   App Topbar Polish - Clean Floating Navbar
    -------------------------------------------------------------------------- */
-.app-topbar {
-  background: rgba(8, 12, 16, 0.82) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3) !important;
+body[data-screen="menu"] .app-topbar {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 100 !important;
+  padding: 20px clamp(24px, 4vw, 48px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
 }
 
-.app-brand strong {
-  font-weight: 900;
-  letter-spacing: -0.01em;
-  color: #f8fafc;
+.app-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
 }
 
-.status-pill.online {
-  background: rgba(34, 197, 94, 0.12) !important;
-  border: 1px solid rgba(34, 197, 94, 0.3) !important;
-  color: #4ade80 !important;
-  box-shadow: 0 0 14px rgba(34, 197, 94, 0.22) !important;
+.app-brand .brand-mark {
+  width: 40px !important;
+  height: 40px !important;
+  background: #FFFFFF !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+
+.app-brand .brand-mark img {
+  width: 26px !important;
+  height: 26px !important;
+  object-fit: contain !important;
+}
+
+.app-brand .brand-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+}
+
+.app-brand .brand-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: #FFFFFF !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.1 !important;
+}
+
+.app-brand .brand-subtitle {
+  font-family: 'Rajdhani', monospace !important;
+  font-size: 0.72rem !important;
   font-weight: 700 !important;
+  color: #F59E0B !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  line-height: 1 !important;
+}
+
+.topbar-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+#appConnectionLabel.status-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  padding: 7px 16px !important;
+  border-radius: 999px !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+  color: #10B981 !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.22) !important;
+  user-select: none !important;
+}
+
+#appConnectionLabel.status-pill::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #10B981 !important;
+  box-shadow: 0 0 10px #10B981 !important;
+  animation: f1PulseDot 2s infinite ease-in-out !important;
+}
+
+#appConnectionLabel.status-pill:not(.online) {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  color: #EF4444 !important;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.22) !important;
+}
+
+#appConnectionLabel.status-pill:not(.online)::before {
+  background: #EF4444 !important;
+  box-shadow: 0 0 10px #EF4444 !important;
+  animation: none !important;
+}
+
+@keyframes f1PulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+#authLoginNavBtn.topbar-btn {
+  background: rgba(13, 17, 23, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #E2E8F0 !important;
+  font-family: 'Rajdhani', sans-serif !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  padding: 8px 18px !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+#authLoginNavBtn.topbar-btn:hover {
+  background: rgba(22, 29, 39, 0.95) !important;
+  border-color: rgba(255, 138, 0, 0.5) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 18px rgba(255, 138, 0, 0.25) !important;
+  transform: translateY(-1px) !important;
 }
 
 .navbar-profile-btn {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09) !important;
-  border-radius: 999px !important;
-  padding: 4px 12px 4px 4px !important;
+  background: rgba(13, 17, 23, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 10px !important;
+  padding: 5px 14px 5px 6px !important;
   transition: all 0.2s ease !important;
 }
 
 .navbar-profile-btn:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 102, 0, 0.4) !important;
-  box-shadow: 0 0 16px rgba(255, 102, 0, 0.15) !important;
-}
-
-.topbar-btn {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09) !important;
-  color: #cbd5e1 !important;
-  border-radius: 8px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.02em !important;
-  transition: all 0.2s ease !important;
-}
-
-.topbar-btn:hover {
-  background: rgba(255, 255, 255, 0.09) !important;
-  border-color: rgba(255, 255, 255, 0.22) !important;
-  color: #ffffff !important;
+  border-color: rgba(255, 138, 0, 0.5) !important;
+  box-shadow: 0 0 18px rgba(255, 138, 0, 0.25) !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -1021,265 +1132,310 @@ body[data-screen="menu"] .start-side-panel.f1-showroom-panel::before {
 
 
 /* ==========================================================================
-   MINIMALIST POLOS & SIMPEL F1 REDESIGN (Hero Menu & On-Demand Modals)
+   AAA RACING ESPORTS FULL-VIEWPORT LOBBY (TypeRace 3D)
    ========================================================================== */
 
-.f1-minimal-menu {
-  width: 100%;
-  min-height: calc(100dvh - 84px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(16px, 3vw, 40px);
-  box-sizing: border-box;
+body[data-screen="menu"] #menuScreen.screen.active {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  display: block !important;
+  background: transparent !important;
+  z-index: 10 !important;
+  box-sizing: border-box !important;
 }
 
-.f1-hero-center {
-  max-width: 660px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  margin: auto;
-  background: rgba(10, 14, 22, 0.76);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  padding: clamp(24px, 4vw, 40px);
-  box-shadow:
-    0 32px 80px rgba(0, 0, 0, 0.75),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  box-sizing: border-box;
+.f1-lobby-viewport {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
 }
 
-.f1-league-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #ff1801;
-  background: rgba(255, 24, 1, 0.08);
-  border: 1px solid rgba(255, 24, 1, 0.28);
-  border-radius: 999px;
-  padding: 6px 16px;
-  margin-bottom: 16px;
+/* Mid-Left Floating Hero Title (No box container, no eyebrow badge) */
+.f1-lobby-hero {
+  position: absolute !important;
+  left: clamp(20px, 3.5vw, 42px) !important;
+  top: 42% !important;
+  transform: translateY(-50%) !important;
+  max-width: 480px !important;
+  z-index: 15 !important;
+  text-align: left !important;
+  pointer-events: auto !important;
 }
 
-.f1-game-logo {
-  font-size: clamp(2.4rem, 6vw, 4.2rem) !important;
+.f1-hero-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Rajdhani', sans-serif !important;
+  font-size: clamp(2.8rem, 4.8vw, 4.2rem) !important;
   font-weight: 900 !important;
-  letter-spacing: 0.04em !important;
-  color: #ffffff !important;
+  letter-spacing: 0.02em !important;
+  color: #FFFFFF !important;
   line-height: 1.05 !important;
   margin: 0 0 14px 0 !important;
   text-transform: uppercase !important;
   white-space: nowrap !important;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6) !important;
 }
 
-.f1-red-tag {
-  color: #ff1801;
-  text-shadow: 0 0 32px rgba(255, 24, 1, 0.6);
+.f1-title-3d {
+  color: #FF1E00 !important;
+  text-shadow:
+    0 0 32px rgba(255, 30, 0, 0.7),
+    0 0 12px rgba(255, 30, 0, 0.45) !important;
 }
 
-.f1-game-tagline {
-  font-size: clamp(0.88rem, 1.3vw, 1.02rem);
-  color: #94a3b8;
-  line-height: 1.6;
-  max-width: 520px;
-  margin: 0 0 36px 0;
+.f1-hero-subtitle {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: clamp(0.88rem, 1.15vw, 1rem) !important;
+  color: #CBD5E1 !important;
+  line-height: 1.55 !important;
+  max-width: 460px !important;
+  margin: 0 !important;
+  font-weight: 400 !important;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7) !important;
 }
 
-/* Actions Stack */
-.f1-main-actions {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 32px;
+/* Bottom HUD Action Bar (Side-by-side on all desktop & laptop screens) */
+.f1-lobby-hud-bar {
+  position: absolute !important;
+  bottom: 24px !important;
+  left: clamp(20px, 3.5vw, 36px) !important;
+  right: clamp(20px, 3.5vw, 36px) !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  z-index: 20 !important;
+  box-sizing: border-box !important;
 }
 
-.f1-action-btn.primary-play-btn {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 24px;
-  background: linear-gradient(135deg, #e10600 0%, #b30400 100%);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 14px;
-  box-shadow: 0 12px 36px rgba(225, 6, 0, 0.38);
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-  box-sizing: border-box;
+/* Bottom-Left: 3-Card Glassmorphic Dock */
+.f1-dock-cards {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
-.f1-action-btn.primary-play-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 44px rgba(225, 6, 0, 0.55);
-  border-color: rgba(255, 255, 255, 0.45);
+.f1-dock-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  height: 60px !important;
+  padding: 0 14px !important;
+  background: rgba(13, 17, 23, 0.82) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  text-decoration: none !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45) !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
-.f1-action-btn.primary-play-btn:active {
-  transform: translateY(1px);
+.f1-dock-card:hover {
+  background: rgba(18, 24, 34, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  transform: translateY(-2px) !important;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.6),
+    0 0 16px rgba(255, 255, 255, 0.06) !important;
 }
 
-.f1-action-btn .btn-icon {
-  font-size: 1.6rem;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 10px;
+.f1-dock-card:active {
+  transform: translateY(1px) !important;
 }
 
-.f1-action-btn .btn-labels {
-  flex: 1;
-  text-align: left;
-  margin-left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.f1-dock-icon {
+  width: 34px !important;
+  height: 34px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #CBD5E1 !important;
+  flex-shrink: 0 !important;
+  transition: all 0.2s ease !important;
 }
 
-.f1-action-btn .btn-title {
-  font-size: 1.25rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  color: #ffffff;
+.f1-dock-card:hover .f1-dock-icon {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
-.f1-action-btn .btn-sub {
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 600;
+.f1-dock-labels {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  white-space: nowrap !important;
 }
 
-.f1-action-btn .btn-arrow {
-  font-size: 1.4rem;
-  color: #ffffff;
-  transition: transform 0.2s ease;
+.f1-dock-labels strong {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  color: #F8FAFC !important;
+  text-transform: uppercase !important;
+  line-height: 1.15 !important;
 }
 
-.f1-action-btn:hover .btn-arrow {
-  transform: translateX(4px);
+.f1-dock-labels small {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 0.68rem !important;
+  color: #94A3B8 !important;
+  line-height: 1.2 !important;
+  font-weight: 500 !important;
 }
 
-/* Sub-actions Row */
-.f1-sub-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  width: 100%;
+/* Bottom-Right: Primary CTA (PLAY RACE) */
+.f1-play-race-cta {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  height: 60px !important;
+  padding: 0 20px !important;
+  background: linear-gradient(135deg, #FF1E00 0%, #FF5500 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 0 28px rgba(255, 30, 0, 0.45),
+    0 10px 24px rgba(0, 0, 0, 0.45) !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  flex-shrink: 0 !important;
 }
 
-.f1-sub-btn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: rgba(18, 24, 34, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-sizing: border-box;
+.f1-play-race-cta:hover {
+  transform: translateY(-2px) !important;
+  box-shadow:
+    0 0 40px rgba(255, 30, 0, 0.65),
+    0 14px 32px rgba(0, 0, 0, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
 }
 
-.f1-sub-btn:hover {
-  background: rgba(26, 35, 50, 0.95);
-  border-color: rgba(255, 255, 255, 0.22);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+.f1-play-race-cta:active {
+  transform: translateY(1px) !important;
 }
 
-.f1-sub-btn:active {
-  transform: translateY(1px);
+.f1-play-icon-wrap {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 8px !important;
+  background: rgba(0, 0, 0, 0.22) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #FFFFFF !important;
+  flex-shrink: 0 !important;
 }
 
-.f1-sub-btn .sub-icon {
-  font-size: 1.3rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+.f1-play-labels {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  text-align: left !important;
+  white-space: nowrap !important;
 }
 
-.f1-sub-btn .sub-labels {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.f1-play-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 1.15rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.05em !important;
+  color: #FFFFFF !important;
+  text-transform: uppercase !important;
+  line-height: 1.1 !important;
 }
 
-.f1-sub-btn strong {
-  font-size: 0.86rem;
-  font-weight: 800;
-  color: #f1f5f9;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.f1-play-sub {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 0.70rem !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 500 !important;
+  line-height: 1.1 !important;
 }
 
-.f1-sub-btn small {
-  font-size: 0.7rem;
-  color: #64748b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.f1-play-arrow {
+  font-size: 1.3rem !important;
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+  transition: transform 0.22s ease !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
 }
 
-/* Footer Ticker */
-.f1-menu-footer-pills {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-  font-size: 0.72rem;
-  color: #64748b;
+.f1-play-race-cta:hover .f1-play-arrow {
+  transform: translateX(4px) !important;
 }
 
-.f1-footer-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.chip-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.chip-dot.green {
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
-}
-
-.chip-dot.cyan {
-  background: #38bdf8;
-  box-shadow: 0 0 8px #38bdf8;
-}
-
-.chip-sep {
-  color: rgba(255, 255, 255, 0.15);
+/* Responsive adjustments strictly for mobile screens */
+@media (max-width: 768px) {
+  body[data-screen="menu"] {
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100dvh !important;
+  }
+  body[data-screen="menu"] #menuScreen.screen.active {
+    position: relative !important;
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow-y: auto !important;
+  }
+  .f1-lobby-viewport {
+    height: auto !important;
+    min-height: 100dvh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    padding-top: 86px !important;
+    padding-bottom: 24px !important;
+  }
+  .f1-lobby-hero {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin: 16px 20px 28px 20px !important;
+  }
+  .f1-hero-title {
+    font-size: 2.6rem !important;
+    white-space: normal !important;
+  }
+  .f1-lobby-hud-bar {
+    position: relative !important;
+    padding: 0 20px !important;
+  }
+  .f1-dock-cards {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+  .f1-dock-card {
+    width: 100% !important;
+    height: 64px !important;
+  }
 }
 
 /* --------------------------------------------------------------------------
